@@ -849,26 +849,34 @@ class _CartScreenState extends State<CartScreen> {
                 ],
               ),
               const SizedBox(height: 30),
-              ..._cartCategories.map((category) {
-                final isSelected = _selectedCategorySlots.containsKey(category);
-                final slotInfo = _selectedCategorySlots[category];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 15),
-                  child: _buildSlotServiceCard(
-                    category,
-                    category == 'Salon Luxe' ? 'Service will take approx. 1 hr & 30 mins' : 'Service will take approx. 1 hr & 20 mins',
-                    isSelected: isSelected,
-                    selectedSlot: slotInfo,
-                    onSelect: () => _showDetailedSlotPicker(
-                      context,
-                      category,
-                      category == 'Salon Luxe' ? '1 hr & 30 mins' : '1 hr & 20 mins',
-                      onConfirm: () => setSlotsState(() {}),
-                    ),
-                  ),
-                );
-              }),
-              const Spacer(),
+              Expanded(
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  children: [
+                    ..._cartCategories.map((category) {
+                      final isSelected = _selectedCategorySlots.containsKey(category);
+                      final slotInfo = _selectedCategorySlots[category];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 15),
+                        child: _buildSlotServiceCard(
+                          category,
+                          category == 'Salon Luxe' ? 'Service will take approx. 1 hr & 30 mins' : 'Service will take approx. 1 hr & 20 mins',
+                          isSelected: isSelected,
+                          selectedSlot: slotInfo,
+                          onSelect: () => _showDetailedSlotPicker(
+                            context,
+                            category,
+                            category == 'Salon Luxe' ? '1 hr & 30 mins' : '1 hr & 20 mins',
+                            onConfirm: () => setSlotsState(() {}),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _selectedCategorySlots.length == _cartCategories.length
                     ? () {
