@@ -43,68 +43,99 @@ class ClientWalletScreen extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       width: double.infinity,
-      padding: const EdgeInsets.all(30),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFB6C1), // Light pink
-            AppTheme.primaryColor, // Deeper pink
-          ],
-        ),
-        borderRadius: BorderRadius.circular(30),
+        color: const Color(0xFF1A1A1A), // Sleek deep charcoal
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.3),
+            color: Colors.black.withOpacity(0.15),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.auto_awesome, color: Colors.white, size: 40),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Total Balance',
-            style: GoogleFonts.outfit(
-              color: Colors.white.withOpacity(0.9),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.monetization_on, color: Colors.yellow, size: 32),
-              const SizedBox(width: 8),
-              Text(
-                '1,250',
-                style: GoogleFonts.outfit(
-                  color: Colors.white,
-                  fontSize: 48,
-                  fontWeight: FontWeight.bold,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Balance',
+                    style: GoogleFonts.outfit(
+                      color: Colors.grey.shade400,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.stars_rounded, color: Colors.amber, size: 24),
+                      const SizedBox(width: 8),
+                      Text(
+                        '1,250',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'BellaVella Coins',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            'BellaVella Coins',
-            style: GoogleFonts.outfit(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+          const SizedBox(height: 24),
+          const Divider(color: Colors.white12, height: 1),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '1 Coin = ₹1.00',
+                style: GoogleFonts.outfit(
+                  color: Colors.white54,
+                  fontSize: 12,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: Row(
+                  children: [
+                    Text(
+                      'Redeem now',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.primaryColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right, color: AppTheme.primaryColor, size: 18),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -118,38 +149,38 @@ class ClientWalletScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Keep earning rewards',
+            'Earn more rewards',
             style: GoogleFonts.outfit(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: Colors.black,
             ),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
               _buildEarnCard(
-                icon: Icons.login_rounded,
+                icon: Icons.calendar_today_rounded,
                 title: 'Daily Check-in',
-                points: '+10',
-                color: Colors.blue.shade50,
-                iconColor: Colors.blue,
+                reward: '10 Coins',
+                subtitle: 'Earn daily',
+                iconColor: const Color(0xFF4A90E2),
               ),
-              const SizedBox(width: 15),
+              const SizedBox(width: 12),
               _buildEarnCard(
-                icon: Icons.share_rounded,
-                title: 'Refer & Earn',
-                points: '+500',
-                color: Colors.orange.shade50,
-                iconColor: Colors.orange,
+                icon: Icons.people_outline_rounded,
+                title: 'Refer Friend',
+                reward: '500 Coins',
+                subtitle: 'Invite & Get',
+                iconColor: const Color(0xFFF5A623),
               ),
             ],
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 12),
           _buildWideEarnCard(
-            icon: Icons.stars_rounded,
-            title: 'Complete 5 Bookings & unlock special rewards',
-            points: '+1000',
+            icon: Icons.card_giftcard_rounded,
+            title: 'Complete 5 Bookings reward',
+            reward: '100 Coins',
           ),
         ],
       ),
@@ -159,36 +190,60 @@ class ClientWalletScreen extends StatelessWidget {
   Widget _buildEarnCard({
     required IconData icon,
     required String title,
-    required String points,
-    required Color color,
+    required String reward,
+    required String subtitle,
     required Color iconColor,
   }) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: iconColor, size: 30),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
             const SizedBox(height: 12),
             Text(
               title,
-              textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
-                fontWeight: FontWeight.bold,
                 fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              reward,
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: iconColor,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              points,
+              subtitle,
               style: GoogleFonts.outfit(
-                color: iconColor,
-                fontWeight: FontWeight.w900,
-                fontSize: 16,
+                fontSize: 11,
+                color: Colors.grey.shade500,
               ),
             ),
           ],
@@ -200,35 +255,54 @@ class ClientWalletScreen extends StatelessWidget {
   Widget _buildWideEarnCard({
     required IconData icon,
     required String title,
-    required String points,
+    required String reward,
   }) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
+        color: AppTheme.primaryColor.withOpacity(0.02),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
       ),
       child: Row(
         children: [
-          Icon(icon, color: AppTheme.primaryColor, size: 30),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: AppTheme.primaryColor, size: 24),
+          ),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-                color: Colors.black87,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.black,
+                  ),
+                ),
+                Text(
+                  'Exclusive milestone reward',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
           Text(
-            points,
+            reward,
             style: GoogleFonts.outfit(
               color: AppTheme.primaryColor,
-              fontWeight: FontWeight.w900,
-              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
             ),
           ),
         ],
@@ -238,10 +312,10 @@ class ClientWalletScreen extends StatelessWidget {
 
   Widget _buildTransactionHistory() {
     final transactions = [
-      {'title': 'Daily Reward', 'date': 'Today', 'points': '+10', 'type': 'earned'},
-      {'title': 'Referral Bonus - Amit', 'date': 'Yesterday', 'points': '+500', 'type': 'earned'},
-      {'title': 'Signup Bonus', 'date': '22 Feb 2026', 'points': '+500', 'type': 'earned'},
-      {'title': 'Daily Reward', 'date': '21 Feb 2026', 'points': '+10', 'type': 'earned'},
+      {'title': 'Daily Reward', 'date': 'Today, 10:30 AM', 'amount': '+10', 'type': 'credit'},
+      {'title': 'Referral Bonus - Amit', 'date': 'Yesterday', 'amount': '+500', 'type': 'credit'},
+      {'title': 'Signup Bonus', 'date': '22 Feb 2026', 'amount': '+500', 'type': 'credit'},
+      {'title': 'Facial Service Payment', 'date': '20 Feb 2026', 'amount': '-200', 'type': 'debit'},
     ];
 
     return Padding(
@@ -255,16 +329,17 @@ class ClientWalletScreen extends StatelessWidget {
               Text(
                 'Recent Activity',
                 style: GoogleFonts.outfit(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Colors.black,
                 ),
               ),
               Text(
-                'View All',
-                style: TextStyle(
+                'View history',
+                style: GoogleFonts.outfit(
                   color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -274,20 +349,25 @@ class ClientWalletScreen extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: transactions.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
+            separatorBuilder: (context, index) => Divider(height: 1, color: Colors.grey.shade100),
             itemBuilder: (context, index) {
               final tx = transactions[index];
+              final isCredit = tx['type'] == 'credit';
               return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        shape: BoxShape.circle,
+                        color: isCredit ? Colors.green.withOpacity(0.05) : Colors.red.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.monetization_on, color: Colors.amber, size: 24),
+                      child: Icon(
+                        isCredit ? Icons.add_circle_outline_rounded : Icons.remove_circle_outline_rounded,
+                        color: isCredit ? Colors.green : Colors.red,
+                        size: 20,
+                      ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -297,23 +377,28 @@ class ClientWalletScreen extends StatelessWidget {
                           Text(
                             tx['title']!,
                             style: GoogleFonts.outfit(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: Colors.black,
                             ),
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             tx['date']!,
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                            style: GoogleFonts.outfit(
+                              color: Colors.grey.shade500,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
                     ),
                     Text(
-                      tx['points']!,
+                      tx['amount']!,
                       style: GoogleFonts.outfit(
-                        color: Colors.green.shade600,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                        color: isCredit ? Colors.green : Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
                       ),
                     ),
                   ],
@@ -321,7 +406,7 @@ class ClientWalletScreen extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 100), // Space for bottom nav
+          const SizedBox(height: 40),
         ],
       ),
     );
