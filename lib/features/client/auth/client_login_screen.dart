@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
+import 'services/auth_api_service.dart';
 
 class ClientLoginScreen extends StatefulWidget {
   const ClientLoginScreen({super.key});
@@ -13,6 +14,7 @@ class ClientLoginScreen extends StatefulWidget {
 class _ClientLoginScreenState extends State<ClientLoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isButtonEnabled = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -121,9 +123,35 @@ class _ClientLoginScreenState extends State<ClientLoginScreen> {
               const SizedBox(height: 48),
               PrimaryButton(
                 label: 'Continue',
-                onPressed: _isButtonEnabled
-                    ? () => context.push('/client/verify-otp',
-                        extra: _phoneController.text)
+                isLoading: _isLoading,
+                onPressed: _isButtonEnabled && !_isLoading
+                    ? () async {
+                        setState(() => _isLoading = true);
+                        try {
+                          final response = await AuthApiService.sendOtp(
+                            _phoneController.text,
+                          );
+
+                          if (response['success'] == true) {
+                            if (!context.mounted) return;
+                            context.push('/client/verify-otp',
+                                extra: _phoneController.text);
+                          } else {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(response['message'] ??
+                                    'Failed to send OTP'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) {
+                            setState(() => _isLoading = false);
+                          }
+                        }
+                      }
                     : null,
               ),
             ],

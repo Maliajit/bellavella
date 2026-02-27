@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
+import 'services/auth_api_service.dart';
 
 class ClientOTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
@@ -16,6 +17,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
       List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
   String? _errorText;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -28,14 +30,65 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
     super.dispose();
   }
 
-  void _verifyOTP() {
+  Future<void> _verifyOTP() async {
     String otp = _controllers.map((c) => c.text).join();
-    if (otp == '1234') {
-      setState(() => _errorText = null);
-      // Success - Navigate to location picker
-      context.go('/client/location-picker');
-    } else {
-      setState(() => _errorText = 'Incorrect OTP. Please try again.');
+    if (otp.length < 4) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    try {
+      final response = await AuthApiService.verifyOtp(widget.phoneNumber, otp);
+
+      if (response['success'] == true) {
+        if (!mounted) return;
+        // Success - Navigate to location picker
+        context.go('/client/location-picker');
+      } else {
+        setState(() {
+          _errorText = response['message'] ?? 'Incorrect OTP. Please try again.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorText = 'Network error. Please try again later.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  Future<void> _resendOTP() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await AuthApiService.sendOtp(widget.phoneNumber);
+      if (!context.mounted) return;
+
+      if (response['success'] == true) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'OTP resent successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(response['message'] ?? 'Failed to resend OTP'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -114,7 +167,8 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
             const SizedBox(height: 32),
             PrimaryButton(
               label: 'Verify & Continue',
-              onPressed: _verifyOTP,
+              isLoading: _isLoading,
+              onPressed: _isLoading ? null : _verifyOTP,
             ),
             const SizedBox(height: 24),
             Center(
@@ -123,11 +177,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                   const Text("Didn't receive code?",
                       style: TextStyle(color: AppTheme.greyText)),
                   TextButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('OTP resent')),
-                      );
-                    },
+                    onPressed: _isLoading ? null : _resendOTP,
                     child: const Text(
                       'Resend',
                       style: TextStyle(
