@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/professional_bottom_nav.dart';
+import '../../../core/theme/app_theme.dart';
 
 class ProfessionalEarningsScreen extends StatefulWidget {
   const ProfessionalEarningsScreen({super.key});
@@ -74,7 +74,6 @@ class _ProfessionalEarningsScreenState extends State<ProfessionalEarningsScreen>
           ],
         ),
       ),
-      bottomNavigationBar: const ProfessionalBottomNav(currentIndex: 2),
     );
   }
 

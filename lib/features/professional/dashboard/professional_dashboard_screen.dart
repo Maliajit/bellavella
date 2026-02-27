@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/professional_bottom_nav.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/permission_handler_util.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
@@ -98,7 +98,6 @@ class _ProfessionalDashboardScreenState
           ),
         ],
       ),
-      bottomNavigationBar: const ProfessionalBottomNav(currentIndex: 0),
     );
   }
 

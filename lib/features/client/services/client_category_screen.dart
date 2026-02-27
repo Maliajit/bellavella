@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/client_bottom_nav.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ClientCategoryScreen extends StatefulWidget {
   final String categoryName;
@@ -90,7 +90,6 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: const ClientBottomNav(currentIndex: 1),
     );
   }
 

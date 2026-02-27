@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/mock_data/mock_data.dart';
-import '../../../core/widgets/client_bottom_nav.dart';
 import '../../../core/utils/location_util.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -213,7 +212,6 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const ClientBottomNav(currentIndex: 0),
     );
   }
 

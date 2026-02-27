@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/professional_bottom_nav.dart';
+import '../../../core/theme/app_theme.dart';
 
 class ProfessionalOrderListScreen extends StatefulWidget {
   const ProfessionalOrderListScreen({super.key});
@@ -72,7 +72,6 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
         icon: const Icon(Icons.add_call, color: Colors.white),
         label: const Text('Simulate Request', style: TextStyle(color: Colors.white)),
       ),
-      bottomNavigationBar: const ProfessionalBottomNav(currentIndex: 1),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

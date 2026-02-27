@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/professional_bottom_nav.dart';
+import '../../../core/theme/app_theme.dart';
 
 class ProfessionalProfileScreen extends StatefulWidget {
   const ProfessionalProfileScreen({super.key});
@@ -83,7 +83,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           ],
         ),
       ),
-      bottomNavigationBar: const ProfessionalBottomNav(currentIndex: 3),
     );
   }
 

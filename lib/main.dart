@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/config/app_config.dart';
-import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
-void main() {
+void main({RouterConfig<Object>? router}) {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize flavor configuration
@@ -16,18 +15,20 @@ void main() {
     }
   }
   
-  runApp(const BellavellaApp());
+  runApp(BellavellaApp(routerConfig: router));
 }
 
 class BellavellaApp extends StatelessWidget {
-  const BellavellaApp({super.key});
+  final RouterConfig<Object>? routerConfig;
+
+  const BellavellaApp({super.key, this.routerConfig});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
       title: AppConfig.isProfessional ? 'Bellavella Pro' : 'Bellavella',
       theme: AppTheme.lightTheme,
-      routerConfig: AppRouter, // Router will eventually be updated to be flavor-aware
+      routerConfig: routerConfig!, 
       debugShowCheckedModeBanner: false,
     );
   }
