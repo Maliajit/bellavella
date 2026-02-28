@@ -155,19 +155,34 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
                   ),
                   Row(
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () => context.pushNamed(AppRoutes.proIncomingRequestName),
-                        icon: const Icon(Icons.notifications_active_rounded, size: 16),
-                        label: const Text("Test Request"),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                          foregroundColor: AppTheme.primaryColor,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
+                      IconButton(
+                        onPressed: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("Refreshing orders..."),
+                              duration: Duration(seconds: 1),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.black87),
+                        padding: const EdgeInsets.all(8),
+                        constraints: const BoxConstraints(),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      // ElevatedButton.icon(
+                      //   onPressed: () => context.pushNamed(AppRoutes.proIncomingRequestName),
+                      //   icon: const Icon(Icons.notifications_active_rounded, size: 16),
+                      //   label: const Text("Test Request"),
+                      //   style: ElevatedButton.styleFrom(
+                      //     backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                      //     foregroundColor: AppTheme.primaryColor,
+                      //     elevation: 0,
+                      //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      //   ),
+                      // ),
+                      // const SizedBox(width: 12),
                       GestureDetector(
                         onTap: _showSortSheet,
                         child: Container(

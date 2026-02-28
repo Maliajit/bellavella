@@ -21,7 +21,6 @@ import '../../features/professional/earnings/professional_availability_screen.da
 import '../../features/professional/notifications/incoming_request_screen.dart';
 import '../../features/professional/orders/professional_kit_store_screen.dart';
 import '../../features/professional/navigation/professional_navigation_screen.dart';
-import '../../features/professional/dashboard/screens/professional_active_job_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_arrival_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_kit_scan_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_service_screen.dart';
@@ -30,7 +29,7 @@ import '../../features/professional/job_workflow/screens/pro_completion_screen.d
 import '../../features/professional/notifications/professional_notifications_screen.dart';
 
 final professionalRouter = GoRouter(
-  initialLocation: AppRoutes.proIncomingRequest,
+  initialLocation: AppRoutes.root,
   routes: [
     ..._rootRoutes,
     ..._authRoutes,

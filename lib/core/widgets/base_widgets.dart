@@ -20,7 +20,7 @@ class ServiceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.05),
+              color: AppTheme.primaryColor.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -104,7 +104,7 @@ class CategoryChip extends StatelessWidget {
           color: isSelected ? AppTheme.primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(30),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor : AppTheme.primaryColor.withOpacity(0.2),
+            color: isSelected ? AppTheme.primaryColor : AppTheme.primaryColor.withValues(alpha: 0.2),
           ),
         ),
         child: Text(

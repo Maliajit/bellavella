@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/router/route_names.dart';
 import '../../../../core/theme/app_theme.dart';
 
 enum WalletType { earnings, coins, kits }
@@ -62,8 +63,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
                       const SizedBox(height: 24),
                       if (_activeWallet == WalletType.earnings) ...[
                         _buildHeroEarnings(),
-                        const SizedBox(height: 24),
-                        _buildTrendSection(),
                         const SizedBox(height: 24),
                         _buildSummarySection(),
                         const SizedBox(height: 24),
@@ -234,47 +233,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
 
   Widget _dot() => Container(margin: const EdgeInsets.symmetric(horizontal: 12), width: 4, height: 4, decoration: BoxDecoration(color: Colors.grey.shade200, shape: BoxShape.circle));
 
-  Widget _buildTrendSection() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildSectionTitle("Earnings Trend"),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade200),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Text('This Month', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Colors.grey),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          height: 130,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade100, width: 2),
-          ),
-          child: CustomPaint(
-            size: Size.infinite,
-            painter: SparklinePainter(),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildSummarySection() {
     return Column(
@@ -370,7 +328,16 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {},
+        onTap: () {
+          if (label == 'Accept Jobs') context.push(AppRoutes.proJobs);
+          if (label == 'Wallet') context.push(AppRoutes.proWallet);
+          if (label == 'Schedule') context.push(AppRoutes.proSchedule);
+          if (label == 'Transactions') {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Transaction history coming soon')),
+            );
+          }
+        },
           borderRadius: BorderRadius.circular(16),
           child: Center(
             child: Row(
@@ -570,7 +537,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () => context.push(AppRoutes.proKitStore),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF6366F1),
@@ -595,60 +562,3 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
   }
 }
 
-class SparklinePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFE1306C)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    final fillPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [const Color(0xFFE1306C).withOpacity(0.2), Colors.transparent],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromLTRB(0, 0, size.width, size.height));
-
-    final path = Path();
-    final fillPath = Path();
-
-    final values = [0.2, 0.4, 0.35, 0.6, 0.5, 0.8, 0.75]; // Normalized values
-    final step = size.width / (values.length - 1);
-
-    for (var i = 0; i < values.length; i++) {
-      final x = i * step;
-      final y = size.height - (values[i] * size.height);
-      if (i == 0) {
-        path.moveTo(x, y);
-        fillPath.moveTo(x, size.height);
-        fillPath.lineTo(x, y);
-      } else {
-        // Curve implementation
-        final prevX = (i - 1) * step;
-        final prevY = size.height - (values[i - 1] * size.height);
-        path.cubicTo(
-          prevX + step / 2, prevY,
-          x - step / 2, y,
-          x, y,
-        );
-        fillPath.cubicTo(
-          prevX + step / 2, prevY,
-          x - step / 2, y,
-          x, y,
-        );
-      }
-    }
-
-    fillPath.lineTo(size.width, size.height);
-    fillPath.close();
-
-    canvas.drawPath(fillPath, fillPaint);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
