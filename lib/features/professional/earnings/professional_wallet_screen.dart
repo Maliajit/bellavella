@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 
-enum WalletType { earnings, coins }
+enum WalletType { earnings, coins, kits }
 
 class ProfessionalWalletScreen extends StatefulWidget {
   const ProfessionalWalletScreen({super.key});
@@ -59,29 +59,36 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 20),
-                      _activeWallet == WalletType.earnings 
-                          ? _buildEarningsCard() 
-                          : _buildCoinsCard(),
-                      const SizedBox(height: 30),
-                      Text(
-                        _activeWallet == WalletType.earnings 
-                            ? 'Earnings History' 
-                            : 'Coin Rewards History',
-                        style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 15),
+                      const SizedBox(height: 24),
                       if (_activeWallet == WalletType.earnings) ...[
-                        _buildTransactionItem('Bridal Makeup Payout', '₹4,500', 'Today, 2:30 PM', true),
-                        _buildTransactionItem('Successful Withdrawal', '-₹10,000', 'Yesterday, 10:00 AM', false),
-                        _buildTransactionItem('Hair Styling Payout', '₹1,200', '10 Aug, 4:00 PM', true),
-                      ] else ...[
+                        _buildHeroEarnings(),
+                        const SizedBox(height: 24),
+                        _buildTrendSection(),
+                        const SizedBox(height: 24),
+                        _buildSummarySection(),
+                        const SizedBox(height: 24),
+                        _buildActiveJobsSection(),
+                        const SizedBox(height: 24),
+                        _buildQuickActionsSection(),
+                      ] else if (_activeWallet == WalletType.coins) ...[
+                        _buildCoinsCard(),
+                        const SizedBox(height: 30),
+                        _buildSectionTitle('Coin Rewards History'),
+                        const SizedBox(height: 15),
                         _buildTransactionItem('Referral Bonus', '500 Coins', 'Today, 11:15 AM', true),
                         _buildTransactionItem('Weekly Bonus', '200 Coins', 'Yesterday, 09:00 AM', true),
                         _buildTransactionItem('Profile Completion', '150 Coins', '15 Aug, 02:00 PM', true),
+                        const SizedBox(height: 30),
+                        _buildCoinEarnInfo(),
+                      ] else ...[
+                        _buildKitsCard(),
+                        const SizedBox(height: 30),
+                        _buildSectionTitle('Inventory Log'),
+                        const SizedBox(height: 15),
+                        _buildTransactionItem('Kit Assigned', '2 Kits', 'Today, 10:00 AM', true),
+                        _buildTransactionItem('Service Completed', '-1 Kit', 'Yesterday, 4:30 PM', false),
+                        _buildTransactionItem('Kit Assigned', '5 Kits', '12 Aug, 11:00 AM', true),
                       ],
-                      const SizedBox(height: 30),
-                      if (_activeWallet == WalletType.coins) _buildCoinEarnInfo(),
                       const SizedBox(height: 100),
                     ],
                   ),
@@ -90,6 +97,18 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: GoogleFonts.outfit(
+        fontSize: 11, 
+        fontWeight: FontWeight.w800, 
+        color: Colors.grey.shade400, 
+        letterSpacing: 1,
       ),
     );
   }
@@ -109,7 +128,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
           IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, size: 20),
             color: _isScrolled ? Colors.white : Colors.black,
-            onPressed: () => context.go('/professional/earnings'),
+            onPressed: () => context.pop(),
           ),
           Text(
             'Wallet',
@@ -135,7 +154,8 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       child: Row(
         children: [
           Expanded(child: _buildSelectorOption('Earnings', WalletType.earnings)),
-          Expanded(child: _buildSelectorOption('BellaVella Coins', WalletType.coins)),
+          Expanded(child: _buildSelectorOption('Coins', WalletType.coins)),
+          Expanded(child: _buildSelectorOption('Service Kits', WalletType.kits)),
         ],
       ),
     );
@@ -165,92 +185,204 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
     );
   }
 
-  Widget _buildEarningsCard() {
-    const balance = 12450.0;
-    const isWithdrawAllowed = balance >= minWithdrawalAmount;
-
+  Widget _buildHeroEarnings() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [pinkPrimary, pinkPrimary.withOpacity(0.8)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(28),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 2),
         boxShadow: [
-          BoxShadow(color: pinkPrimary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8)),
         ],
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Total Earnings',
+            style: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '₹98,500',
+            style: GoogleFonts.outfit(color: Colors.black, fontSize: 32, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _heroMetric('45 Jobs', Icons.task_alt_rounded),
+              _dot(),
+              _heroMetric('120 Hours', Icons.schedule_rounded),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroMetric(String text, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: Colors.grey.shade400),
+        const SizedBox(width: 6),
+        Text(text, style: GoogleFonts.outfit(color: Colors.grey.shade500, fontSize: 13, fontWeight: FontWeight.w500)),
+      ],
+    );
+  }
+
+  Widget _dot() => Container(margin: const EdgeInsets.symmetric(horizontal: 12), width: 4, height: 4, decoration: BoxDecoration(color: Colors.grey.shade200, shape: BoxShape.circle));
+
+  Widget _buildTrendSection() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildSectionTitle("Earnings Trend"),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade200),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Text('This Month', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.black87)),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Colors.grey),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          height: 130,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade100, width: 2),
+          ),
+          child: CustomPaint(
+            size: Size.infinite,
+            painter: SparklinePainter(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummarySection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle("EARNINGS SUMMARY"),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _summaryCardV3('Today', '₹450')),
+            const SizedBox(width: 12),
+            Expanded(child: _summaryCardV3('This Week', '₹3,200')),
+            const SizedBox(width: 12),
+            Expanded(child: _summaryCardV3('This Month', '₹12,800')),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryCardV3(String label, String amount) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Income Balance',
-                style: GoogleFonts.outfit(color: Colors.white70, fontSize: 16),
-              ),
-              const Icon(Icons.info_outline, color: Colors.white54, size: 20),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '₹12,450',
-            style: GoogleFonts.outfit(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Future: Show Add Money dialog
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.2),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'Add Money',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: isWithdrawAllowed ? () {} : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: pinkPrimary,
-                    disabledBackgroundColor: Colors.white54,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'Withdraw',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (!isWithdrawAllowed)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Text(
-                'Minimum ₹1,500 required to withdraw',
-                style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
-              ),
-            ),
+          Text(label, style: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 10, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(amount, style: GoogleFonts.outfit(color: Colors.black, fontSize: 15, fontWeight: FontWeight.w900)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActiveJobsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle("Active Jobs"),
+        const SizedBox(height: 12),
+        _jobRowV3('Jobs Assigned', '5'),
+        _dividerV3(),
+        _jobRowV3('In Progress', '2'),
+      ],
+    );
+  }
+
+  Widget _jobRowV3(String label, String count) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+          Text(count, style: GoogleFonts.outfit(fontSize: 16, color: Colors.black, fontWeight: FontWeight.w900)),
+        ],
+      ),
+    );
+  }
+
+  Widget _dividerV3() => Padding(padding: const EdgeInsets.symmetric(vertical: 14), child: Divider(color: Colors.grey.shade50, height: 1));
+
+  Widget _buildQuickActionsSection() {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 2.4,
+      children: [
+        _actionItemV3("Accept Jobs", Icons.check_circle_outline_rounded),
+        _actionItemV3("Wallet", Icons.account_balance_wallet_outlined),
+        _actionItemV3("Schedule", Icons.calendar_month_rounded),
+        _actionItemV3("Transactions", Icons.history_rounded),
+      ],
+    );
+  }
+
+  Widget _actionItemV3(String label, IconData icon) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100, width: 2),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(16),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 18, color: Colors.black87),
+                const SizedBox(width: 10),
+                Text(label, style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -400,4 +532,123 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       ],
     );
   }
+
+  Widget _buildKitsCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Available Kits',
+                style: GoogleFonts.outfit(color: Colors.white70, fontSize: 16),
+              ),
+              const Icon(Icons.inventory_2_outlined, color: Colors.white70, size: 20),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '6',
+            style: GoogleFonts.outfit(color: Colors.white, fontSize: 36, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF6366F1),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                elevation: 0,
+              ),
+              child: Text(
+                'Get More Kits',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Min 5 kits required to stay online',
+            style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SparklinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFE1306C)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [const Color(0xFFE1306C).withOpacity(0.2), Colors.transparent],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTRB(0, 0, size.width, size.height));
+
+    final path = Path();
+    final fillPath = Path();
+
+    final values = [0.2, 0.4, 0.35, 0.6, 0.5, 0.8, 0.75]; // Normalized values
+    final step = size.width / (values.length - 1);
+
+    for (var i = 0; i < values.length; i++) {
+      final x = i * step;
+      final y = size.height - (values[i] * size.height);
+      if (i == 0) {
+        path.moveTo(x, y);
+        fillPath.moveTo(x, size.height);
+        fillPath.lineTo(x, y);
+      } else {
+        // Curve implementation
+        final prevX = (i - 1) * step;
+        final prevY = size.height - (values[i - 1] * size.height);
+        path.cubicTo(
+          prevX + step / 2, prevY,
+          x - step / 2, y,
+          x, y,
+        );
+        fillPath.cubicTo(
+          prevX + step / 2, prevY,
+          x - step / 2, y,
+          x, y,
+        );
+      }
+    }
+
+    fillPath.lineTo(size.width, size.height);
+    fillPath.close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

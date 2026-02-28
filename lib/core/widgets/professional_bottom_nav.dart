@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../router/route_names.dart';
 
 class ProfessionalBottomNav extends StatelessWidget {
   final int currentIndex;

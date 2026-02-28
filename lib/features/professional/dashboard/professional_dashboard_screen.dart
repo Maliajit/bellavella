@@ -1,11 +1,12 @@
-import 'dart:math' as Math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/permission_handler_util.dart';
+import '../../../core/router/route_names.dart';
+import './widgets/availability_toggle.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
   const ProfessionalDashboardScreen({super.key});
@@ -16,21 +17,43 @@ class ProfessionalDashboardScreen extends StatefulWidget {
 }
 
 class _ProfessionalDashboardScreenState
-    extends State<ProfessionalDashboardScreen> {
-  bool _isOnline = false;
+    extends State<ProfessionalDashboardScreen> with TickerProviderStateMixin {
+  bool _isOnline = true;
+  bool _hasActiveJob = true; // Toggle for "Adaptive" testing
   final ScrollController _scrollController = ScrollController();
-  bool _isScrolled = false;
   late ConfettiController _confettiController;
+  
+  // Wallet & Inventory State
+  int _kitCount = 6;
+  int _walletCash = 1800;
+  int _walletCoins = 250;
+
+  // Mock Data
+  final String _todayEarnings = '2,100';
+  final String _completedJobs = '4/6';
+  final String _rating = '4.9';
+
+  final List<Map<String, dynamic>> _timelineEvents = [
+    {'time': '09:00 AM', 'title': 'Haircut', 'status': 'Completed', 'isDone': true},
+    {'time': '12:00 PM', 'title': 'Beard Styling', 'status': 'Accepted', 'isDone': false},
+    {'time': '04:00 PM', 'title': 'Facial', 'status': 'Upcoming', 'isDone': false},
+  ];
+
+  final Map<String, dynamic> _currentJob = {
+    'name': 'Nikhil Sharma',
+    'service': 'Classic Haircut + Trim',
+    'time': '04:30 PM (In 15 mins)',
+    'address': 'Flat 204, Sunrise Apts, Baner, Pune',
+    'status': 'Accepted', // Can be 'Accepted', 'Arrived', 'Started'
+  };
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    _confettiController =
-        ConfettiController(duration: const Duration(seconds: 3));
-    _confettiController.play();
-
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _confettiController.play();
       PermissionHandlerUtil.requestAllPermissions(context);
     });
   }
@@ -42,232 +65,30 @@ class _ProfessionalDashboardScreenState
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.hasClients) {
-      if (_scrollController.offset > 0 && !_isScrolled) {
-        setState(() => _isScrolled = true);
-      } else if (_scrollController.offset <= 0 && _isScrolled) {
-        setState(() => _isScrolled = false);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          SafeArea(
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: ListView(
-                    controller: _scrollController,
-                    padding: EdgeInsets.zero,
-                    children: [
-                      _buildGreeting(),
-                      _buildStatsSection(),
-                      _buildTopPartnersSection(),
-                      _buildNewLeadsSection(),
-                      _buildAnnouncementsSection(),
-                      const SizedBox(height: 100), // Extra space for bottom nav
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Colors.green,
-                Colors.blue,
-                Colors.pink,
-                Colors.orange,
-                Colors.purple,
-                AppTheme.primaryColor,
-              ],
-              createParticlePath: drawStar,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// A custom Path to paint stars for the confetti
-  Path drawStar(Size size) {
-    // Method to convert degree to radians
-    double degToRad(double deg) => deg * (3.1415926535897932 / 180.0);
-
-    const numberOfPoints = 5;
-    final halfWidth = size.width / 2;
-    final externalRadius = halfWidth;
-    final internalRadius = halfWidth / 2.5;
-    final degreesPerStep = degToRad(360 / numberOfPoints);
-    final halfDegreesPerStep = degreesPerStep / 2;
-    final path = Path();
-    final fullAngle = degToRad(360);
-    path.moveTo(size.width, halfWidth);
-
-    for (double step = 0; step < fullAngle; step += degreesPerStep) {
-      path.lineTo(halfWidth + externalRadius * Math.cos(step),
-          halfWidth + externalRadius * Math.sin(step));
-      path.lineTo(halfWidth + internalRadius * Math.cos(step + halfDegreesPerStep),
-          halfWidth + internalRadius * Math.sin(step + halfDegreesPerStep));
-    }
-    path.close();
-    return path;
-  }
-
-  Widget _buildHeader() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: _isScrolled ? AppTheme.primaryColor : Colors.white,
-        boxShadow: _isScrolled
-            ? [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : [],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: Text(
-              'Dashboard',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: _isScrolled ? Colors.white : Colors.black,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          Row(
-            children: [
-              Text(
-                _isOnline ? 'ON' : 'OFF',
-                style: TextStyle(
-                  color: _isScrolled
-                      ? Colors.white
-                      : (_isOnline ? Colors.green : Colors.red),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Transform.scale(
-                scale: 0.8,
-                child: Switch(
-                  value: _isOnline,
-                  onChanged: (val) {
-                    if (val) {
-                      _attemptGoLive();
-                    } else {
-                      setState(() => _isOnline = false);
-                    }
-                  },
-                  activeColor: Colors.white,
-                  activeTrackColor: Colors.green,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.notifications_none,
-                color: _isScrolled ? Colors.white : Colors.black,
-                size: 24,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _attemptGoLive() {
-    // Mock data for validation
-    const double currentBalance = 12450.0; // In reality, fetch from wallet service
-    const int currentKits = 3; // Mocking 3 kits to trigger the error sheet (Requirement: 5)
-
-    if (currentBalance >= 1500 && currentKits >= 5) {
-      setState(() => _isOnline = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('You are now Online! Receiving bookings...'),
-            backgroundColor: Colors.green),
-      );
-    } else {
-      _showGoLiveRequirements(currentBalance, currentKits);
-    }
-  }
-
-  void _showGoLiveRequirements(double balance, int kits) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(32), topRight: Radius.circular(32)),
-        ),
+      body: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Go-Live Requirements',
-              style:
-                  GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Complete these tasks to start receiving bookings today.',
-              style: GoogleFonts.outfit(color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 24),
-            _buildRequirementRow(
-              'Min. ₹1,500 Balance',
-              balance >= 1500,
-              'Current: ₹${balance.toStringAsFixed(0)}',
-              () => context.push('/professional/wallet'),
-            ),
-            const SizedBox(height: 16),
-            _buildRequirementRow(
-              'Min. 5 Official Kits',
-              kits >= 5,
-              'Current: $kits Kits',
-              () => _showKitStore(),
-            ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
+            _buildSmartHeader(),
+            _buildStatusFeedback(),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    _buildPrimaryFocusPanel(),
+                    const SizedBox(height: 32),
+                    _buildTodayOverviewStrip(),
+                    const SizedBox(height: 32),
+                    _buildScheduleTimeline(),
+                    const SizedBox(height: 40),
+                  ],
                 ),
-                child: const Text('I Understand',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.white)),
               ),
             ),
           ],
@@ -276,316 +97,470 @@ class _ProfessionalDashboardScreenState
     );
   }
 
-  Widget _buildRequirementRow(
-      String label, bool isMet, String subtitle, VoidCallback onAction) {
+  // 1️⃣ Smart Compact Header
+  Widget _buildSmartHeader() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isMet ? Colors.green.shade50 : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: isMet ? Colors.green.withOpacity(0.2) : Colors.grey.shade100),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          CircleAvatar(
-            radius: 12,
-            backgroundColor: isMet ? Colors.green : Colors.grey.shade300,
-            child: Icon(isMet ? Icons.check : Icons.priority_high,
-                color: Colors.white, size: 14),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(subtitle,
-                    style: GoogleFonts.outfit(
-                        fontSize: 13, color: Colors.grey.shade600)),
-              ],
-            ),
-          ),
-          if (!isMet)
-            TextButton(
-              onPressed: onAction,
-              child: Text('FIX NOW',
-                  style: GoogleFonts.outfit(
-                      color: AppTheme.primaryColor,
-                      fontWeight: FontWeight.bold)),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _showKitStore() {
-    Navigator.pop(context); // Close bottom sheet
-    context.push('/professional/kit-store');
-  }
-
-
-  Widget _buildGreeting() {
-    return const Padding(
-      padding: EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Hello, Kevin!',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          Text(
-            'Welcome back to your dashboard',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildStatCard(
-              'Total Orders',
-              '12',
-              Icons.shopping_basket_outlined,
-              Colors.blue,
-            ),
-          ),
-          const SizedBox(width: 15),
-          Expanded(
-            child: _buildStatCard(
-              'Total Earnings',
-              '₹15,200',
-              Icons.account_balance_wallet_outlined,
-              Colors.green,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(height: 15),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          Text(label, style: const TextStyle(color: Colors.black54)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopPartnersSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Text(
-            'Top Partners',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-        SizedBox(
-          height: 100,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            itemCount: 5,
-            itemBuilder: (context, index) => Container(
-              width: 70,
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.person, color: Colors.grey),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNewLeadsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Text(
-            'New Leads',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
-        _buildLeadCard('Sia Kapoor', 'Bridal Makeup', 'Today, 2:00 PM'),
-        _buildLeadCard('Riya Sharma', 'Facial & Cleanup', 'Tomorrow, 11:00 AM'),
-      ],
-    );
-  }
-
-  Widget _buildLeadCard(String name, String service, String time) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: AppTheme.secondaryColor.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.person_outline,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(width: 15),
+          // Left side: Name stack
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                  'Hello, Harsh',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
                   ),
                 ),
-                Text(service, style: const TextStyle(color: Colors.black54)),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        time,
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        minimumSize: const Size(70, 36),
-                      ),
-                      child: const Text(
-                        'Accept',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  'Available for bookings',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
               ],
             ),
+          ),
+          
+          // Right side: Toggle & Notification
+          Row(
+            children: [
+              AvailabilityToggle(
+                isOnline: _isOnline,
+                onChanged: (value) {
+                  if (value && (_kitCount < 5 || _walletCash < 1500)) {
+                    _showRequirementsError();
+                    return;
+                  }
+                  setState(() {
+                    _isOnline = value;
+                  });
+                },
+              ),
+              const SizedBox(width: 16),
+              IconButton(
+                onPressed: () => context.push(AppRoutes.proWallet),
+                icon: const Icon(Icons.account_balance_wallet_rounded, size: 22, color: Colors.black87),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: () => context.pushNamed(AppRoutes.proNotificationsName),
+                icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Colors.black87),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAnnouncementsSection() {
+  // Micro-UX Status Feedback
+  Widget _buildStatusFeedback() {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        child: _isOnline 
+          ? Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline_rounded, size: 14, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Text(
+                    "You’re now visible to customers.",
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700),
+                  ),
+                ],
+              ),
+            )
+          : Container(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  Text(
+                    "You will not receive new bookings while offline.",
+                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+      ),
+    );
+  }
+
+  // 2️⃣ Primary Focus Panel (Adaptive)
+  Widget _buildPrimaryFocusPanel() {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: _hasActiveJob ? AppTheme.primaryColor : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(28),
+          boxShadow: _hasActiveJob
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  )
+                ]
+              : [],
+        ),
+        child: _hasActiveJob ? _buildJobActiveContent() : _buildNoJobContent(),
+      ),
+    );
+  }
+
+  Widget _buildNoJobContent() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-          child: Text(
-            'Announcements',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        const Icon(Icons.radar_rounded, size: 48, color: Colors.grey),
+        const SizedBox(height: 16),
+        Text(
+          "You're Online",
+          style: GoogleFonts.inter(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: Colors.black87,
           ),
         ),
-        _buildAnnouncementCard(
-          'Special Bonus!',
-          'Complete 10 jobs this week and earn ₹500 extra bonus.',
+        const SizedBox(height: 4),
+        Text(
+          "Waiting for new bookings",
+          style: GoogleFonts.inter(
+            fontSize: 14,
+            color: Colors.grey.shade500,
+          ),
         ),
-        _buildAnnouncementCard(
-          'New Policy Update',
-          'Please upload your KYC documents before 25th June.',
+        const SizedBox(height: 24),
+        Text(
+          "Today's Earnings: ₹$_todayEarnings",
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black54,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildAnnouncementCard(String title, String subtitle) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.pink.shade50.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.pink,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+  Widget _buildJobActiveContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              _currentJob['time'],
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+            const Icon(Icons.more_horiz, color: Colors.white70),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          _currentJob['name'],
+          style: GoogleFonts.inter(
+            fontSize: 26,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          _currentJob['service'],
+          style: GoogleFonts.inter(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const Icon(Icons.location_on_rounded, size: 14, color: Colors.white70),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                _currentJob['address'],
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 28),
+        Row(
+          children: [
+            _panelAction(Icons.phone_rounded, "Call", Colors.green),
+            const SizedBox(width: 12),
+            _panelAction(Icons.near_me_rounded, "Navigate", Colors.blue, onTap: () => context.pushNamed(AppRoutes.proNavigationName)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => context.pushNamed(AppRoutes.proArriveName),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            child: Text(
+              "Start Job",
+              style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            style: const TextStyle(color: Colors.black87, fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  Widget _panelAction(IconData icon, String label, Color color, {VoidCallback? onTap}) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 3️⃣ Today Overview Strip
+  Widget _buildTodayOverviewStrip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+      decoration: BoxDecoration(
+        border: Border.symmetric(horizontal: BorderSide(color: Colors.grey.shade100)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _overviewItem("EARNINGS", "₹$_todayEarnings"),
+          _verticalDivider(),
+          _overviewItem("RATING", "⭐ $_rating"),
         ],
+      ),
+    );
+  }
+
+  Widget _overviewItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey.shade400,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _verticalDivider() {
+    return Container(height: 24, width: 1, color: Colors.grey.shade100);
+  }
+
+  // 4️⃣ Today Schedule (Timeline View)
+  Widget _buildScheduleTimeline() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today Schedule',
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 24),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _timelineEvents.length,
+          itemBuilder: (context, index) {
+            final event = _timelineEvents[index];
+            bool isLast = index == _timelineEvents.length - 1;
+            bool isDone = event['isDone'] as bool;
+
+            return IntrinsicHeight(
+              child: Row(
+                children: [
+                  Column(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: isDone ? Colors.green : Colors.grey.shade300,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      if (!isLast)
+                        Expanded(
+                          child: Container(
+                            width: 1,
+                            color: Colors.grey.shade200,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                event['time'],
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDone ? Colors.grey : AppTheme.primaryColor,
+                                ),
+                              ),
+                              Text(
+                                event['title'],
+                                style: GoogleFonts.inter(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDone ? Colors.grey : Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: (isDone ? Colors.grey : AppTheme.primaryColor).withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              event['status'].toUpperCase(),
+                              style: GoogleFonts.inter(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: isDone ? Colors.grey : AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+
+  void _showRequirementsError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        content: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "Requirements not met: Min 5 kits & ₹1500 cash required to go online.",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        duration: const Duration(seconds: 4),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class ProfessionalLoginScreen extends StatefulWidget {
   const ProfessionalLoginScreen({super.key});
@@ -37,58 +38,132 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
+      backgroundColor: const Color(0xFFF4F4F4),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF2E2E2E), size: 20),
+          onPressed: () => context.pop(),
+        ),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 40),
             Text(
-              'Welcome, Professional',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28),
+              'Welcome,\nProfessional',
+              style: GoogleFonts.outfit(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF2E2E2E),
+                height: 1.1,
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
-              'Login with your phone number',
-              style: Theme.of(context).textTheme.bodyLarge,
+              'Login with your phone number to continue your journey.',
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                color: const Color(0xFF7A7A7A),
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            const SizedBox(height: 48),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              maxLength: 10,
-              decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.phone_outlined),
-                hintText: 'Phone Number',
-                prefixText: '+91 ',
-                counterText: '',
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.primaryColor),
+            const SizedBox(height: 60),
+            
+            // Phone Input
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF2E2E2E),
                 ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.phone_iphone_rounded, size: 22),
+                  hintText: 'Phone Number',
+                  prefixText: '+91 ',
+                  prefixStyle: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF2E2E2E),
+                  ),
+                  counterText: '',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide(color: Colors.grey.shade200),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Checkbox(
-                  value: _isAgreed,
-                  onChanged: (value) => setState(() => _isAgreed = value ?? false),
-                  activeColor: AppTheme.primaryColor,
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _isAgreed = !_isAgreed),
-                    child: const Text('I agree to Terms & Conditions'),
+            
+            const SizedBox(height: 24),
+            
+            // Agreement Checkbox
+            Theme(
+              data: Theme.of(context).copyWith(
+                unselectedWidgetColor: const Color(0xFF555555),
+              ),
+              child: Row(
+                children: [
+                  SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: Checkbox(
+                      value: _isAgreed,
+                      onChanged: (value) => setState(() => _isAgreed = value ?? false),
+                      activeColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      side: const BorderSide(color: Color(0xFF555555), width: 1.5),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isAgreed = !_isAgreed),
+                      child: Text(
+                        'I agree to Terms & Conditions',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF7A7A7A),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 32),
+            
+            const SizedBox(height: 48),
+            
             PrimaryButton(
               label: 'Continue',
               onPressed: _isContinueEnabled
@@ -96,24 +171,33 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
                       extra: _phoneController.text)
                   : null,
             ),
-            const SizedBox(height: 24),
+            
+            const SizedBox(height: 32),
+            
             Center(
-              child: TextButton(
-                onPressed: () => context.push('/professional/signup'),
-                child: const Text.rich(
+              child: GestureDetector(
+                onTap: () => context.push('/professional/signup'),
+                child: Text.rich(
                   TextSpan(
                     text: "Don't have an account? ",
-                    style: TextStyle(color: AppTheme.greyText),
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF7A7A7A),
+                      fontWeight: FontWeight.w500,
+                    ),
                     children: [
                       TextSpan(
                         text: 'Sign up',
-                        style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.outfit(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),

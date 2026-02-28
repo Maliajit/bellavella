@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 
 class PermissionHandlerUtil {
   static Future<void> requestAllPermissions(BuildContext context) async {
+    if (kIsWeb) return; // Permissions managed by browser
+    
     // 1. Basic Permissions (Location, Camera, Mic, Notifications)
     Map<Permission, PermissionStatus> statuses = await [
       Permission.location,

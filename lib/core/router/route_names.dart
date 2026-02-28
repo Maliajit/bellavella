@@ -46,6 +46,13 @@ class AppRoutes {
   static const String proAvailability = '/professional/availability';
   static const String proIncomingRequest = '/professional/incoming-request';
   static const String proKitStore = '/professional/kit-store';
+  static const String proNavigation = '/professional/navigation';
+  static const String proActiveJob = '/professional/active-job';
+  static const String proArrive = '/professional/arrive';
+  static const String proScanKit = '/professional/scan-kit';
+  static const String proCollectPayment = '/professional/collect-payment';
+  static const String proJobComplete = '/professional/job-complete';
+  static const String proNotifications = '/professional/notifications';
 
   // Route Names (for context.goNamed)
   static const String rootName = 'root';
@@ -92,4 +99,11 @@ class AppRoutes {
   static const String proAvailabilityName = 'proAvailability';
   static const String proIncomingRequestName = 'proIncomingRequest';
   static const String proKitStoreName = 'proKitStore';
+  static const String proNavigationName = 'proNavigation';
+  static const String proActiveJobName = 'proActiveJob';
+  static const String proArriveName = 'proArrive';
+  static const String proScanKitName = 'proScanKit';
+  static const String proCollectPaymentName = 'proCollectPayment';
+  static const String proJobCompleteName = 'proJobComplete';
+  static const String proNotificationsName = 'proNotifications';
 }

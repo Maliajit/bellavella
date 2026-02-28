@@ -7,7 +7,7 @@ import '../../features/professional/auth/professional_login_screen.dart';
 import '../../features/professional/auth/otp_verify_screen.dart';
 import '../../features/professional/auth/professional_signup_screen.dart';
 import '../../features/professional/auth/verification_status_screen.dart';
-import '../../features/professional/bookings/professional_order_list_screen.dart';
+import '../../features/professional/orders/professional_order_list_screen.dart';
 import '../../features/professional/dashboard/professional_dashboard_screen.dart';
 import '../../features/professional/earnings/professional_earnings_screen.dart';
 import '../../features/professional/profile/professional_profile_screen.dart';
@@ -20,9 +20,17 @@ import '../../features/professional/bookings/professional_booking_detail_screen.
 import '../../features/professional/earnings/professional_availability_screen.dart';
 import '../../features/professional/notifications/incoming_request_screen.dart';
 import '../../features/professional/orders/professional_kit_store_screen.dart';
+import '../../features/professional/navigation/professional_navigation_screen.dart';
+import '../../features/professional/dashboard/screens/professional_active_job_screen.dart';
+import '../../features/professional/job_workflow/screens/pro_arrival_screen.dart';
+import '../../features/professional/job_workflow/screens/pro_kit_scan_screen.dart';
+import '../../features/professional/job_workflow/screens/pro_service_screen.dart';
+import '../../features/professional/job_workflow/screens/pro_payment_screen.dart';
+import '../../features/professional/job_workflow/screens/pro_completion_screen.dart';
+import '../../features/professional/notifications/professional_notifications_screen.dart';
 
 final professionalRouter = GoRouter(
-  initialLocation: AppRoutes.root,
+  initialLocation: AppRoutes.proIncomingRequest,
   routes: [
     ..._rootRoutes,
     ..._authRoutes,
@@ -141,5 +149,40 @@ final _proOtherRoutes = [
     path: AppRoutes.proKitStore,
     name: AppRoutes.proKitStoreName,
     builder: (context, state) => const ProfessionalKitStoreScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proNavigation,
+    name: AppRoutes.proNavigationName,
+    builder: (context, state) => const ProfessionalNavigationScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proActiveJob,
+    name: AppRoutes.proActiveJobName,
+    builder: (context, state) => const ProServiceScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proArrive,
+    name: AppRoutes.proArriveName,
+    builder: (context, state) => const ProArrivalScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proScanKit,
+    name: AppRoutes.proScanKitName,
+    builder: (context, state) => const ProKitScanScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proCollectPayment,
+    name: AppRoutes.proCollectPaymentName,
+    builder: (context, state) => const ProPaymentScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proJobComplete,
+    name: AppRoutes.proJobCompleteName,
+    builder: (context, state) => const ProJobCompleteScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proNotifications,
+    name: AppRoutes.proNotificationsName,
+    builder: (context, state) => const ProfessionalNotificationsScreen(),
   ),
 ];

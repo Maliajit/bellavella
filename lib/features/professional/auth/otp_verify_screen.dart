@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/router/route_names.dart';
 
 class OTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
@@ -41,27 +43,56 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0),
-      body: Padding(
+      backgroundColor: const Color(0xFFF4F4F4),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent, 
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF2E2E2E), size: 20),
+          onPressed: () => context.pop(),
+        ),
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 40),
             Text(
               'Verify OTP',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 28),
+              style: GoogleFonts.outfit(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF2E2E2E),
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              'We sent a code to +91 ${widget.phoneNumber}',
-              style: Theme.of(context).textTheme.bodyLarge,
+              'We sent a 4-digit code to +91 ${widget.phoneNumber}',
+              style: GoogleFonts.outfit(
+                fontSize: 16,
+                color: const Color(0xFF7A7A7A),
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 48),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: List.generate(4, (index) {
-                return SizedBox(
-                  width: 60,
+                return Container(
+                  width: 70,
+                  height: 70,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                   child: TextField(
                     controller: _controllers[index],
                     focusNode: _focusNodes[index],
@@ -69,15 +100,19 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,
                     maxLength: 1,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: GoogleFonts.outfit(
+                      fontSize: 24, 
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF2E2E2E),
+                    ),
                     decoration: InputDecoration(
                       counterText: '',
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide.none,
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                         borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
@@ -98,31 +133,48 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
             ),
             if (_errorText != null)
               Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(
-                  _errorText!,
-                  style: const TextStyle(color: AppTheme.errorColor, fontSize: 14),
+                padding: const EdgeInsets.only(top: 20),
+                child: Center(
+                  child: Text(
+                    _errorText!,
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.errorColor, 
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 48),
             PrimaryButton(
               label: 'Verify & Continue',
               onPressed: _verifyOTP,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Center(
               child: Column(
                 children: [
-                  const Text("Didn't receive code?", style: TextStyle(color: AppTheme.greyText)),
-                  TextButton(
-                    onPressed: () {
+                   Text(
+                    "Didn't receive code?", 
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF7A7A7A),
+                      fontWeight: FontWeight.w500,
+                    )
+                  ),
+                  const SizedBox(height: 4),
+                  GestureDetector(
+                    onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('OTP resent')),
                       );
                     },
-                    child: const Text(
-                      'Resend',
-                      style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                    child: Text(
+                      'Resend Code',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.primaryColor, 
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ],

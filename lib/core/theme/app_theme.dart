@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Brand Colors - Bella Villa Theme
-  static const Color primaryColor = Color(0xFFE91E63); // Pink
+  static const Color primaryColor = Color(0xFFFF2D6F); // Premium Pink/Rose
   static const Color secondaryColor = Color(0xFFF8BBD0); // Light Pink
   static const Color accentColor = Color(0xFF212121); // Dark Grey/Black
   static const Color backgroundColor = Color(0xFFFAFAFA);
@@ -41,9 +41,17 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          minimumSize: const Size(0, 50),
+          disabledBackgroundColor: const Color(0xFFD9D9D9),
+          disabledForegroundColor: const Color(0xFF9E9E9E),
+          minimumSize: const Size(double.infinity, 56),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          textStyle: GoogleFonts.outfit(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
         ),
       ),

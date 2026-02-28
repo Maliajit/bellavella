@@ -204,14 +204,21 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: const Color(0xFFF4F4F4),
       appBar: AppBar(
-        title: Text('Professional Registration', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.black)),
+        title: Text(
+          'Professional Registration',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w700, 
+            color: const Color(0xFF2E2E2E),
+            fontSize: 20,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF2E2E2E), size: 20),
           onPressed: () => context.pop(),
         ),
       ),
@@ -225,15 +232,20 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               Text(
                 'Complete Your Profile',
                 style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.accentColor,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF2E2E2E),
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
               Text(
-                'Help us verify your skills to get started',
-                style: GoogleFonts.outfit(color: Colors.grey.shade600, fontSize: 16),
+                'Help us verify your skills to get started on the platform.',
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFF7A7A7A), 
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
               const SizedBox(height: 32),
               
@@ -383,24 +395,24 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
 
   Widget _buildSectionHeader(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: 16, top: 8),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: AppTheme.primaryColor, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Text(
             title,
             style: GoogleFonts.outfit(
               fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.accentColor,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF2E2E2E),
             ),
           ),
         ],
@@ -411,16 +423,16 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   Widget _buildCard(List<Widget> children) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -435,11 +447,18 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       keyboardType: keyboardType,
       maxLines: maxLines,
       maxLength: maxLength,
+      style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: Icon(icon, size: 20),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        hintStyle: GoogleFonts.outfit(color: const Color(0xFF7A7A7A), fontWeight: FontWeight.w400),
+        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF7A7A7A)),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         counterText: '',
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
@@ -447,18 +466,23 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   Widget _buildDropdown(String hint, List<String> items, String? value, Function(String?) onChanged) {
     return DropdownButtonFormField<String>(
       value: value,
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.outfit(fontWeight: FontWeight.w500)))).toList(),
       onChanged: onChanged,
       validator: (v) => v == null ? '$hint required' : null,
       decoration: InputDecoration(
         hintText: 'Select $hint',
-        // Use withValues instead of withOpacity
+        hintStyle: GoogleFonts.outfit(color: const Color(0xFF7A7A7A), fontWeight: FontWeight.w400),
         prefixIcon: Icon(
           hint == 'Gender' ? Icons.people_outline : hint == 'Experience' ? Icons.work_outline : Icons.map_outlined, 
           size: 20,
-          color: AppTheme.accentColor.withValues(alpha: 0.7),
+          color: const Color(0xFF7A7A7A),
         ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
