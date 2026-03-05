@@ -1,9 +1,8 @@
-import 'dart:math' as Math;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/mock_data/mock_data.dart';
 import '../../../core/utils/location_util.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -12,6 +11,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'widgets/video_story_card.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/utils/permission_handler_util.dart';
+import '../profile/client_wallet_screen.dart';
+import 'models/story_model.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -218,7 +219,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   /// A custom Path to paint stars for the confetti
   Path drawStar(Size size) {
     // Method to convert degree to radians
-    double degToRad(double deg) => deg * (3.1415926535897932 / 180.0);
+    double degToRad(double deg) => deg * (math.pi / 180.0);
 
     const numberOfPoints = 5;
     final halfWidth = size.width / 2;
@@ -231,10 +232,10 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     path.moveTo(size.width, halfWidth);
 
     for (double step = 0; step < fullAngle; step += degreesPerStep) {
-      path.lineTo(halfWidth + externalRadius * Math.cos(step),
-          halfWidth + externalRadius * Math.sin(step));
-      path.lineTo(halfWidth + internalRadius * Math.cos(step + halfDegreesPerStep),
-          halfWidth + internalRadius * Math.sin(step + halfDegreesPerStep));
+      path.lineTo(halfWidth + externalRadius * math.cos(step),
+          halfWidth + externalRadius * math.sin(step));
+      path.lineTo(halfWidth + internalRadius * math.cos(step + halfDegreesPerStep),
+          halfWidth + internalRadius * math.sin(step + halfDegreesPerStep));
     }
     path.close();
     return path;
@@ -327,7 +328,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.orange.withOpacity(0.2),
+                      color: Colors.orange.withValues(alpha: 0.2),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -423,7 +424,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
                       colors: [
-                        Colors.black.withOpacity(0.7),
+                        Colors.black.withValues(alpha: 0.37),
                         Colors.transparent,
                       ],
                     ),
@@ -445,7 +446,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       Text(
                         banner['subtitle']!,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 16,
                         ),
                       ),
@@ -491,12 +492,12 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             borderRadius: BorderRadius.circular(25),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primaryColor.withOpacity(0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
             ],
-            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
+            border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [
@@ -546,7 +547,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Text(
@@ -640,7 +641,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                 begin: Alignment.bottomCenter,
                                 end: Alignment.topCenter,
                                 colors: [
-                                  Colors.black.withOpacity(0.6),
+                                  Colors.black.withValues(alpha: 0.6),
                                   Colors.transparent,
                                 ],
                               ),
@@ -979,7 +980,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
             colors: [
-              Colors.black.withOpacity(0.7),
+              Colors.black.withValues(alpha: 0.7),
               Colors.transparent,
             ],
           ),
@@ -1001,7 +1002,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             Text(
               subtitle,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
+                color: Colors.white.withValues(alpha: 0.9),
                 fontSize: 13,
               ),
             ),
@@ -1062,10 +1063,26 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: stories.length,
             itemBuilder: (context, index) {
-              final story = stories[index];
+              final storyData = stories[index];
+              final storyModel = Story(
+                videoUrl: storyData['video']!,
+                thumbnail: storyData['thumbnail'],
+                title: storyData['title'] ?? 'Beauty Story',
+                serviceCategory: storyData['service'] ?? 'Services',
+              );
+
+              // Convert all story map data to Story models for the viewer
+              final List<Story> totalStories = stories.map((s) => Story(
+                videoUrl: s['video']!,
+                thumbnail: s['thumbnail'],
+                title: s['title'] ?? 'Beauty Story',
+                serviceCategory: s['service'] ?? 'Services',
+              )).toList();
+
               return VideoStoryCard(
-                videoUrl: story['video']!,
-                thumbnailUrl: story['thumbnail'],
+                story: storyModel,
+                totalStories: totalStories,
+                index: index,
               );
             },
           ),

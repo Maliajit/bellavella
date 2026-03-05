@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
-import '../../../core/utils/location_util.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});

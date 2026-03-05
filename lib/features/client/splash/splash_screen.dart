@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/router/route_names.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -17,14 +18,34 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
+        // 1. Check Onboarding (First Experience)
+        if (!TokenManager.isOnboardingComplete) {
+          context.go(AppRoutes.onboarding);
+          return;
+        }
+
+        // 2. Check App Type / Role Selection
+        if (AppConfig.type == null) {
+          context.go(AppRoutes.roleSelection);
+          return;
+        }
+
         if (AppConfig.isProfessional) {
+          // Professional Flow
           if (TokenManager.hasToken) {
-            context.go('/professional/dashboard');
+            context.go(AppRoutes.proDashboard);
           } else {
-            context.go('/professional/login');
+            context.go(AppRoutes.proLogin);
           }
         } else {
-          context.go('/onboarding');
+          // Client Flow
+          if (!TokenManager.hasToken) {
+            context.go(AppRoutes.clientLogin);
+          } else if (!TokenManager.hasLocation) {
+            context.go(AppRoutes.clientLocationPicker);
+          } else {
+            context.go(AppRoutes.clientHome);
+          }
         }
       }
     });
@@ -41,7 +62,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppTheme.secondaryColor.withOpacity(0.5),
+                color: AppTheme.secondaryColor.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: Icon(

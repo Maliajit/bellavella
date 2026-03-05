@@ -227,7 +227,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.bottomCenter,
             end: Alignment.topCenter,
-            colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
           ),
         ),
         padding: const EdgeInsets.all(20),
@@ -429,7 +429,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.08),
+            color: AppTheme.primaryColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
             border: Border(
               left: BorderSide(color: AppTheme.primaryColor, width: 4),
@@ -536,7 +536,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         border: Border.all(color: Colors.grey.shade100),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -715,7 +715,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(
                                     0xFFFFB6C1,
-                                  ).withOpacity(0.2),
+                                  ).withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                                 child: Text(
@@ -900,7 +900,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

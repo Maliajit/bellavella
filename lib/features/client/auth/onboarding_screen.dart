@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/services/token_manager.dart';
+import '../../../core/router/route_names.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -52,11 +54,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Align(
                 alignment: Alignment.topLeft,
                 child: TextButton(
-                  onPressed: () {
-                    if (AppConfig.isProfessional) {
-                      context.go('/professional/login');
+                  onPressed: () async {
+                    await TokenManager.setOnboardingComplete(true);
+                    if (!context.mounted) return;
+                    if (AppConfig.type == null) {
+                      context.go(AppRoutes.roleSelection);
+                    } else if (AppConfig.isProfessional) {
+                      context.go(AppRoutes.proLogin);
                     } else {
-                      context.go('/client/login');
+                      context.go(AppRoutes.clientLogin);
                     }
                   },
                   child: Text(
@@ -146,50 +152,59 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   // Indicators
-                  Row(
-                    children: List.generate(
-                      _pages.length,
-                      (index) => Container(
-                        margin: const EdgeInsets.only(right: 8),
-                        height: 8,
-                        width: _currentPage == index ? 24 : 8,
-                        decoration: BoxDecoration(
-                          color: _currentPage == index 
-                              ? AppTheme.primaryColor 
-                              : AppTheme.primaryColor.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(4),
+                  Expanded(
+                    child: Row(
+                      children: List.generate(
+                        _pages.length,
+                        (index) => Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          height: 8,
+                          width: _currentPage == index ? 24 : 8,
+                          decoration: BoxDecoration(
+                            color: _currentPage == index 
+                                ? AppTheme.primaryColor 
+                                : AppTheme.primaryColor.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       ),
                     ),
                   ),
                   
                   // Next/Get Started Button
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_currentPage < _pages.length - 1) {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeIn,
-                        );
-                      } else {
-                        if (AppConfig.isProfessional) {
-                          context.go('/professional/login');
+                  SizedBox(
+                    width: 120,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (_currentPage < _pages.length - 1) {
+                          _pageController.nextPage(
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeIn,
+                          );
                         } else {
-                          context.go('/client/login');
+                          await TokenManager.setOnboardingComplete(true);
+                          if (!context.mounted) return;
+                          if (AppConfig.type == null) {
+                            context.go(AppRoutes.roleSelection);
+                          } else if (AppConfig.isProfessional) {
+                            context.go(AppRoutes.proLogin);
+                          } else {
+                            context.go(AppRoutes.clientLogin);
+                          }
                         }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      _currentPage == _pages.length - 1 ? 'Start' : 'Next',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      child: Text(
+                        _currentPage == _pages.length - 1 ? 'Start' : 'Next',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                 ],

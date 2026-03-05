@@ -5,8 +5,11 @@ import 'core/theme/app_theme.dart';
 import 'core/router/client_router.dart';
 import 'core/router/professional_router.dart';
 
-void main({RouterConfig<Object>? router}) {
+import 'core/services/token_manager.dart';
+
+void main({RouterConfig<Object>? router}) async {
   WidgetsFlutterBinding.ensureInitialized();
+  await TokenManager.init();
   
   // Initialize flavor configuration
   if (AppConfig.type == null) {

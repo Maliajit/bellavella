@@ -27,9 +27,12 @@ import '../../features/client/services/service_review_screen.dart';
 import '../../features/client/booking/live_tracking_screen.dart';
 import '../../features/client/services/client_service_types_screen.dart';
 import '../../features/client/profile/client_wallet_screen.dart';
+import '../../features/client/auth/role_selection_screen.dart';
+import '../../features/client/home/models/story_model.dart';
+import '../../features/client/home/screens/story_viewer_screen.dart';
 
 final clientRouter = GoRouter(
-  initialLocation: AppRoutes.root,
+  initialLocation: AppRoutes.splash,
   routes: [
     ..._rootRoutes,
     ..._authRoutes,
@@ -43,9 +46,14 @@ final clientRouter = GoRouter(
 
 final _rootRoutes = [
   GoRoute(
-    path: AppRoutes.root,
+    path: AppRoutes.splash,
     name: AppRoutes.rootName,
     builder: (context, state) => const SplashScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.roleSelection,
+    name: AppRoutes.roleSelectionName,
+    builder: (context, state) => const RoleSelectionScreen(),
   ),
   GoRoute(
     path: AppRoutes.onboarding,
@@ -194,6 +202,16 @@ final _featureRoutes = [
       final data = state.extra as Map<String, dynamic>?;
       if (data == null) return const CartScreen();
       return ClientCheckoutReviewScreen(checkoutData: data);
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.clientStoryViewer,
+    name: AppRoutes.clientStoryViewerName,
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>;
+      final List<Story> stories = extra['stories'] as List<Story>;
+      final int initialIndex = extra['initialIndex'] as int;
+      return StoryViewerScreen(stories: stories, initialIndex: initialIndex);
     },
   ),
 ];

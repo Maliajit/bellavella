@@ -107,7 +107,7 @@ class AboutUsScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -119,7 +119,7 @@ class AboutUsScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFB6C1).withOpacity(0.2),
+              color: const Color(0xFFFFB6C1).withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: AppTheme.primaryColor, size: 28),
@@ -184,13 +184,13 @@ class AboutUsScreen extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             const Color(0xFFFFB6C1),
-            AppTheme.primaryColor.withOpacity(0.8),
+            AppTheme.primaryColor.withValues(alpha: 0.8),
           ],
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.2),
+            color: AppTheme.primaryColor.withValues(alpha: 0.2),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),

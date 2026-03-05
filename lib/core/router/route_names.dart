@@ -1,6 +1,8 @@
 class AppRoutes {
   // Common Routes
   static const String root = '/';
+  static const String splash = '/';
+  static const String roleSelection = '/role-selection';
   static const String onboarding = '/onboarding';
 
   // Client Routes
@@ -27,6 +29,7 @@ class AppRoutes {
   static const String clientEditProfile = '/client/profile/edit-profile';
   static const String clientWallet = '/client/wallet';
   static const String clientCheckoutReview = '/client/checkout-review';
+  static const String clientStoryViewer = '/client/stories';
 
   // Professional Routes
   static const String proLogin = '/professional/login';
@@ -56,6 +59,7 @@ class AppRoutes {
 
   // Route Names (for context.goNamed)
   static const String rootName = 'root';
+  static const String roleSelectionName = 'roleSelection';
   static const String onboardingName = 'onboarding';
 
   static const String clientLoginName = 'clientLogin';
@@ -81,6 +85,7 @@ class AppRoutes {
   static const String clientEditProfileName = 'clientEditProfile';
   static const String clientWalletName = 'clientWallet';
   static const String clientCheckoutReviewName = 'clientCheckoutReview';
+  static const String clientStoryViewerName = 'storyViewer';
 
   static const String proLoginName = 'proLogin';
   static const String proVerifyOtpName = 'proVerifyOtp';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/config/app_config.dart';
+import '../../../../core/router/route_names.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});
@@ -39,7 +40,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 iconPath: Icons.person_outline_rounded,
                 onTap: () {
                   AppConfig.type = AppType.client;
-                  context.go('/client/login');
+                  context.go(AppRoutes.clientLogin);
                 },
               ),
               const SizedBox(height: 16),
@@ -49,7 +50,7 @@ class RoleSelectionScreen extends StatelessWidget {
                 iconPath: Icons.content_cut_rounded,
                 onTap: () {
                   AppConfig.type = AppType.professional;
-                  context.go('/professional/login');
+                  context.go(AppRoutes.proLogin);
                 },
               ),
               const Spacer(flex: 2),
@@ -86,7 +87,7 @@ class _RoleCard extends StatelessWidget {
           border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.05),
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -119,7 +120,7 @@ class _RoleCard extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.accentColor.withOpacity(0.6),
+                      color: Colors.black.withValues(alpha: 0.15),
                     ),
                   ),
                 ],

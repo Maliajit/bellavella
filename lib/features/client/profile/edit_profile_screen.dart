@@ -230,7 +230,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: ElevatedButton(
         onPressed: () => Navigator.pop(context),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFB6C1).withOpacity(0.8),
+          backgroundColor: const Color(0xFFFFB6C1).withValues(alpha: 0.8),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
+import '../../../../core/services/token_manager.dart';
 import 'services/auth_api_service.dart';
 
 class ClientOTPVerifyScreen extends StatefulWidget {
@@ -43,8 +44,11 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
       final response = await AuthApiService.verifyOtp(widget.phoneNumber, otp);
 
       if (response['success'] == true) {
+        if (response['token'] != null) {
+          await TokenManager.setToken(response['token']);
+        }
         if (!mounted) return;
-        // Success - Navigate to location picker
+        // Success - Navigate to location picker (clearing auth stack)
         context.go('/client/location-picker');
       } else {
         setState(() {

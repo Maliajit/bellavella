@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/theme/app_theme.dart';
 
 class ClientProfileScreen extends StatelessWidget {
   const ClientProfileScreen({super.key});
@@ -94,7 +93,7 @@ class ClientProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 15,
             offset: const Offset(0, 5),
           ),
@@ -108,7 +107,7 @@ class ClientProfileScreen extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.grey.shade100,
-              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1), width: 2),
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1), width: 2),
               image: const DecorationImage(
                 image: NetworkImage(
                   'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200',
@@ -147,7 +146,7 @@ class ClientProfileScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.08),
+                color: AppTheme.primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: const Icon(
@@ -185,7 +184,7 @@ class ClientProfileScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.02),
+                color: Colors.black.withValues(alpha: 0.02),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -203,7 +202,7 @@ class ClientProfileScreen extends StatelessWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: (option.color ?? Colors.grey.shade600).withOpacity(0.08),
+                        color: (option.color ?? Colors.grey.shade600).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(option.icon, color: option.color ?? Colors.grey.shade700, size: 22),

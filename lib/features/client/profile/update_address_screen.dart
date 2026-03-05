@@ -118,10 +118,10 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFB6C1).withOpacity(0.5) : Colors.white,
+          color: isSelected ? const Color(0xFFFFB6C1).withValues(alpha: 0.5) : Colors.white,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? AppTheme.primaryColor.withOpacity(0.5) : Colors.grey.shade300,
+            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.5) : Colors.grey.shade300,
           ),
         ),
         child: Row(

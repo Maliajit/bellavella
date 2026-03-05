@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
-import '../../../../core/utils/location_util.dart';
+import '../../../../core/services/token_manager.dart';
 
 class ClientLocationPickerScreen extends StatefulWidget {
   const ClientLocationPickerScreen({super.key});
@@ -224,8 +224,9 @@ class _ClientLocationPickerScreenState extends State<ClientLocationPickerScreen>
               isLoading: _isLoading,
               onPressed: _isLoading
                   ? null
-                  : () {
-                      LocationUtil.setLocation(_address, _subAddress);
+                  : () async {
+                      await TokenManager.setLocation(_address, _subAddress);
+                      if (!context.mounted) return;
                       context.go('/client/home');
                     },
             ),

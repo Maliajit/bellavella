@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class ClientCategoryScreen extends StatefulWidget {
   final String categoryName;
@@ -133,7 +132,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                     gradient: LinearGradient(
                       begin: Alignment.bottomCenter,
                       end: Alignment.topCenter,
-                      colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                      colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
                     ),
                   ),
                   padding: const EdgeInsets.all(15),
@@ -222,7 +221,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF2F2),
                 borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
+                border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -345,7 +344,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                 borderRadius: BorderRadius.circular(15),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),
@@ -400,7 +399,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           gradient: LinearGradient(
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
-            colors: [Colors.black.withOpacity(0.7), Colors.transparent],
+            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
           ),
         ),
         padding: const EdgeInsets.all(20),
@@ -471,7 +470,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFE1306C).withOpacity(0.3),
+                color: const Color(0xFFE1306C).withValues(alpha: 0.3),
                 blurRadius: 15,
                 offset: const Offset(0, 8),
               ),
@@ -495,7 +494,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                     Text(
                       'Follow us on Instagram',
                       style: GoogleFonts.outfit(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                       ),
                     ),

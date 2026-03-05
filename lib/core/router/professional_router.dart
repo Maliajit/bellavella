@@ -27,9 +27,10 @@ import '../../features/professional/job_workflow/screens/pro_service_screen.dart
 import '../../features/professional/job_workflow/screens/pro_payment_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_completion_screen.dart';
 import '../../features/professional/notifications/professional_notifications_screen.dart';
+import '../../features/client/auth/role_selection_screen.dart';
 
 final professionalRouter = GoRouter(
-  initialLocation: AppRoutes.root,
+  initialLocation: AppRoutes.splash,
   routes: [
     ..._rootRoutes,
     ..._authRoutes,
@@ -43,9 +44,14 @@ final professionalRouter = GoRouter(
 
 final _rootRoutes = [
   GoRoute(
-    path: AppRoutes.root,
+    path: AppRoutes.splash,
     name: AppRoutes.rootName,
     builder: (context, state) => const SplashScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.roleSelection,
+    name: AppRoutes.roleSelectionName,
+    builder: (context, state) => const RoleSelectionScreen(),
   ),
 ];
 
