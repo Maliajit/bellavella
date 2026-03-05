@@ -67,7 +67,9 @@ final _authRoutes = [
   GoRoute(
     path: AppRoutes.proSignup,
     name: AppRoutes.proSignupName,
-    builder: (context, state) => const ProfessionalSignupScreen(),
+    builder: (context, state) => ProfessionalSignupScreen(
+      phoneNumber: state.extra as String?,
+    ),
   ),
   GoRoute(
     path: AppRoutes.proVerificationStatus,

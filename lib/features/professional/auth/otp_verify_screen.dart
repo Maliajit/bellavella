@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/router/route_names.dart';
+import '../services/professional_api_service.dart';
 
 class OTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
@@ -17,6 +17,7 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
   final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
   String? _errorText;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -29,14 +30,38 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
     super.dispose();
   }
 
-  void _verifyOTP() {
+  Future<void> _verifyOTP() async {
     String otp = _controllers.map((c) => c.text).join();
-    if (otp == '1234') {
-      setState(() => _errorText = null);
-      // Success - Navigate to dashboard
-      context.go('/professional/dashboard');
-    } else {
-      setState(() => _errorText = 'Incorrect OTP. Please try again.');
+    if (otp.length < 4) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+
+    try {
+      final response = await ProfessionalApiService.verifyOtp(widget.phoneNumber, otp);
+      if (mounted) {
+        if (response['success'] == true) {
+          if (response['data'] != null && response['data']['is_new_user'] == true) {
+            context.go('/professional/signup', extra: widget.phoneNumber);
+          } else {
+            context.go('/professional/dashboard');
+          }
+        } else {
+          setState(() {
+            _errorText = response['message'] ?? 'Incorrect OTP. Please try again.';
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorText = 'Error: ${e.toString()}';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -147,8 +172,8 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
               ),
             const SizedBox(height: 48),
             PrimaryButton(
-              label: 'Verify & Continue',
-              onPressed: _verifyOTP,
+              label: _isLoading ? 'Verifying...' : 'Verify & Continue',
+              onPressed: _isLoading ? null : _verifyOTP,
             ),
             const SizedBox(height: 32),
             Center(

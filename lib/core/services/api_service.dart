@@ -1,18 +1,30 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
+import 'token_manager.dart';
 
 class ApiService {
   static const String _baseUrl = AppConfig.baseUrl;
+
+  static Map<String, String> get _headers {
+    final headers = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+    
+    final token = TokenManager.token;
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    
+    return headers;
+  }
 
   static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _headers,
         body: jsonEncode(body),
       );
 
@@ -21,15 +33,16 @@ class ApiService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return decodedResponse;
       } else {
-        // Return the error response as defined by BaseController
+        // Handle unauthenticated state
+        if (response.statusCode == 401) {
+          await TokenManager.clearToken();
+        }
         return decodedResponse;
       }
     } catch (e) {
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
-        'data': null,
-        'errors': null,
       };
     }
   }
@@ -38,19 +51,20 @@ class ApiService {
     try {
       final response = await http.get(
         Uri.parse('$_baseUrl$endpoint'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers: _headers,
       );
 
-      return jsonDecode(response.body);
+      final decodedResponse = jsonDecode(response.body);
+      
+      if (response.statusCode == 401) {
+        await TokenManager.clearToken();
+      }
+      
+      return decodedResponse;
     } catch (e) {
       return {
         'success': false,
         'message': 'Network error: ${e.toString()}',
-        'data': null,
-        'errors': null,
       };
     }
   }

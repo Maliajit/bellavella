@@ -1,10 +1,63 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/core/models/data_models.dart';
 
-class ProfessionalNotificationsScreen extends StatelessWidget {
+class ProfessionalNotificationsScreen extends StatefulWidget {
   const ProfessionalNotificationsScreen({super.key});
+
+  @override
+  State<ProfessionalNotificationsScreen> createState() => _ProfessionalNotificationsScreenState();
+}
+
+class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificationsScreen> {
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchNotifications();
+  }
+
+  Future<void> _fetchNotifications() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final notifications = await ProfessionalApiService.getNotifications();
+      if (mounted) {
+        setState(() {
+          _notifications = notifications;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    try {
+      final res = await ProfessionalApiService.markAllNotificationsRead();
+      if (res['success'] == true) {
+        _fetchNotifications();
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +81,7 @@ class ProfessionalNotificationsScreen extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: _markAllRead,
             child: Text(
               "Mark all read",
               style: GoogleFonts.inter(
@@ -41,62 +94,59 @@ class ProfessionalNotificationsScreen extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        children: [
-          _buildSectionTitle("Today"),
-          const SizedBox(height: 12),
-          _buildNotificationItem(
-            icon: Icons.payments_outlined,
-            iconColor: Colors.green.shade600,
-            title: "Payment Received",
-            description: "₹1,200 from Nikhil Sharma has been credited to your wallet.",
-            time: "10:30 AM",
-            isUnread: true,
-          ),
-          _buildNotificationItem(
-            icon: Icons.calendar_month_outlined,
-            iconColor: Colors.blue.shade600,
-            title: "New Booking Accepted",
-            description: "You have a new booking for a Classic Haircut at 04:30 PM.",
-            time: "09:15 AM",
-            isUnread: true,
-          ),
-          
-          const SizedBox(height: 32),
-          _buildSectionTitle("Yesterday"),
-          const SizedBox(height: 12),
-          _buildNotificationItem(
-            icon: Icons.verified_user_outlined,
-            iconColor: Colors.orange.shade600,
-            title: "Profile Verified",
-            description: "Your professional profile has been verified! You can now accept premium jobs.",
-            time: "05:45 PM",
-            isUnread: false,
-          ),
-          _buildNotificationItem(
-            icon: Icons.star_outline_rounded,
-            iconColor: const Color(0xFFFFB800),
-            title: "New 5-Star Review!",
-            description: "Pooja Mehta gave you a 5-star rating for her Hair Spa service.",
-            time: "02:20 PM",
-            isUnread: false,
-          ),
-
-          const SizedBox(height: 32),
-          _buildSectionTitle("Earlier"),
-          const SizedBox(height: 12),
-          _buildNotificationItem(
-            icon: Icons.inventory_2_outlined,
-            iconColor: Colors.purple.shade600,
-            title: "Low Kit Inventory",
-            description: "Your service kits are low (6 remaining). Please refill soon to stay online.",
-            time: "15 Aug, 11:00 AM",
-            isUnread: false,
-          ),
-        ],
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          : _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('Error: $_errorMessage'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(onPressed: _fetchNotifications, child: const Text('Retry')),
+                    ],
+                  ),
+                )
+              : _notifications.isEmpty
+                  ? const Center(child: Text('No notifications yet'))
+                  : RefreshIndicator(
+                      onRefresh: _fetchNotifications,
+                      color: AppTheme.primaryColor,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        itemCount: _notifications.length,
+                        itemBuilder: (context, index) {
+                          final n = _notifications[index];
+                          return _buildNotificationItem(
+                            icon: _getIconForType(n['type']),
+                            iconColor: _getColorForType(n['type']),
+                            title: n['title'] ?? 'Notification',
+                            description: n['message'] ?? '',
+                            time: n['created_at'] ?? '',
+                            isUnread: n['read_at'] == null,
+                          );
+                        },
+                      ),
+                    ),
     );
+  }
+
+  IconData _getIconForType(String? type) {
+    switch (type) {
+      case 'payment': return Icons.payments_outlined;
+      case 'booking': return Icons.calendar_month_outlined;
+      case 'system': return Icons.verified_user_outlined;
+      default: return Icons.notifications_none_rounded;
+    }
+  }
+
+  Color _getColorForType(String? type) {
+    switch (type) {
+      case 'payment': return Colors.green.shade600;
+      case 'booking': return Colors.blue.shade600;
+      case 'system': return Colors.orange.shade600;
+      default: return AppTheme.primaryColor;
+    }
   }
 
   Widget _buildSectionTitle(String title) {

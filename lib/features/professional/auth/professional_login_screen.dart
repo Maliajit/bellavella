@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../services/professional_api_service.dart';
 
 class ProfessionalLoginScreen extends StatefulWidget {
   const ProfessionalLoginScreen({super.key});
@@ -14,6 +15,36 @@ class ProfessionalLoginScreen extends StatefulWidget {
 class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
   bool _isAgreed = false;
+  bool _isLoading = false;
+
+  Future<void> _sendOtp() async {
+    if (!_isContinueEnabled) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await ProfessionalApiService.sendOtp(_phoneController.text);
+      if (mounted) {
+        if (res['success'] == true) {
+          context.push('/professional/verify-otp', extra: _phoneController.text);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['message'] ?? 'Failed to send OTP')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+
 
   @override
   void initState() {
@@ -26,8 +57,6 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
     _phoneController.dispose();
     super.dispose();
   }
-
-
 
   bool get _isContinueEnabled {
     return _phoneController.text.length == 10 && 
@@ -165,11 +194,8 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
             const SizedBox(height: 48),
             
             PrimaryButton(
-              label: 'Continue',
-              onPressed: _isContinueEnabled
-                  ? () => context.push('/professional/verify-otp',
-                      extra: _phoneController.text)
-                  : null,
+              label: _isLoading ? 'Sending...' : 'Continue',
+              onPressed: _isContinueEnabled && !_isLoading ? _sendOtp : null,
             ),
             
             const SizedBox(height: 32),

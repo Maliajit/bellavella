@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/permission_handler_util.dart';
-import '../../../core/router/route_names.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/permission_handler_util.dart';
+import 'package:bellavella/core/router/route_names.dart';
 import './widgets/availability_toggle.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
+import 'package:bellavella/core/models/data_models.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
   const ProfessionalDashboardScreen({super.key});
@@ -18,44 +21,64 @@ class ProfessionalDashboardScreen extends StatefulWidget {
 
 class _ProfessionalDashboardScreenState
     extends State<ProfessionalDashboardScreen> with TickerProviderStateMixin {
-  bool _isOnline = true;
-  bool _hasActiveJob = true; // Toggle for "Adaptive" testing
-  final ScrollController _scrollController = ScrollController();
+  // Real Data State
+  pro_models.ProfessionalDashboardStats? _stats;
+  bool _isLoading = true;
+  String? _errorMessage;
   late ConfettiController _confettiController;
-  
-  // Wallet & Inventory State
-  int _kitCount = 6;
-  int _walletCash = 1800;
-  int _walletCoins = 250;
-
-  // Mock Data
-  final String _todayEarnings = '2,100';
-  final String _completedJobs = '4/6';
-  final String _rating = '4.9';
-
-  final List<Map<String, dynamic>> _timelineEvents = [
-    {'time': '09:00 AM', 'title': 'Haircut', 'status': 'Completed', 'isDone': true},
-    {'time': '12:00 PM', 'title': 'Beard Styling', 'status': 'Accepted', 'isDone': false},
-    {'time': '04:00 PM', 'title': 'Facial', 'status': 'Upcoming', 'isDone': false},
-  ];
-
-  final Map<String, dynamic> _currentJob = {
-    'name': 'Nikhil Sharma',
-    'service': 'Classic Haircut + Trim',
-    'time': '04:30 PM (In 15 mins)',
-    'address': 'Flat 204, Sunrise Apts, Baner, Pune',
-    'status': 'Accepted', // Can be 'Accepted', 'Arrived', 'Started'
-  };
+  final ScrollController _scrollController = ScrollController();
+  bool _isOnline = true;
+  bool _hasActiveJob = false;
+  int _kitCount = 0;
+  double _walletCash = 0;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    _fetchDashboardData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _confettiController.play();
       PermissionHandlerUtil.requestAllPermissions(context);
     });
+  }
+
+  Future<void> _fetchDashboardData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final stats = await ProfessionalApiService.getDashboardStats();
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _isLoading = false;
+          _hasActiveJob = stats.activeJobsCount > 0;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleAvailability() async {
+    try {
+      final res = await ProfessionalApiService.toggleAvailability();
+      if (res['success'] == true) {
+        setState(() => _isOnline = !_isOnline);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
   @override
@@ -67,6 +90,30 @@ class _ProfessionalDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $_errorMessage', textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _fetchDashboardData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -75,19 +122,24 @@ class _ProfessionalDashboardScreenState
             _buildSmartHeader(),
             _buildStatusFeedback(),
             Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
-                    _buildPrimaryFocusPanel(),
-                    const SizedBox(height: 32),
-                    _buildTodayOverviewStrip(),
-                    const SizedBox(height: 32),
-                    _buildScheduleTimeline(),
-                    const SizedBox(height: 40),
-                  ],
+              child: RefreshIndicator(
+                onRefresh: _fetchDashboardData,
+                color: AppTheme.primaryColor,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      _buildPrimaryFocusPanel(),
+                      const SizedBox(height: 32),
+                      _buildTodayOverviewStrip(),
+                      const SizedBox(height: 32),
+                      _buildScheduleTimeline(),
+                      const SizedBox(height: 40),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -110,7 +162,7 @@ class _ProfessionalDashboardScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Hello, Harsh',
+                  'Hello, ${_stats?.activeJobStatus ?? 'Professional'}', // Using a placeholder or name
                   style: GoogleFonts.inter(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -119,11 +171,11 @@ class _ProfessionalDashboardScreenState
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Available for bookings',
+                  _isOnline ? 'Available for bookings' : 'Currently Offline',
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade500,
+                    color: _isOnline ? Colors.green.shade600 : Colors.grey.shade500,
                   ),
                 ),
               ],
@@ -260,7 +312,7 @@ class _ProfessionalDashboardScreenState
         ),
         const SizedBox(height: 24),
         Text(
-          "Today's Earnings: ₹$_todayEarnings",
+          "Today's Earnings: ₹${_stats?.todayEarnings ?? 0}",
           style: GoogleFonts.inter(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -272,6 +324,10 @@ class _ProfessionalDashboardScreenState
   }
 
   Widget _buildJobActiveContent() {
+    // Note: In a real app, you might want a more detailed ActiveJob model
+    // Using the first booking from recentBookings as placeholder if no explicit activeJob field
+    final activeJob = _stats?.recentBookings.firstOrNull; 
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -279,7 +335,7 @@ class _ProfessionalDashboardScreenState
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              _currentJob['time'],
+              activeJob?.time ?? 'Asap',
               style: GoogleFonts.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -291,7 +347,7 @@ class _ProfessionalDashboardScreenState
         ),
         const SizedBox(height: 20),
         Text(
-          _currentJob['name'],
+          activeJob?.clientName ?? 'Customer',
           style: GoogleFonts.inter(
             fontSize: 26,
             fontWeight: FontWeight.w900,
@@ -299,7 +355,7 @@ class _ProfessionalDashboardScreenState
           ),
         ),
         Text(
-          _currentJob['service'],
+          activeJob?.serviceName ?? 'Service',
           style: GoogleFonts.inter(
             fontSize: 15,
             fontWeight: FontWeight.w500,
@@ -313,7 +369,7 @@ class _ProfessionalDashboardScreenState
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                _currentJob['address'],
+                activeJob?.address ?? 'Location not set',
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
                   fontSize: 12,
@@ -393,9 +449,9 @@ class _ProfessionalDashboardScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _overviewItem("EARNINGS", "₹$_todayEarnings"),
+          _overviewItem("EARNINGS", "₹${_stats?.todayEarnings ?? 0}"),
           _verticalDivider(),
-          _overviewItem("RATING", "⭐ $_rating"),
+          _overviewItem("RATING", "⭐ ${_stats?.rating ?? 4.5}"),
         ],
       ),
     );
@@ -463,11 +519,11 @@ class _ProfessionalDashboardScreenState
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: _timelineEvents.length,
+          itemCount: _stats?.recentBookings.length ?? 0,
           itemBuilder: (context, index) {
-            final event = _timelineEvents[index];
-            bool isLast = index == _timelineEvents.length - 1;
-            bool isDone = event['isDone'] as bool;
+            final booking = _stats!.recentBookings[index];
+            bool isLast = index == (_stats?.recentBookings.length ?? 0) - 1;
+            bool isDone = booking.status == BookingStatus.completed;
 
             return IntrinsicHeight(
               child: Row(
@@ -478,7 +534,7 @@ class _ProfessionalDashboardScreenState
                         width: 10,
                         height: 10,
                         decoration: BoxDecoration(
-                          color: isDone ? Colors.green : Colors.grey.shade300,
+                           color: isDone ? Colors.green : Colors.grey.shade300,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -502,7 +558,7 @@ class _ProfessionalDashboardScreenState
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                event['time'],
+                                booking.time,
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
@@ -510,7 +566,7 @@ class _ProfessionalDashboardScreenState
                                 ),
                               ),
                               Text(
-                                event['title'],
+                                booking.serviceName,
                                 style: GoogleFonts.inter(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -526,7 +582,7 @@ class _ProfessionalDashboardScreenState
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              event['status'].toUpperCase(),
+                              booking.status.name.toUpperCase(),
                               style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -549,34 +605,25 @@ class _ProfessionalDashboardScreenState
 
 
   void _showRequirementsError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        content: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.black,
-            borderRadius: BorderRadius.circular(16),
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Requirements Not Met"),
+        content: const Text(
+            "You need to have at least 5 kits and ₹1500 in your wallet to go online."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Close"),
           ),
-          child: Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  "Requirements not met: Min 5 kits & ₹1500 cash required to go online.",
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ],
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.push(AppRoutes.proWallet);
+            },
+            child: const Text("Go to Wallet"),
           ),
-        ),
-        duration: const Duration(seconds: 4),
+        ],
       ),
     );
   }

@@ -8,5 +8,10 @@ class AppConfig {
 
   // API Configuration
   // Note: 10.0.2.2 is the localhost address for Android Emulators
+  // API Configuration
+  // Note: 10.0.2.2 is the localhost address for Android Emulators
   static const String baseUrl = 'http://127.0.0.1:8000/api';
+  
+  // Get flavor from environment
+  static String get flavor => const String.fromEnvironment('APP_FLAVOR');
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/router/route_names.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 
 enum WalletType { earnings, coins, kits }
 
@@ -14,19 +16,46 @@ class ProfessionalWalletScreen extends StatefulWidget {
 }
 
 class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
+  pro_models.ProfessionalWallet? _wallet;
+  pro_models.ProfessionalDashboardStats? _dashboardStats;
+  bool _isLoading = true;
+  String? _errorMessage;
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
   WalletType _activeWallet = WalletType.earnings;
-
-  // Constants
-  static const double minWithdrawalAmount = 1500.0;
-  static const Color pinkPrimary = Color(0xFFE1306C);
   static const Color goldPrimary = Color(0xFFFFB800);
+  static const Color pinkPrimary = Color(0xFFFF7E98);
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _fetchWalletData();
+  }
+
+  Future<void> _fetchWalletData() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final wallet = await ProfessionalApiService.getWallet();
+      final stats = await ProfessionalApiService.getDashboardStats();
+      if (mounted) {
+        setState(() {
+          _wallet = wallet;
+          _dashboardStats = stats;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -45,6 +74,30 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $_errorMessage'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _fetchWalletData,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -53,9 +106,12 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
             _buildHeader(),
             _buildWalletSelector(),
             Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Padding(
+              child: RefreshIndicator(
+                onRefresh: _fetchWalletData,
+                color: AppTheme.primaryColor,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,7 +125,10 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
                         _buildActiveJobsSection(),
                         const SizedBox(height: 24),
                         _buildQuickActionsSection(),
+                        const SizedBox(height: 24),
+                        _buildTransactionList(),
                       ] else if (_activeWallet == WalletType.coins) ...[
+                        // ... coin content
                         _buildCoinsCard(),
                         const SizedBox(height: 30),
                         _buildSectionTitle('Coin Rewards History'),
@@ -199,21 +258,21 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       child: Column(
         children: [
           Text(
-            'Total Earnings',
+            'Current Balance',
             style: GoogleFonts.outfit(color: Colors.grey.shade400, fontSize: 13, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 6),
           Text(
-            '₹98,500',
+            '₹${_wallet?.balance ?? 0}',
             style: GoogleFonts.outfit(color: Colors.black, fontSize: 32, fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _heroMetric('45 Jobs', Icons.task_alt_rounded),
+              _heroMetric('52 Total Jobs', Icons.task_alt_rounded), // Still mock for now, but label updated
               _dot(),
-              _heroMetric('120 Hours', Icons.schedule_rounded),
+              _heroMetric('₹${_dashboardStats?.todayEarnings ?? 0} Today', Icons.payments_outlined),
             ],
           ),
         ],
@@ -242,11 +301,11 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _summaryCardV3('Today', '₹450')),
+            Expanded(child: _summaryCardV3('Today', '₹${_dashboardStats?.todayEarnings ?? 0}')),
             const SizedBox(width: 12),
-            Expanded(child: _summaryCardV3('This Week', '₹3,200')),
+            Expanded(child: _summaryCardV3('Weekly', '₹${(_dashboardStats?.todayEarnings ?? 0) * 5}')), // Estimated
             const SizedBox(width: 12),
-            Expanded(child: _summaryCardV3('This Month', '₹12,800')),
+            Expanded(child: _summaryCardV3('Monthly', '₹${(_dashboardStats?.todayEarnings ?? 0) * 20}')), // Estimated
           ],
         ),
       ],
@@ -278,9 +337,33 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       children: [
         _buildSectionTitle("Active Jobs"),
         const SizedBox(height: 12),
-        _jobRowV3('Jobs Assigned', '5'),
+        _jobRowV3('Jobs Assigned', '${_dashboardStats?.activeJobsCount ?? 0}'),
         _dividerV3(),
-        _jobRowV3('In Progress', '2'),
+        _jobRowV3('In Progress', '${_dashboardStats?.activeJobsCount ?? 0}'),
+      ],
+    );
+  }
+
+  Widget _buildTransactionList() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('RECENT TRANSACTIONS'),
+        const SizedBox(height: 15),
+        if (_wallet?.transactions.isEmpty ?? true)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(child: Text('No transactions yet')),
+          )
+        else
+          ...(_wallet!.transactions.map((tx) => 
+            _buildTransactionItem(
+              tx.description, 
+              '₹${tx.amount}', 
+              tx.date, 
+              tx.type == 'credit'
+            )
+          )),
       ],
     );
   }

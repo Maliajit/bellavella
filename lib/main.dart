@@ -2,20 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
+import 'core/router/client_router.dart';
+import 'core/router/professional_router.dart';
 
 void main({RouterConfig<Object>? router}) {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Initialize flavor configuration
   if (AppConfig.type == null) {
-    if (appFlavor == 'professional') {
+    final flavor = appFlavor ?? AppConfig.flavor;
+    if (flavor == 'professional') {
       AppConfig.type = AppType.professional;
     } else {
       AppConfig.type = AppType.client;
     }
   }
+
+  // Use provided router or fallback to the specific one based on app type
+  final effectiveRouter = router ?? (AppConfig.isProfessional ? professionalRouter : clientRouter);
   
-  runApp(BellavellaApp(routerConfig: router));
+  runApp(BellavellaApp(routerConfig: effectiveRouter));
 }
 
 class BellavellaApp extends StatelessWidget {
@@ -28,7 +34,7 @@ class BellavellaApp extends StatelessWidget {
     return MaterialApp.router(
       title: AppConfig.isProfessional ? 'Bellavella Pro' : 'Bellavella',
       theme: AppTheme.lightTheme,
-      routerConfig: routerConfig!, 
+      routerConfig: routerConfig, 
       debugShowCheckedModeBanner: false,
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../services/professional_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +9,8 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 
 class ProfessionalSignupScreen extends StatefulWidget {
-  const ProfessionalSignupScreen({super.key});
+  final String? phoneNumber;
+  const ProfessionalSignupScreen({super.key, this.phoneNumber});
 
   @override
   State<ProfessionalSignupScreen> createState() => _ProfessionalSignupScreenState();
@@ -16,6 +18,7 @@ class ProfessionalSignupScreen extends StatefulWidget {
 
 class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
   
   // Section A Controllers
   final _nameController = TextEditingController();
@@ -88,7 +91,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     }
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     if (_formKey.currentState!.validate()) {
       if (_selectedSkills.isEmpty) {
         _showErrorSnackBar('Please select at least one skill');
@@ -98,29 +101,31 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         _showErrorSnackBar('Please select at least one language');
         return;
       }
-      if (_aadharController.text.length != 12) {
-        _showErrorSnackBar('Aadhar number must be 12 digits');
-        return;
-      }
-      if (_aadharFront == null || _aadharBack == null) {
-        _showErrorSnackBar('Please upload both sides of Aadhar card');
-        return;
-      }
-      if (_panController.text.length != 10) {
-        _showErrorSnackBar('PAN number must be 10 characters');
-        return;
-      }
-      if (_panPhoto == null) {
-        _showErrorSnackBar('Please upload PAN card photo');
-        return;
-      }
-      if (_liveSelfie == null) {
-        _showErrorSnackBar('Please capture a live selfie');
-        return;
-      }
       
-      // Success - Navigate to Verification Status
-      context.go('/professional/verification-status', extra: _nameController.text);
+      setState(() => _isLoading = true);
+      
+      try {
+        final response = await ProfessionalApiService.register(
+          mobile: widget.phoneNumber ?? '',
+          name: _nameController.text,
+          category: _selectedSkills.join(', '),
+          city: _cityController.text,
+        );
+
+        if (mounted) {
+          if (response['success'] == true) {
+            context.go('/professional/verification-status', extra: _nameController.text);
+          } else {
+            _showErrorSnackBar(response['message'] ?? 'Registration failed');
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          _showErrorSnackBar('Error: ${e.toString()}');
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -384,7 +389,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               ]),
               
               const SizedBox(height: 48),
-              PrimaryButton(label: 'Submit Application', onPressed: _submitForm),
+              PrimaryButton(
+                label: _isLoading ? 'Submitting...' : 'Submit Application', 
+                onPressed: _isLoading ? null : _submitForm
+              ),
               const SizedBox(height: 40),
             ],
           ),

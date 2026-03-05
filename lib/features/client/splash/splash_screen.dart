@@ -1,3 +1,4 @@
+import 'package:bellavella/core/services/token_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
@@ -17,7 +18,11 @@ class _SplashScreenState extends State<SplashScreen> {
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
         if (AppConfig.isProfessional) {
-          context.go('/professional/login');
+          if (TokenManager.hasToken) {
+            context.go('/professional/dashboard');
+          } else {
+            context.go('/professional/login');
+          }
         } else {
           context.go('/onboarding');
         }
