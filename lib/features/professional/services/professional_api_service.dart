@@ -76,6 +76,16 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to load booking requests');
   }
 
+  static Future<List<pro_models.ProfessionalBooking>> getBookings() async {
+    final response = await ApiService.get('$_prefix/bookings');
+    if (response['success'] == true) {
+      return (response['data'] as List)
+          .map((i) => pro_models.ProfessionalBooking.fromJson(i))
+          .toList();
+    }
+    throw Exception(response['message'] ?? 'Failed to load bookings');
+  }
+
   static Future<Map<String, dynamic>> acceptBooking(String id) async {
     return await ApiService.post('$_prefix/bookings/$id/accept', {});
   }

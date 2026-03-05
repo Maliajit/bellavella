@@ -1,3 +1,5 @@
+import 'package:bellavella/core/utils/parser_util.dart';
+
 class Category {
   final String id;
   final String name;
@@ -41,7 +43,7 @@ class Service {
       categoryId: json['category_id']?.toString() ?? '',
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      price: (json['price'] ?? 0.0).toDouble(),
+      price: ParserUtil.safeParseDouble(json['price']),
       duration: json['duration'] ?? '',
       includedItems: (json['included_items'] as List? ?? []).map((e) => e.toString()).toList(),
       imageUrl: json['image_url'] ?? '',
@@ -55,6 +57,11 @@ class Professional {
   final String photoUrl;
   final double rating;
   final String phone;
+  final String status;
+  final String verification;
+  final String? experience;
+  final String? joined;
+  final bool docs;
   final List<Service> services;
 
   Professional({
@@ -63,19 +70,39 @@ class Professional {
     required this.photoUrl,
     required this.rating,
     required this.phone,
+    required this.status,
+    required this.verification,
+    this.experience,
+    this.joined,
+    this.docs = false,
     this.services = const [],
   });
 
   factory Professional.fromJson(Map<String, dynamic> json) {
+    // Backend returns 'avatar' for photo, not 'photo_url'
+    // Backend 'services' column is cast as array in Laravel,
+    // it might be a list of strings/ints or maps.
+    List<Service> services = [];
+    final rawServices = json['services'];
+    if (rawServices is List) {
+      services = rawServices
+          .where((i) => i is Map<String, dynamic>)
+          .map<Service>((i) => Service.fromJson(i as Map<String, dynamic>))
+          .toList();
+    }
+
     return Professional(
       id: json['id']?.toString() ?? '',
       name: json['name'] ?? 'Professional',
-      photoUrl: json['photo_url'] ?? '',
-      rating: (json['rating'] ?? 0.0).toDouble(),
-      phone: json['phone'] ?? '',
-      services: (json['services'] as List? ?? [])
-          .map((i) => Service.fromJson(i))
-          .toList(),
+      photoUrl: json['avatar'] ?? json['photo_url'] ?? '',
+      rating: ParserUtil.safeParseDouble(json['rating']),
+      phone: json['phone'] ?? json['mobile'] ?? '',
+      status: json['status'] ?? 'Active',
+      verification: json['verification'] ?? 'Pending',
+      experience: json['experience']?.toString(),
+      joined: json['created_at']?.toString() ?? json['joined']?.toString(),
+      docs: json['docs'] == true || json['docs'] == 1,
+      services: services,
     );
   }
 }
@@ -119,10 +146,10 @@ class Booking {
         (e) => e.name == json['status'],
         orElse: () => BookingStatus.requested,
       ),
-      totalPrice: (json['total_price'] ?? 0.0).toDouble(),
+      totalPrice: ParserUtil.safeParseDouble(json['total_price']),
       professional: json['professional'] != null ? Professional.fromJson(json['professional']) : null,
-      lat: (json['lat'] ?? 0.0).toDouble(),
-      lng: (json['lng'] ?? 0.0).toDouble(),
+      lat: ParserUtil.safeParseDouble(json['lat']),
+      lng: ParserUtil.safeParseDouble(json['lng']),
       arrivalCode: json['arrival_code'],
       paymentCode: json['payment_code'],
     );

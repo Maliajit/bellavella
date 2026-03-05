@@ -5,6 +5,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/router/route_names.dart';
 import './widgets/segmented_filter_bar.dart';
 import './widgets/order_item_card.dart';
+import '../services/professional_api_service.dart';
+import '../models/professional_models.dart' as pro_models;
+import '../../../core/models/data_models.dart';
 
 class ProfessionalOrderListScreen extends StatefulWidget {
   const ProfessionalOrderListScreen({super.key});
@@ -17,60 +20,54 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
   String _selectedFilter = 'All';
   String _sortBy = 'Time';
   final List<String> _filters = ['All', 'Today', 'Upcoming', 'Completed'];
+  
+  List<pro_models.ProfessionalBooking> _orders = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  // Mock Data
-  final List<Map<String, dynamic>> _orders = [
-    {
-      'id': '1',
-      'name': 'Rahul Mehta',
-      'service': 'Haircut + Beard',
-      'status': 'Accepted',
-      'time': '2:30 PM',
-      'date': 'Today',
-      'location': 'Satellite, Ahmedabad',
-      'price': '₹499',
-    },
-    {
-      'id': '2',
-      'name': 'Sneha Patel',
-      'service': 'Classic Facial',
-      'status': 'Pending',
-      'time': '4:00 PM',
-      'date': 'Today',
-      'location': 'Bodakdev, Ahmedabad',
-      'price': '₹850',
-    },
-    {
-      'id': '3',
-      'name': 'Amit Shah',
-      'service': 'Full Body Massage',
-      'status': 'Upcoming',
-      'time': '10:30 AM',
-      'date': 'Tomorrow',
-      'location': 'Prahlad Nagar, Ahmedabad',
-      'price': '₹1,200',
-    },
-    {
-      'id': '4',
-      'name': 'Priya Rai',
-      'service': 'Manicure & Pedicure',
-      'status': 'Completed',
-      'time': '11:00 AM',
-      'date': 'Yesterday',
-      'location': 'Navrangpura, Ahmedabad',
-      'price': '₹600',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchOrders();
+  }
 
-  List<Map<String, dynamic>> get _filteredOrders {
-    List<Map<String, dynamic>> filtered = _orders;
+  Future<void> _fetchOrders() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final orders = await ProfessionalApiService.getBookings();
+      if (mounted) {
+        setState(() {
+          _orders = orders;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<pro_models.ProfessionalBooking> get _filteredOrders {
+    List<pro_models.ProfessionalBooking> filtered = _orders;
     if (_selectedFilter != 'All') {
-      filtered = filtered.where((o) => o['date'] == _selectedFilter || o['status'] == _selectedFilter).toList();
+      // Basic filter logic for dynamic orders
+      if (_selectedFilter == 'Today') {
+        filtered = filtered.where((o) => o.time.contains('Today') || o.time.contains('AM') || o.time.contains('PM')).toList();
+      } else if (_selectedFilter == 'Completed') {
+        filtered = filtered.where((o) => o.status == BookingStatus.completed).toList();
+      }
     }
     
-    // Sort logic (Mock)
-    if (_sortBy == 'Price') {
-      filtered.sort((a, b) => b['price'].compareTo(a['price']));
+    // Sort logic (Dynamic)
+    if (_sortBy == 'Earnings') {
+      filtered.sort((a, b) => b.totalPrice.compareTo(a.totalPrice));
     }
     
     return filtered;
@@ -131,6 +128,27 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Error: $_errorMessage'),
+              const SizedBox(height: 16),
+              ElevatedButton(onPressed: _fetchOrders, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+
     final filtered = _filteredOrders;
 
     return Scaffold(
@@ -156,33 +174,12 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
                   Row(
                     children: [
                       IconButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Refreshing orders..."),
-                              duration: Duration(seconds: 1),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
+                        onPressed: _fetchOrders,
                         icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.black87),
                         padding: const EdgeInsets.all(8),
                         constraints: const BoxConstraints(),
                       ),
                       const SizedBox(width: 8),
-                      // ElevatedButton.icon(
-                      //   onPressed: () => context.pushNamed(AppRoutes.proIncomingRequestName),
-                      //   icon: const Icon(Icons.notifications_active_rounded, size: 16),
-                      //   label: const Text("Test Request"),
-                      //   style: ElevatedButton.styleFrom(
-                      //     backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                      //     foregroundColor: AppTheme.primaryColor,
-                      //     elevation: 0,
-                      //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      //     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      //   ),
-                      // ),
-                      // const SizedBox(width: 12),
                       GestureDetector(
                         onTap: _showSortSheet,
                         child: Container(
@@ -211,32 +208,48 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
 
             // Orders List or Empty State
             Expanded(
-              child: filtered.isEmpty 
-                ? _buildEmptyState()
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final order = filtered[index];
-                      return OrderItemCard(
-                        order: order,
-                        onTap: () => context.pushNamed(
-                          AppRoutes.proBookingDetailName,
-                          pathParameters: {'id': order['id']},
-                        ),
-                        onSwipeAction: (isPositive) {
-                          final action = isPositive ? "Accepted" : "Rejected";
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("Order ${order['id']} $action"),
-                              backgroundColor: isPositive ? Colors.green : Colors.red,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        },
-                      );
-                    },
-                  ),
+              child: RefreshIndicator(
+                onRefresh: _fetchOrders,
+                color: AppTheme.primaryColor,
+                child: filtered.isEmpty 
+                  ? _buildEmptyState()
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final order = filtered[index];
+                        return OrderItemCard(
+                          order: {
+                            'id': order.id,
+                            'name': order.clientName,
+                            'service': order.serviceName,
+                            'status': order.status == BookingStatus.accepted ? 'Accepted' :
+                                      order.status == BookingStatus.started ? 'Ongoing' :
+                                      order.status == BookingStatus.completed ? 'Completed' :
+                                      order.status == BookingStatus.cancelled ? 'Cancelled' : 'Pending',
+                            'time': order.time,
+                            'date': order.date,
+                            'location': order.address,
+                            'price': '₹${order.totalPrice}',
+                          },
+                          onTap: () => context.pushNamed(
+                            AppRoutes.proBookingDetailName,
+                            pathParameters: {'id': order.id},
+                          ),
+                          onSwipeAction: (isPositive) async {
+                            if (isPositive) {
+                              try {
+                                await ProfessionalApiService.acceptBooking(order.id);
+                                _fetchOrders();
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                              }
+                            }
+                          },
+                        );
+                      },
+                    ),
+              ),
             ),
           ],
         ),

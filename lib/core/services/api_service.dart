@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config/app_config.dart';
 import 'token_manager.dart';
 
 class ApiService {
-  static const String _baseUrl = AppConfig.baseUrl;
+  static String get _baseUrl => AppConfig.baseUrl;
 
   static Map<String, String> get _headers {
     final headers = {
@@ -22,8 +23,10 @@ class ApiService {
 
   static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
     try {
+      final url = '$_baseUrl$endpoint';
+      debugPrint('ApiService: POST request to $url');
       final response = await http.post(
-        Uri.parse('$_baseUrl$endpoint'),
+        Uri.parse(url),
         headers: _headers,
         body: jsonEncode(body),
       );

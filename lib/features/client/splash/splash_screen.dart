@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/router/route_names.dart';
+import '../../professional/services/professional_api_service.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,29 +17,34 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
+    Future.delayed(const Duration(seconds: 2), () async {
       if (mounted) {
-        // 1. Check Onboarding (First Experience)
-        if (!TokenManager.isOnboardingComplete) {
-          context.go(AppRoutes.onboarding);
-          return;
-        }
-
-        // 2. Check App Type / Role Selection
-        if (AppConfig.type == null) {
-          context.go(AppRoutes.roleSelection);
-          return;
-        }
-
         if (AppConfig.isProfessional) {
           // Professional Flow
           if (TokenManager.hasToken) {
-            context.go(AppRoutes.proDashboard);
+            try {
+              final profile = await ProfessionalApiService.getProfile();
+              if (mounted) {
+                if (profile.verification == 'Verified') {
+                  context.go(AppRoutes.proDashboard);
+                } else {
+                  context.go(AppRoutes.proVerificationStatus, extra: profile.name);
+                }
+              }
+            } catch (e) {
+              if (mounted) context.go(AppRoutes.proLogin);
+            }
           } else {
             context.go(AppRoutes.proLogin);
           }
         } else {
           // Client Flow
+          // 1. Check Onboarding (First Experience - Client Only)
+          if (!TokenManager.isOnboardingComplete) {
+            context.go(AppRoutes.onboarding);
+            return;
+          }
+
           if (!TokenManager.hasToken) {
             context.go(AppRoutes.clientLogin);
           } else if (!TokenManager.hasLocation) {

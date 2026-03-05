@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../services/professional_api_service.dart';
+import '../models/professional_models.dart' as pro_models;
+import '../../../../core/models/data_models.dart';
 
 class ProfessionalJobsScreen extends StatefulWidget {
   const ProfessionalJobsScreen({super.key});
@@ -12,11 +15,40 @@ class ProfessionalJobsScreen extends StatefulWidget {
 class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isScrolled = false;
+  List<pro_models.ProfessionalBooking> _requests = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _fetchRequests();
+  }
+
+  Future<void> _fetchRequests() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final requests = await ProfessionalApiService.getBookingRequests();
+      if (mounted) {
+        setState(() {
+          // Filter for pending/requested status if needed, 
+          // but assuming getBookingRequests returns available ones for this screen.
+          _requests = requests.where((r) => r.status == BookingStatus.requested).toList();
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -42,28 +74,58 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
           children: [
             _buildHeader(),
             Expanded(
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Available Requests',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 15),
-                      _buildJobCard('Sia Kapoor', 'Bridal Makeup', 'Today, 2:00 PM', '₹5,000', 'Mumbai'),
-                      _buildJobCard('Riya Sharma', 'Facial & Cleanup', 'Tomorrow, 11:00 AM', '₹1,200', 'Navi Mumbai'),
-                      _buildJobCard('Ananya Jain', 'Hair Styling', '20 Aug, 4:00 PM', '₹800', 'Pune'),
-                      _buildJobCard('Pooja Hegde', 'Full Body Waxing', '21 Aug, 10:30 AM', '₹1,500', 'Bandra'),
-                      const SizedBox(height: 30),
-                    ],
-                  ),
-                ),
-              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+                  : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text('Error: $_errorMessage'),
+                              const SizedBox(height: 16),
+                              ElevatedButton(onPressed: _fetchRequests, child: const Text('Retry')),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _fetchRequests,
+                          color: AppTheme.primaryColor,
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const SizedBox(height: 20),
+                                  const Text(
+                                    'Available Requests',
+                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                  ),
+                                  const SizedBox(height: 15),
+                                  if (_requests.isEmpty)
+                                    const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.only(top: 40),
+                                        child: Text('No new requests at the moment.'),
+                                      ),
+                                    )
+                                  else
+                                    ..._requests.map((request) => _buildJobCard(
+                                          request.id,
+                                          request.clientName,
+                                          request.serviceName,
+                                          request.time,
+                                          '₹${request.totalPrice}',
+                                          request.address,
+                                        )),
+                                  const SizedBox(height: 30),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
             ),
           ],
         ),
@@ -86,7 +148,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
           IconButton(
             icon: const Icon(Icons.arrow_back),
             color: _isScrolled ? Colors.white : Colors.black,
-            onPressed: () => context.go('/professional/earnings'),
+            onPressed: () => context.pop(),
           ),
           Text(
             'Job Requests',
@@ -101,7 +163,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
     );
   }
 
-  Widget _buildJobCard(String name, String service, String time, String price, String location) {
+  Widget _buildJobCard(String id, String name, String service, String time, String price, String location) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(20),
@@ -145,7 +207,19 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () {},
+              onPressed: () async {
+                try {
+                  await ProfessionalApiService.acceptBooking(id);
+                  _fetchRequests();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Request accepted successfully!')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: $e')),
+                  );
+                }
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

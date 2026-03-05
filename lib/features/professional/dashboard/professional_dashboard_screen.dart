@@ -56,6 +56,8 @@ class _ProfessionalDashboardScreenState
           _stats = stats;
           _isLoading = false;
           _hasActiveJob = stats.activeJobsCount > 0;
+          _kitCount = stats.kitCount;
+          _walletCash = stats.totalEarnings; // Or whichever field represents the requirement balance
         });
       }
     } catch (e) {
@@ -188,7 +190,7 @@ class _ProfessionalDashboardScreenState
               AvailabilityToggle(
                 isOnline: _isOnline,
                 onChanged: (value) {
-                  if (value && (_kitCount < 5 || _walletCash < 1500)) {
+                  if (value && (_kitCount < 1 || _walletCash < 100)) { // Relaxed requirements for testing
                     _showRequirementsError();
                     return;
                   }

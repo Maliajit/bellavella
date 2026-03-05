@@ -151,3 +151,38 @@ class PrimaryButton extends StatelessWidget {
     );
   }
 }
+
+class SecondaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPressed;
+  final bool isLoading;
+
+  const SecondaryButton({
+    super.key,
+    required this.label,
+    this.onPressed,
+    this.isLoading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 50),
+          side: const BorderSide(color: AppTheme.primaryColor),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+        onPressed: isLoading ? null : onPressed,
+        child: isLoading
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2),
+              )
+            : Text(label, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+}

@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/router/route_names.dart';
 import '../services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
-import '../../../core/widgets/base_widgets.dart';
 
 class ProfessionalProfileScreen extends StatefulWidget {
   const ProfessionalProfileScreen({super.key});
@@ -263,7 +262,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         Text(
           (_profile?.services != null && _profile!.services.isNotEmpty) 
               ? _profile!.services.first.name 
-              : 'Service Provider',
+              : (_profile?.verification ?? 'Service Provider'),
           style: GoogleFonts.inter(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -277,7 +276,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
             const Icon(Icons.star_rounded, size: 18, color: Color(0xFFFFB800)),
             const SizedBox(width: 4),
             Text(
-              "${_profile?.rating ?? 4.5} (Verified)",
+              "${_profile?.rating ?? 0.0} (${_profile?.verification ?? 'Pending'})",
               style: GoogleFonts.inter(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -290,9 +289,15 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _badge("Experience: 5 Years"), // Fallback as experience might not be in basic model
-            const SizedBox(width: 12),
-            _badge("Joined: Dec 2024"),
+            if (_profile?.experience != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: _badge("Exp: ${_profile!.experience}"),
+              ),
+            if (_profile?.joined != null)
+              _badge("Joined: ${_profile!.joined!.split('T').first}"),
+            if (_profile?.experience == null && _profile?.joined == null)
+              _badge("Service Provider"),
           ],
         ),
       ],

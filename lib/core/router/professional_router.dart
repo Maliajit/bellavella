@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../router/route_names.dart';
 import '../widgets/professional_scaffold.dart';
 import '../../features/client/splash/splash_screen.dart';
+import '../../features/client/auth/onboarding_screen.dart';
+import '../../features/client/auth/role_selection_screen.dart';
 import '../../features/professional/auth/professional_login_screen.dart';
 import '../../features/professional/auth/otp_verify_screen.dart';
 import '../../features/professional/auth/professional_signup_screen.dart';
@@ -27,7 +29,6 @@ import '../../features/professional/job_workflow/screens/pro_service_screen.dart
 import '../../features/professional/job_workflow/screens/pro_payment_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_completion_screen.dart';
 import '../../features/professional/notifications/professional_notifications_screen.dart';
-import '../../features/client/auth/role_selection_screen.dart';
 
 final professionalRouter = GoRouter(
   initialLocation: AppRoutes.splash,
@@ -52,6 +53,11 @@ final _rootRoutes = [
     path: AppRoutes.roleSelection,
     name: AppRoutes.roleSelectionName,
     builder: (context, state) => const RoleSelectionScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.onboarding,
+    name: AppRoutes.onboardingName,
+    builder: (context, state) => const OnboardingScreen(),
   ),
 ];
 
