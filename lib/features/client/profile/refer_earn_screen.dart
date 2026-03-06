@@ -1,6 +1,7 @@
 import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/theme/app_theme.dart';
 
@@ -282,7 +283,13 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       height: 55,
       child: ElevatedButton(
-        onPressed: () {},
+        onPressed: () {
+          if (_referralCode != null && _referralCode != 'N/A') {
+            Share.share(
+              'Hey! Join BellaVella 💖\n\nUse my referral code: $_referralCode\n\nDownload the app here: https://bellavella.com/download?ref=$_referralCode',
+            );
+          }
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
           shape: RoundedRectangleBorder(
