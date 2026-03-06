@@ -1,8 +1,55 @@
+import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import '../../../core/theme/app_theme.dart';
 
-class ReferEarnScreen extends StatelessWidget {
+class ReferEarnScreen extends StatefulWidget {
   const ReferEarnScreen({super.key});
+
+  @override
+  State<ReferEarnScreen> createState() => _ReferEarnScreenState();
+}
+
+class _ReferEarnScreenState extends State<ReferEarnScreen> {
+  String? _referralCode;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReferralData();
+  }
+
+  Future<void> _loadReferralData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final customer = await ClientApiService.getProfile();
+      setState(() {
+        _referralCode = customer.referralCode ?? 'N/A';
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _copyReferralCode() async {
+    if (_referralCode != null && _referralCode != 'N/A') {
+      await Clipboard.setData(ClipboardData(text: _referralCode!));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Referral code copied to clipboard!')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,20 +67,39 @@ class ReferEarnScreen extends StatelessWidget {
           style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildActionHeader(),
-            const SizedBox(height: 30),
-            _buildReferralCodeContainer(),
-            const SizedBox(height: 40),
-            _buildHowItWorks(),
-            const SizedBox(height: 40),
-            _buildInviteButton(context),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Failed to load referral data',
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: _loadReferralData,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildActionHeader(),
+                  const SizedBox(height: 30),
+                  _buildReferralCodeContainer(),
+                  const SizedBox(height: 40),
+                  _buildHowItWorks(),
+                  const SizedBox(height: 40),
+                  _buildInviteButton(context),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
     );
   }
 
@@ -45,10 +111,7 @@ class ReferEarnScreen extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFB6C1),
-            AppTheme.primaryColor,
-          ],
+          colors: [Color(0xFFFFB6C1), AppTheme.primaryColor],
         ),
         borderRadius: BorderRadius.only(
           bottomLeft: Radius.circular(30),
@@ -63,7 +126,11 @@ class ReferEarnScreen extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.card_giftcard, color: Colors.white, size: 60),
+            child: const Icon(
+              Icons.card_giftcard,
+              color: Colors.white,
+              size: 60,
+            ),
           ),
           const SizedBox(height: 20),
           const Text(
@@ -105,16 +172,16 @@ class ReferEarnScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
-            'URBON1234',
-            style: TextStyle(
+          Text(
+            _referralCode ?? 'Loading...',
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               letterSpacing: 2,
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: _copyReferralCode,
             icon: const Icon(Icons.copy, size: 18),
             label: const Text('Copy'),
             style: ElevatedButton.styleFrom(
@@ -122,7 +189,9 @@ class ReferEarnScreen extends StatelessWidget {
               foregroundColor: Colors.white,
               minimumSize: const Size(0, 40),
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               elevation: 0,
             ),
           ),
@@ -152,13 +221,18 @@ class ReferEarnScreen extends StatelessWidget {
         _buildStepItem(
           icon: Icons.card_giftcard_outlined,
           title: 'Earn rewards',
-          subtitle: 'You get rewards in your wallet after their service completion.',
+          subtitle:
+              'You get rewards in your wallet after their service completion.',
         ),
       ],
     );
   }
 
-  Widget _buildStepItem({required IconData icon, required String title, required String subtitle}) {
+  Widget _buildStepItem({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -184,7 +258,10 @@ class ReferEarnScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -208,7 +285,9 @@ class ReferEarnScreen extends StatelessWidget {
         onPressed: () {},
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
         ),
         child: const Text(

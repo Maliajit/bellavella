@@ -126,9 +126,8 @@ final _featureRoutes = [
   GoRoute(
     path: AppRoutes.clientServiceDetail,
     name: AppRoutes.clientServiceDetailName,
-    builder: (context, state) => ServiceDetailScreen(
-      serviceId: state.pathParameters['id'] ?? '',
-    ),
+    builder: (context, state) =>
+        ServiceDetailScreen(serviceId: state.pathParameters['id'] ?? ''),
   ),
   GoRoute(
     path: AppRoutes.clientCart,
@@ -148,16 +147,14 @@ final _featureRoutes = [
   GoRoute(
     path: AppRoutes.clientLiveTracking,
     name: AppRoutes.clientLiveTrackingName,
-    builder: (context, state) => LiveTrackingScreen(
-      bookingId: state.pathParameters['bookingId'] ?? '',
-    ),
+    builder: (context, state) =>
+        LiveTrackingScreen(bookingId: state.pathParameters['bookingId'] ?? ''),
   ),
   GoRoute(
     path: AppRoutes.clientServiceReview,
     name: AppRoutes.clientServiceReviewName,
-    builder: (context, state) => ServiceReviewScreen(
-      bookingId: state.pathParameters['bookingId'] ?? '',
-    ),
+    builder: (context, state) =>
+        ServiceReviewScreen(bookingId: state.pathParameters['bookingId'] ?? ''),
   ),
   GoRoute(
     path: AppRoutes.clientManageAddress,
@@ -167,7 +164,7 @@ final _featureRoutes = [
   GoRoute(
     path: AppRoutes.clientUpdateAddress,
     name: AppRoutes.clientUpdateAddressName,
-    builder: (context, state) => const UpdateAddressScreen(),
+    builder: (context, state) => UpdateAddressScreen.fromExtra(state.extra),
   ),
   GoRoute(
     path: AppRoutes.clientReferEarn,

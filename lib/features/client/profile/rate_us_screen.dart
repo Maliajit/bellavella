@@ -1,4 +1,6 @@
+import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_theme.dart';
 
 class RateUsScreen extends StatefulWidget {
@@ -10,6 +12,39 @@ class RateUsScreen extends StatefulWidget {
 
 class _RateUsScreenState extends State<RateUsScreen> {
   int _rating = 0;
+  final TextEditingController _feedbackController = TextEditingController();
+  bool _isSubmitting = false;
+
+  Future<void> _submitRating() async {
+    if (_rating == 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a rating')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      await ClientApiService.submitAppFeedback(_rating, _feedbackController.text);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thank you for your feedback!')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to submit rating: $e')));
+    } finally {
+      setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _feedbackController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +83,9 @@ class _RateUsScreenState extends State<RateUsScreen> {
                   onPressed: () => setState(() => _rating = index + 1),
                   icon: Icon(
                     index < _rating ? Icons.star : Icons.star_border_rounded,
-                    color: index < _rating ? Colors.amber : Colors.grey.shade400,
+                    color: index < _rating
+                        ? Colors.amber
+                        : Colors.grey.shade400,
                     size: 45,
                   ),
                 );
@@ -56,6 +93,7 @@ class _RateUsScreenState extends State<RateUsScreen> {
             ),
             const SizedBox(height: 40),
             TextField(
+              controller: _feedbackController,
               maxLines: 5,
               decoration: InputDecoration(
                 hintText: 'Write your feedback...',
@@ -75,61 +113,31 @@ class _RateUsScreenState extends State<RateUsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 30),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Add Photo / Video',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Container(
-              width: double.infinity,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.add, color: AppTheme.primaryColor),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Tap to add media',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
+           
+            
             const SizedBox(height: 40),
             SizedBox(
               width: double.infinity,
               height: 55,
               child: ElevatedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: _isSubmitting ? null : _submitRating,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Submit',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                child: _isSubmitting
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        'Submit',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
               ),
             ),
           ],
