@@ -1,18 +1,19 @@
 import '../../../../core/services/api_service.dart';
 
 class AuthApiService {
+  static const String _prefix = '/client/auth';
+
   static Future<Map<String, dynamic>> sendOtp(String mobile) async {
-    // According to api.php: Route::post('send-otp', [FlutterAuthController::class, 'sendOtp']);
-    // Prefix is 'flutter/auth'
-    return await ApiService.post('/flutter/auth/send-otp', {
+    return await ApiService.post('$_prefix/send-otp', {
       'mobile': mobile,
     });
   }
 
-  static Future<Map<String, dynamic>> verifyOtp(String mobile, String otp) async {
-    return await ApiService.post('/flutter/auth/verify-otp', {
+  static Future<Map<String, dynamic>> verifyOtp(String mobile, String otp, {String? referralCode}) async {
+    return await ApiService.post('$_prefix/verify-otp', {
       'mobile': mobile,
       'otp': otp,
+      if (referralCode != null) 'referral_code': referralCode,
     });
   }
 }

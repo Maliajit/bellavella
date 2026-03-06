@@ -1,8 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_theme.dart';
+import '../services/client_api_service.dart';
 
-class ReferEarnScreen extends StatelessWidget {
+class ReferEarnScreen extends StatefulWidget {
   const ReferEarnScreen({super.key});
+
+  @override
+  State<ReferEarnScreen> createState() => _ReferEarnScreenState();
+}
+
+class _ReferEarnScreenState extends State<ReferEarnScreen> {
+  Map<String, dynamic>? _stats;
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStats();
+  }
+
+  Future<void> _fetchStats() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      final stats = await ClientApiService.getReferralStats();
+      if (mounted) {
+        setState(() {
+          _stats = stats;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _shareCode() {
+    if (_stats == null) return;
+    final code = _stats!['referral_code'];
+    Share.share(
+      'Join BellaVella using my referral code: $code and get amazing beauty services at home! Download now.',
+      subject: 'BellaVella Referral',
+    );
+  }
+
+  void _copyCode() {
+    if (_stats == null) return;
+    Clipboard.setData(ClipboardData(text: _stats!['referral_code']));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Referral code copied to clipboard')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -12,73 +71,84 @@ class ReferEarnScreen extends StatelessWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Refer & Earn',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildActionHeader(),
-            const SizedBox(height: 30),
-            _buildReferralCodeContainer(),
-            const SizedBox(height: 40),
-            _buildHowItWorks(),
-            const SizedBox(height: 40),
-            _buildInviteButton(context),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          : _errorMessage != null
+              ? Center(child: Text('Error: $_errorMessage'))
+              : RefreshIndicator(
+                  onRefresh: _fetchStats,
+                  color: AppTheme.primaryColor,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        _buildActionHeader(),
+                        const SizedBox(height: 30),
+                        _buildReferralCodeContainer(),
+                        const SizedBox(height: 32),
+                        _buildStatsRow(),
+                        const SizedBox(height: 40),
+                        _buildHowItWorks(),
+                        const SizedBox(height: 40),
+                        _buildInviteButton(context),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
+                ),
     );
   }
 
   Widget _buildActionHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(40),
+      padding: const EdgeInsets.fromLTRB(40, 40, 40, 60),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFB6C1),
+            Color(0xFFFF7EB3),
             AppTheme.primaryColor,
           ],
         ),
         borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
+          bottomLeft: Radius.circular(40),
+          bottomRight: Radius.circular(40),
         ),
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
+              color: Colors.white.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.card_giftcard, color: Colors.white, size: 60),
+            child: const Icon(Icons.card_giftcard_rounded, color: Colors.white, size: 56),
           ),
-          const SizedBox(height: 20),
-          const Text(
+          const SizedBox(height: 24),
+          Text(
             'Invite friends & Earn Rewards!',
-            style: TextStyle(
+            style: GoogleFonts.outfit(
               color: Colors.white,
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 10),
-          const Text(
+          const SizedBox(height: 12),
+          Text(
             'Share your referral code and earn credits when your friends join & book services.',
-            style: TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+            style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.9), fontSize: 14, height: 1.5),
             textAlign: TextAlign.center,
           ),
         ],
@@ -87,45 +157,90 @@ class ReferEarnScreen extends StatelessWidget {
   }
 
   Widget _buildReferralCodeContainer() {
+    final code = _stats?['referral_code'] ?? '----------';
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.1)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          const Text(
-            'URBON1234',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 2,
-            ),
+          Text(
+            'YOUR REFERRAL CODE',
+            style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade500, letterSpacing: 1),
           ),
-          ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.copy, size: 18),
-            label: const Text('Copy'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.8),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              elevation: 0,
-            ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                code,
+                style: GoogleFonts.outfit(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(width: 16),
+              GestureDetector(
+                onTap: _copyCode,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.copy_rounded, size: 20, color: AppTheme.primaryColor),
+                ),
+              ),
+            ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        children: [
+          Expanded(
+            child: _statItem('Referrals', '${_stats?['total_referrals'] ?? 0}'),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: _statItem('Earned', '₹${_stats?['total_earnings'] ?? 0}'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statItem(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: [
+          Text(value, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+          const SizedBox(height: 4),
+          Text(label, style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade600)),
         ],
       ),
     );
@@ -134,11 +249,11 @@ class ReferEarnScreen extends StatelessWidget {
   Widget _buildHowItWorks() {
     return Column(
       children: [
-        const Text(
+        Text(
           'How it works',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         _buildStepItem(
           icon: Icons.person_add_outlined,
           title: 'Invite your friends',
@@ -160,11 +275,11 @@ class ReferEarnScreen extends StatelessWidget {
 
   Widget _buildStepItem({required IconData icon, required String title, required String subtitle}) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade100),
       ),
       child: Row(
@@ -172,7 +287,7 @@ class ReferEarnScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.05),
+              color: AppTheme.primaryColor.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: AppTheme.primaryColor, size: 24),
@@ -184,12 +299,12 @@ class ReferEarnScreen extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                  style: GoogleFonts.outfit(color: Colors.grey.shade600, fontSize: 13),
                 ),
               ],
             ),
@@ -202,22 +317,18 @@ class ReferEarnScreen extends StatelessWidget {
   Widget _buildInviteButton(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      height: 55,
-      child: ElevatedButton(
-        onPressed: () {},
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: 58,
+      child: ElevatedButton.icon(
+        onPressed: _shareCode,
+        icon: const Icon(Icons.share_rounded, size: 20, color: Colors.white),
+        label: const Text('Invite Friends'),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
-        ),
-        child: const Text(
-          'Invite Friends',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          textStyle: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ),
     );

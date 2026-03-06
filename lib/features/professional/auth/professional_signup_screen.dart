@@ -1,6 +1,7 @@
 import 'dart:io';
 import '../services/professional_api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,7 +25,9 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _dobController = TextEditingController();
+  DateTime? _selectedDob;
   String? _selectedGender;
+  final _referralCodeController = TextEditingController();
   
   // Section B Data
   final List<String> _allSkills = ['Facial', 'Waxing', 'Makeup', 'Hair Styling', 'Manicure', 'Pedicure', 'Massage'];
@@ -62,15 +65,19 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     _pincodeController.dispose();
     _aadharController.dispose();
     _panController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    final DateTime now = DateTime.now();
+    final DateTime lastDateAllowed = DateTime(now.year - 18, now.month, now.day);
+    
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      initialDate: lastDateAllowed,
       firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
+      lastDate: lastDateAllowed,
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -86,6 +93,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
     if (picked != null) {
       setState(() {
+        _selectedDob = picked;
         _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
       });
     }
@@ -110,11 +118,59 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           name: _nameController.text,
           category: _selectedSkills.join(', '),
           city: _cityController.text,
+          email: _emailController.text,
+          dob: _selectedDob != null ? DateFormat('yyyy-MM-dd').format(_selectedDob!) : null,
+          gender: _selectedGender,
+          experience: _selectedExperience,
+          languages: _selectedLanguages.join(', '),
+          address: _addressController.text,
+          pincode: _pincodeController.text,
+          state: _selectedState,
+          aadharNumber: _aadharController.text,
+          panNumber: _panController.text,
+          aadharFront: _aadharFront,
+          aadharBack: _aadharBack,
+          panPhoto: _panPhoto,
+          selfie: _liveSelfie,
+          referralCode: _referralCodeController.text.isNotEmpty ? _referralCodeController.text : null,
         );
 
         if (mounted) {
           if (response['success'] == true) {
-            context.go('/professional/verification-status', extra: _nameController.text);
+            final int coins = response['coins_awarded'] ?? 0;
+            if (coins > 0) {
+              await showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => AlertDialog(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
+                      const SizedBox(height: 16),
+                      Text('Congratulations!', 
+                        style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text('You\'ve received $coins welcome coins!', 
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade600)),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: PrimaryButton(
+                          label: 'Awesome!', 
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            if (mounted) {
+              context.go('/professional/verification-status', extra: _nameController.text);
+            }
           } else {
             _showErrorSnackBar(response['message'] ?? 'Registration failed');
           }
@@ -149,6 +205,15 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         else if (type == 'selfie') _liveSelfie = image;
       });
     }
+  }
+
+  void _removeImage(String type) {
+    setState(() {
+      if (type == 'aadhar_front') _aadharFront = null;
+      else if (type == 'aadhar_back') _aadharBack = null;
+      else if (type == 'pan') _panPhoto = null;
+      else if (type == 'selfie') _liveSelfie = null;
+    });
   }
 
   void _showImageSourceSheet(String type) {
@@ -260,7 +325,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 const SizedBox(height: 16),
                 _buildTextField('Email', _emailController, Icons.email_outlined, (v) {
                   if (v!.isEmpty) return 'Email required';
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Enter valid email';
+                  // ignore: valid_regexps
+                  if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(v)) {
+                    return 'Enter a valid email (e.g., user@example.com)';
+                  }
                   return null;
                 }, keyboardType: TextInputType.emailAddress),
                 const SizedBox(height: 16),
@@ -272,6 +340,8 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 ),
                 const SizedBox(height: 16),
                 _buildDropdown('Gender', ['Male', 'Female', 'Other'], _selectedGender, (v) => setState(() => _selectedGender = v)),
+                const SizedBox(height: 16),
+                _buildTextField('Referral Code (Optional)', _referralCodeController, Icons.card_giftcard_rounded, (v) => null),
               ]),
               
               const SizedBox(height: 32),
@@ -354,9 +424,9 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _buildImagePickerTile('Front side', _aadharFront, () => _showImageSourceSheet('aadhar_front'))),
+                    Expanded(child: _buildImagePickerTile('Front side', _aadharFront, 'aadhar_front')),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildImagePickerTile('Back side', _aadharBack, () => _showImageSourceSheet('aadhar_back'))),
+                    Expanded(child: _buildImagePickerTile('Back side', _aadharBack, 'aadhar_back')),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -370,7 +440,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 const SizedBox(height: 16),
                 const Text('PAN Card Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
-                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Photo', _panPhoto,  () => _showImageSourceSheet('pan'), ),),
+                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Photo', _panPhoto, 'pan'),),
                 const SizedBox(height: 24),
                 const Text('Live Selfie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
@@ -381,7 +451,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   child: _buildImagePickerTile(
                     'Capture Selfie',
                     _liveSelfie,
-                    () => _showImageSourceSheet('selfie'),
+                    'selfie',
                     isSquare: true,
                   ),
                 ),
@@ -495,9 +565,9 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Widget _buildImagePickerTile(String label, XFile? image, VoidCallback onTap, {bool isSquare = false}) {
+  Widget _buildImagePickerTile(String label, XFile? image, String type, {bool isSquare = false}) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => image == null ? _showImageSourceSheet(type) : null,
       child: Container(
         height: isSquare ? 200 : 120,
         decoration: BoxDecoration(
@@ -506,9 +576,36 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           border: Border.all(color: Colors.grey.shade200),
         ),
         child: image != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(File(image.path), fit: BoxFit.cover, width: double.infinity),
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: kIsWeb
+                        ? Image.network(image.path, fit: BoxFit.cover, width: double.infinity)
+                        : Image.file(
+                            File(image.path), 
+                            fit: BoxFit.cover, 
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.error_outline, color: Colors.red)),
+                          ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () => _removeImage(type),
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close, size: 16, color: Colors.red),
+                      ),
+                    ),
+                  ),
+                ],
               )
             : Column(
                 mainAxisAlignment: MainAxisAlignment.center,

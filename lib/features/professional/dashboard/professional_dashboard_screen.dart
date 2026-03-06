@@ -27,7 +27,7 @@ class _ProfessionalDashboardScreenState
   String? _errorMessage;
   late ConfettiController _confettiController;
   final ScrollController _scrollController = ScrollController();
-  bool _isOnline = true;
+  bool _isOnline = false; // Default: Offline until requirements met
   bool _hasActiveJob = false;
   int _kitCount = 0;
   double _walletCash = 0;
@@ -57,7 +57,8 @@ class _ProfessionalDashboardScreenState
           _isLoading = false;
           _hasActiveJob = stats.activeJobsCount > 0;
           _kitCount = stats.kitCount;
-          _walletCash = stats.totalEarnings; // Or whichever field represents the requirement balance
+          _walletCash = stats.walletBalance; // Actual wallet balance
+          _isOnline = false;                 // Force "Off by default" as per user request
         });
       }
     } catch (e) {
@@ -70,11 +71,17 @@ class _ProfessionalDashboardScreenState
     }
   }
 
-  Future<void> _toggleAvailability() async {
+  Future<void> _toggleAvailability(bool value) async {
+    // Going online requires ₹1500 wallet balance
+    if (value && _walletCash < 1500) {
+      _showRequirementsError();
+      return;
+    }
+
     try {
-      final res = await ProfessionalApiService.toggleAvailability();
+      final res = await ProfessionalApiService.toggleAvailability(value);
       if (res['success'] == true) {
-        setState(() => _isOnline = !_isOnline);
+        setState(() => _isOnline = value);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -135,6 +142,8 @@ class _ProfessionalDashboardScreenState
                     children: [
                       const SizedBox(height: 20),
                       _buildPrimaryFocusPanel(),
+                      const SizedBox(height: 20),
+                      _buildReferralBanner(),
                       const SizedBox(height: 32),
                       _buildTodayOverviewStrip(),
                       const SizedBox(height: 32),
@@ -189,24 +198,9 @@ class _ProfessionalDashboardScreenState
             children: [
               AvailabilityToggle(
                 isOnline: _isOnline,
-                onChanged: (value) {
-                  if (value && (_kitCount < 1 || _walletCash < 100)) { // Relaxed requirements for testing
-                    _showRequirementsError();
-                    return;
-                  }
-                  setState(() {
-                    _isOnline = value;
-                  });
-                },
+                onChanged: (value) => _toggleAvailability(value),
               ),
-              const SizedBox(width: 16),
-              IconButton(
-                onPressed: () => context.push(AppRoutes.proWallet),
-                icon: const Icon(Icons.account_balance_wallet_rounded, size: 22, color: Colors.black87),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-              ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 8),
               IconButton(
                 onPressed: () => context.pushNamed(AppRoutes.proNotificationsName),
                 icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Colors.black87),
@@ -294,10 +288,14 @@ class _ProfessionalDashboardScreenState
   Widget _buildNoJobContent() {
     return Column(
       children: [
-        const Icon(Icons.radar_rounded, size: 48, color: Colors.grey),
+        Icon(
+          _isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded, 
+          size: 48, 
+          color: _isOnline ? AppTheme.primaryColor : Colors.grey
+        ),
         const SizedBox(height: 16),
         Text(
-          "You're Online",
+          _isOnline ? "You're Online" : "You're Offline",
           style: GoogleFonts.inter(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -310,15 +308,6 @@ class _ProfessionalDashboardScreenState
           style: GoogleFonts.inter(
             fontSize: 14,
             color: Colors.grey.shade500,
-          ),
-        ),
-        const SizedBox(height: 24),
-        Text(
-          "Today's Earnings: ₹${_stats?.todayEarnings ?? 0}",
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.black54,
           ),
         ),
       ],
@@ -451,8 +440,6 @@ class _ProfessionalDashboardScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _overviewItem("EARNINGS", "₹${_stats?.todayEarnings ?? 0}"),
-          _verticalDivider(),
           _overviewItem("RATING", "⭐ ${_stats?.rating ?? 4.5}"),
         ],
       ),
@@ -609,23 +596,165 @@ class _ProfessionalDashboardScreenState
   void _showRequirementsError() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Requirements Not Met"),
-        content: const Text(
-            "You need to have at least 5 kits and ₹1500 in your wallet to go online."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Close"),
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF2D6F).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.lock_outline_rounded, color: Color(0xFFFF2D6F), size: 30),
+              ),
+              const SizedBox(height: 16),
+              Text('Go Online Requirement',
+                style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF111827)),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(children: [
+                  TextSpan(
+                    text: 'You need at least ',
+                    style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
+                  ),
+                  TextSpan(
+                    text: '₹1500',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFFFF2D6F)),
+                  ),
+                  TextSpan(
+                    text: ' wallet balance to go online.\nCurrent balance: ',
+                    style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
+                  ),
+                  TextSpan(
+                    text: '₹${_walletCash.toStringAsFixed(0)}',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w800,
+                      color: _walletCash > 0 ? const Color(0xFF111827) : const Color(0xFFEF4444)),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_bag_outlined, color: Color(0xFFF97316), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Purchase a kit to get started and activate your professional account.',
+                        style: GoogleFonts.poppins(fontSize: 11.5, color: const Color(0xFF9A3412), fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFE5E7EB)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text('Cancel', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280), fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        context.push(AppRoutes.proKitStore);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFF2D6F),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: Text('Buy Kit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              context.push(AppRoutes.proWallet);
-            },
-            child: const Text("Go to Wallet"),
+        ),
+      ),
+    );
+  }
+  Widget _buildReferralBanner() {
+    return GestureDetector(
+      onTap: () => context.pushNamed(AppRoutes.proReferEarnName),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF85A1), AppTheme.primaryColor],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ],
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryColor.withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.card_giftcard, color: Colors.white, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Invite & Earn Rewards',
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    'Earn credits for every successful referral',
+                    style: GoogleFonts.inter(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white),
+          ],
+        ),
       ),
     );
   }

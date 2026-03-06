@@ -22,7 +22,10 @@ class ProfessionalBooking {
     required this.status,
   });
 
-  factory ProfessionalBooking.fromJson(Map<String, dynamic> json) {
+  factory ProfessionalBooking.fromJson(dynamic json) {
+    if (json is! Map) {
+      return ProfessionalBooking(id: '', clientName: 'Unknown', serviceName: 'Service', time: '', date: '', totalPrice: 0, address: '', status: BookingStatus.requested);
+    }
     // Backend uses 'customer_name', 'slot' as time, 'price' as total_price
     String statusStr = (json['status'] ?? '').toString().toLowerCase().trim().replaceAll(' ', '');
     BookingStatus status = BookingStatus.requested;
@@ -34,12 +37,12 @@ class ProfessionalBooking {
 
     return ProfessionalBooking(
       id: json['id']?.toString() ?? '',
-      clientName: json['customer_name'] ?? json['client_name'] ?? 'Unknown',
-      serviceName: json['service_name'] ?? 'Service',
-      time: json['slot'] ?? json['time'] ?? 'Asap',
-      date: json['date'] ?? '',
+      clientName: (json['customer_name'] ?? json['client_name'] ?? 'Unknown').toString(),
+      serviceName: (json['service_name'] ?? 'Service').toString(),
+      time: (json['slot'] ?? json['time'] ?? 'Asap').toString(),
+      date: (json['date'] ?? '').toString(),
       totalPrice: ParserUtil.safeParseDouble(json['price'] ?? json['total_price']),
-      address: json['city'] ?? json['address'] ?? 'No address provided',
+      address: (json['city'] ?? json['address'] ?? 'No address provided').toString(),
       status: status,
     );
   }
@@ -48,36 +51,45 @@ class ProfessionalBooking {
 class ProfessionalDashboardStats {
   final double todayEarnings;
   final double totalEarnings;
+  final double walletBalance;
   final int totalBookings;
   final double rating;
   final int activeJobsCount;
   final int kitCount;
   final double distanceToJob;
   final String? activeJobStatus;
+  final bool isOnline;
   final List<ProfessionalBooking> recentBookings;
 
   ProfessionalDashboardStats({
     required this.todayEarnings,
     required this.totalEarnings,
+    this.walletBalance = 0,
     required this.totalBookings,
     required this.rating,
     required this.activeJobsCount,
     this.kitCount = 0,
     required this.distanceToJob,
     this.activeJobStatus,
+    this.isOnline = false,
     required this.recentBookings,
   });
 
-  factory ProfessionalDashboardStats.fromJson(Map<String, dynamic> json) {
+  factory ProfessionalDashboardStats.fromJson(dynamic json) {
+    if (json is! Map) {
+      return ProfessionalDashboardStats(todayEarnings: 0, totalEarnings: 0, totalBookings: 0, rating: 0, activeJobsCount: 0, distanceToJob: 0, recentBookings: []);
+    }
     return ProfessionalDashboardStats(
       todayEarnings: ParserUtil.safeParseDouble(json['todays_earnings'] ?? json['today_earnings']),
       totalEarnings: ParserUtil.safeParseDouble(json['total_earnings'] ?? json['earnings']),
+      walletBalance: ParserUtil.safeParseDouble(json['wallet_balance']),
       totalBookings: int.tryParse((json['total_orders'] ?? json['total_bookings'])?.toString() ?? '0') ?? 0,
       rating: ParserUtil.safeParseDouble(json['rating']),
       activeJobsCount: int.tryParse((json['pending_requests'] ?? json['active_jobs_count'])?.toString() ?? '0') ?? 0,
       kitCount: int.tryParse(json['kit_count']?.toString() ?? '0') ?? 0,
       distanceToJob: ParserUtil.safeParseDouble(json['distance_to_job']),
-      activeJobStatus: json['status'],
+      activeJobStatus: json['status']?.toString(),
+      isOnline: json['is_online'] == true,
       recentBookings: ( (json['todays_bookings'] ?? json['recent_bookings']) as List? ?? [])
           .map((i) => ProfessionalBooking.fromJson(i))
           .toList(),
@@ -98,7 +110,10 @@ class ProfessionalWallet {
     required this.transactions,
   });
 
-  factory ProfessionalWallet.fromJson(Map<String, dynamic> json) {
+  factory ProfessionalWallet.fromJson(dynamic json) {
+    if (json is! Map) {
+      return ProfessionalWallet(balance: 0, coins: 0, kits: 0, transactions: []);
+    }
     return ProfessionalWallet(
       balance: ParserUtil.safeParseDouble(json['cash_balance'] ?? json['balance']),
       coins: int.tryParse((json['coin_balance'] ?? json['coins'])?.toString() ?? '0') ?? 0,
@@ -125,13 +140,186 @@ class Transaction {
     required this.description,
   });
 
-  factory Transaction.fromJson(Map<String, dynamic> json) {
+  factory Transaction.fromJson(dynamic json) {
+    if (json is! Map) {
+      return Transaction(id: '', amount: 0, type: 'credit', date: '', description: '');
+    }
     return Transaction(
-      id: json['id'].toString(),
+      id: (json['id'] ?? '').toString(),
       amount: ParserUtil.safeParseDouble(json['amount']),
-      type: json['type'] ?? 'credit',
-      date: json['created_at'] ?? '',
-      description: json['description'] ?? '',
+      type: (json['type'] ?? 'credit').toString(),
+      date: (json['created_at'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+    );
+  }
+}
+
+class KitProductModel {
+  final int id;
+  final String name;
+  final String category;
+  final double price;
+  final String description;
+  final String image;
+  final String? icon;
+  final bool isPremium;
+  final int stock;
+
+  KitProductModel({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.price,
+    required this.description,
+    required this.image,
+    this.icon,
+    this.isPremium = false,
+    required this.stock,
+  });
+
+  factory KitProductModel.fromJson(Map<String, dynamic> json) {
+    return KitProductModel(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      name: json['name'] ?? 'Unknown Kit',
+      category: json['category']?['name'] ?? 'General',
+      price: ParserUtil.safeParseDouble(json['price']),
+      description: json['description'] ?? (json['brand'] != null ? 'Brand: ${json['brand']}' : 'No description available.'),
+      image: json['image_url'] ?? 'https://plus.unsplash.com/premium_photo-1661340702301-53a479f3781f?q=80\u0026w=1486\u0026auto=format\u0026fit=crop',
+      icon: json['icon'] ?? '✨',
+      isPremium: (json['price'] != null && ParserUtil.safeParseDouble(json['price']) > 800),
+      stock: int.tryParse(json['total_stock']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
+class KitOrderModel {
+  final int id;
+  final int quantity;
+  final String status;
+  final String? notes;
+  final String assignedAt;
+  final String productName;
+  final String productImage;
+  final double productPrice;
+  final double totalAmount;
+  final String paymentId;
+  final String paymentStatus;
+  final String paymentMethod;
+  final String orderStatus;
+
+  KitOrderModel({
+    required this.id,
+    required this.quantity,
+    required this.status,
+    this.notes,
+    required this.assignedAt,
+    required this.productName,
+    required this.productImage,
+    required this.productPrice,
+    this.totalAmount = 0,
+    this.paymentId = '',
+    this.paymentStatus = 'Pending',
+    this.paymentMethod = '',
+    this.orderStatus = 'Processing',
+  });
+
+  factory KitOrderModel.fromJson(dynamic json) {
+    if (json is! Map) {
+      return KitOrderModel(id: 0, quantity: 1, status: 'Pending', assignedAt: '', productName: 'Unknown', productImage: '', productPrice: 0);
+    }
+    final product = json['product'] ?? {};
+    return KitOrderModel(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
+      status: (json['status'] ?? 'Pending').toString(),
+      notes: json['notes']?.toString(),
+      assignedAt: (json['assigned_at'] ?? json['created_at'] ?? '').toString(),
+      productName: (product['name'] ?? 'Unknown Kit').toString(),
+      productImage: (product['image_url'] ?? '').toString(),
+      productPrice: ParserUtil.safeParseDouble(product['price']),
+      totalAmount: ParserUtil.safeParseDouble(json['total_amount'] ?? product['price']),
+      paymentId: (json['payment_id'] ?? '').toString(),
+      paymentStatus: (json['payment_status'] ?? 'Pending').toString(),
+      paymentMethod: (json['payment_method'] ?? '').toString(),
+      orderStatus: (json['order_status'] ?? 'Processing').toString(),
+    );
+  }
+}
+
+class ReferralStats {
+  final String referralCode;
+  final int totalReferrals;
+  final double totalEarnings;
+  final int pendingReferrals;
+  final int referrerReward;
+  final int referredReward;
+  final List<ReferralHistory> history;
+
+  ReferralStats({
+    required this.referralCode,
+    required this.totalReferrals,
+    required this.totalEarnings,
+    required this.pendingReferrals,
+    required this.referrerReward,
+    required this.referredReward,
+    required this.history,
+  });
+
+  factory ReferralStats.fromJson(dynamic json) {
+    if (json is! Map) {
+      return ReferralStats(
+        referralCode: '',
+        totalReferrals: 0,
+        totalEarnings: 0,
+        pendingReferrals: 0,
+        referrerReward: 0,
+        referredReward: 0,
+        history: [],
+      );
+    }
+    return ReferralStats(
+      referralCode: (json['referral_code'] ?? '').toString(),
+      totalReferrals: int.tryParse(json['total_referrals']?.toString() ?? '0') ?? 0,
+      totalEarnings: ParserUtil.safeParseDouble(json['total_earnings']),
+      pendingReferrals: int.tryParse(json['pending_referrals']?.toString() ?? '0') ?? 0,
+      referrerReward: int.tryParse(json['referrer_reward']?.toString() ?? '0') ?? 0,
+      referredReward: int.tryParse(json['referred_reward']?.toString() ?? '0') ?? 0,
+      history: (json['history'] as List? ?? [])
+          .where((i) => i != null)
+          .map((i) => ReferralHistory.fromJson(i))
+          .toList(),
+    );
+  }
+}
+
+class ReferralHistory {
+  final String id;
+  final String phone;
+  final String status;
+  final double amount;
+  final String date;
+  final String referredName;
+
+  ReferralHistory({
+    required this.id,
+    required this.phone,
+    required this.status,
+    required this.amount,
+    required this.date,
+    required this.referredName,
+  });
+
+  factory ReferralHistory.fromJson(dynamic json) {
+    if (json is! Map) {
+      return ReferralHistory(id: '', phone: '', status: '', amount: 0, date: '', referredName: '');
+    }
+    return ReferralHistory(
+      id: (json['id'] ?? '').toString(),
+      phone: (json['phone'] ?? '').toString(),
+      status: (json['status'] ?? 'pending').toString(),
+      amount: ParserUtil.safeParseDouble(json['amount']),
+      date: (json['date'] ?? '').toString(),
+      referredName: (json['referred_name'] ?? 'Unknown').toString(),
     );
   }
 }

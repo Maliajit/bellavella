@@ -17,6 +17,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
   final List<TextEditingController> _controllers =
       List.generate(4, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  final _referralController = TextEditingController();
   String? _errorText;
   bool _isLoading = false;
 
@@ -28,6 +29,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
     for (var node in _focusNodes) {
       node.dispose();
     }
+    _referralController.dispose();
     super.dispose();
   }
 
@@ -41,12 +43,46 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
     });
 
     try {
-      final response = await AuthApiService.verifyOtp(widget.phoneNumber, otp);
+      final response = await AuthApiService.verifyOtp(
+        widget.phoneNumber, 
+        otp, 
+        referralCode: _referralController.text.isNotEmpty ? _referralController.text : null,
+      );
 
       if (response['success'] == true) {
         if (response['token'] != null) {
           await TokenManager.setToken(response['token']);
         }
+        
+        final int coins = response['coins_awarded'] ?? 0;
+        if (coins > 0 && mounted) {
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
+                  const SizedBox(height: 16),
+                  Text('Congratulations!', 
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text('You\'ve received $coins welcome coins!', 
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyLarge),
+                  const SizedBox(height: 24),
+                  PrimaryButton(
+                    label: 'Awesome!', 
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
         if (!mounted) return;
         // Success - Navigate to location picker (clearing auth stack)
         context.go('/client/location-picker');
@@ -168,6 +204,16 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                       const TextStyle(color: AppTheme.errorColor, fontSize: 14),
                 ),
               ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _referralController,
+              decoration: InputDecoration(
+                labelText: 'Referral Code (Optional)',
+                hintText: 'Enter code if any',
+                prefixIcon: const Icon(Icons.card_giftcard_rounded),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
             const SizedBox(height: 32),
             PrimaryButton(
               label: 'Verify & Continue',

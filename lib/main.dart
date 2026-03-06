@@ -7,6 +7,9 @@ import 'core/router/professional_router.dart';
 
 import 'core/services/token_manager.dart';
 
+import 'package:provider/provider.dart';
+import 'features/professional/controllers/professional_profile_controller.dart';
+
 void main({RouterConfig<Object>? router}) async {
   WidgetsFlutterBinding.ensureInitialized();
   await TokenManager.init();
@@ -24,7 +27,15 @@ void main({RouterConfig<Object>? router}) async {
   // Use provided router or fallback to the specific one based on app type
   final effectiveRouter = router ?? (AppConfig.isProfessional ? professionalRouter : clientRouter);
   
-  runApp(BellavellaApp(routerConfig: effectiveRouter));
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ProfessionalProfileController()),
+        // Add other providers here as needed
+      ],
+      child: BellavellaApp(routerConfig: effectiveRouter),
+    ),
+  );
 }
 
 class BellavellaApp extends StatelessWidget {

@@ -183,11 +183,12 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       ),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-            color: _isScrolled ? Colors.white : Colors.black,
-            onPressed: () => context.pop(),
-          ),
+          if (context.canPop()) 
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+              color: _isScrolled ? Colors.white : Colors.black,
+              onPressed: () => context.pop(),
+            ),
           Text(
             'Wallet',
             style: GoogleFonts.outfit(
@@ -392,8 +393,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
       crossAxisSpacing: 12,
       childAspectRatio: 2.4,
       children: [
-        _actionItemV3("Accept Jobs", Icons.check_circle_outline_rounded),
-        _actionItemV3("Wallet", Icons.account_balance_wallet_outlined),
         _actionItemV3("Schedule", Icons.calendar_month_rounded),
         _actionItemV3("Transactions", Icons.history_rounded),
       ],
@@ -415,11 +414,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen> {
           if (label == 'Accept Jobs') context.push(AppRoutes.proJobs);
           if (label == 'Wallet') context.push(AppRoutes.proWallet);
           if (label == 'Schedule') context.push(AppRoutes.proSchedule);
-          if (label == 'Transactions') {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Transaction history coming soon')),
-            );
-          }
+          if (label == 'Transactions') context.pushNamed(AppRoutes.proTransactionsName);
         },
           borderRadius: BorderRadius.circular(16),
           child: Center(

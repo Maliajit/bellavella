@@ -26,6 +26,7 @@ class MainScaffold extends StatelessWidget {
     if (location.startsWith('/client/services')) return 1;
     if (location.startsWith('/client/my-bookings')) return 2;
     if (location.startsWith('/client/profile')) return 3;
+    if (location.startsWith('/client/wallet')) return 3;
     return 0;
   }
 }

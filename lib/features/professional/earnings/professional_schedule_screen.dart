@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class ProfessionalScheduleScreen extends StatefulWidget {
@@ -99,7 +98,7 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
           IconButton(
             icon: const Icon(Icons.arrow_back),
             color: _isScrolled ? Colors.white : Colors.black,
-            onPressed: () => context.go('/professional/earnings'),
+            onPressed: () => Navigator.of(context).pop(),
           ),
           Text(
             'Schedule',

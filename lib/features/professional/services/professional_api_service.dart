@@ -2,6 +2,7 @@ import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ProfessionalApiService {
   static const String _prefix = '/professional';
@@ -34,21 +35,61 @@ class ProfessionalApiService {
     required String name,
     required String category,
     required String city,
+    String? email,
+    String? dob,
+    String? gender,
+    String? experience,
+    String? languages,
+    String? address,
+    String? pincode,
+    String? state,
+    String? aadharNumber,
+    String? panNumber,
+    XFile? aadharFront,
+    XFile? aadharBack,
+    XFile? panPhoto,
+    XFile? selfie,
+    String? referralCode,
   }) async {
-    final response = await ApiService.post('$_prefix/register', {
+    final Map<String, String> fields = {
       'mobile': mobile,
       'name': name,
       'category': category,
       'city': city,
-    });
+      if (email != null) 'email': email,
+      if (dob != null) 'dob': dob,
+      if (gender != null) 'gender': gender,
+      if (experience != null) 'experience': experience,
+      if (languages != null) 'languages': languages,
+      if (address != null) 'address': address,
+      if (pincode != null) 'pincode': pincode,
+      if (state != null) 'state': state,
+      if (aadharNumber != null) 'aadhar': aadharNumber,
+      if (panNumber != null) 'pan': panNumber,
+      if (referralCode != null) 'referral_code': referralCode,
+    };
 
-    if (response['success'] == true && response['data'] != null) {
-      final token = response['data']['access_token'];
-      if (token != null) {
-        await TokenManager.setToken(token);
+    final Map<String, XFile> files = {
+      if (aadharFront != null) 'aadhar_front': aadharFront,
+      if (aadharBack != null) 'aadhar_back': aadharBack,
+      if (panPhoto != null) 'pan_photo': panPhoto,
+      if (selfie != null) 'selfie': selfie,
+    };
+
+    if (files.isEmpty) {
+      final response = await ApiService.post('$_prefix/register', fields);
+      if (response['success'] == true && response['data'] != null) {
+        final token = response['data']['access_token'];
+        if (token != null) await TokenManager.setToken(token);
       }
+      return response;
     }
 
+    final response = await ApiService.multipart('$_prefix/register', fields, files);
+    if (response['success'] == true && response['data'] != null) {
+      final token = response['data']['access_token'];
+      if (token != null) await TokenManager.setToken(token);
+    }
     return response;
   }
 
@@ -61,8 +102,8 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to load dashboard stats');
   }
 
-  static Future<Map<String, dynamic>> toggleAvailability() async {
-    return await ApiService.post('$_prefix/toggle-availability', {});
+  static Future<Map<String, dynamic>> toggleAvailability(bool isOnline) async {
+    return await ApiService.post('$_prefix/toggle-availability', {'is_online': isOnline});
   }
 
   // --- Bookings & Jobs ---
@@ -131,7 +172,7 @@ class ProfessionalApiService {
   // ApiService might need extension if it doesn't support multipart.
   // For now, following the simple POST structure.
   static Future<Map<String, dynamic>> updateProfile(Map<String, dynamic> data) async {
-    return await ApiService.post('$_prefix/profile', data);
+    return await ApiService.put('$_prefix/profile', data);
   }
 
   // --- Notifications ---
@@ -145,5 +186,92 @@ class ProfessionalApiService {
 
   static Future<Map<String, dynamic>> markAllNotificationsRead() async {
     return await ApiService.post('$_prefix/notifications/read-all', {});
+  }
+
+  static Future<Map<String, dynamic>> updateServiceArea(Map<String, dynamic> data) async {
+    return await updateProfile(data);
+  }
+
+  static Future<Map<String, dynamic>> updateWorkingHours(Map<String, dynamic> data) async {
+    return await updateProfile(data);
+  }
+
+  static Future<Map<String, dynamic>> updateBankDetails(Map<String, dynamic> data) async {
+    return await updateProfile({'payout': data});
+  }
+
+  static Future<Map<String, dynamic>> updateUPIDetails(Map<String, dynamic> data) async {
+    return await updateProfile({'payout': data});
+  }
+
+  static Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword) async {
+    return await ApiService.put('$_prefix/change-password', {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
+  }
+
+  static Future<Map<String, dynamic>> uploadPortfolio(Map<String, dynamic> data) async {
+    return await ApiService.post('$_prefix/portfolio/upload', data);
+  }
+
+  // --- Kit Store ---
+  static Future<List<Map<String, dynamic>>> getKitProducts() async {
+    final response = await ApiService.get('$_prefix/kit-products');
+    if (response['success'] == true) {
+      return List<Map<String, dynamic>>.from(response['data']);
+    }
+    throw Exception(response['message'] ?? 'Failed to load kit products');
+  }
+
+  static Future<Map<String, dynamic>> placeKitOrder(int kitProductId, int quantity, {String? notes}) async {
+    return await ApiService.post('$_prefix/orders', {
+      'kit_product_id': kitProductId,
+      'quantity': quantity,
+      'notes': notes,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getKitOrders() async {
+    final response = await ApiService.get('$_prefix/orders');
+    if (response['success'] == true) {
+      return List<Map<String, dynamic>>.from(response['data']);
+    }
+    throw Exception(response['message'] ?? 'Failed to load kit orders');
+  }
+
+  static Future<Map<String, dynamic>> getKitOrderDetails(int id) async {
+    final response = await ApiService.get('$_prefix/orders/$id');
+    if (response['success'] == true) {
+      return Map<String, dynamic>.from(response['data']);
+    }
+    throw Exception(response['message'] ?? 'Failed to load order details');
+  }
+
+  static Future<Map<String, dynamic>> verifyKitPayment({
+    required int kitProductId,
+    required int quantity,
+    required String paymentId,
+    String? razorpayOrderId,
+    String? paymentMethod,
+    String? notes,
+  }) async {
+    return await ApiService.post('$_prefix/payment/verify', {
+      'kit_product_id': kitProductId,
+      'quantity': quantity,
+      'payment_id': paymentId,
+      'razorpay_order_id': razorpayOrderId,
+      'payment_method': paymentMethod ?? 'UPI',
+      'notes': notes,
+    });
+  }
+
+  // --- Refer & Earn ---
+  static Future<Map<String, dynamic>> getReferralStats() async {
+    final response = await ApiService.get('$_prefix/referrals');
+    if (response['success'] == true) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Failed to load referral stats');
   }
 }

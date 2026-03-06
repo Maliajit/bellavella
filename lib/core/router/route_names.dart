@@ -38,8 +38,9 @@ class AppRoutes {
   static const String proVerificationStatus = '/professional/verification-status';
   static const String proDashboard = '/professional/dashboard';
   static const String proOrders = '/professional/orders';
-  static const String proEarnings = '/professional/earnings';
   static const String proProfile = '/professional/profile';
+  static const String proTransactions = '/professional/transactions';
+  static const String proReferEarn = '/professional/refer-earn';
   static const String proJobs = '/professional/jobs';
   static const String proWallet = '/professional/wallet';
   static const String proSchedule = '/professional/schedule';
@@ -56,6 +57,23 @@ class AppRoutes {
   static const String proCollectPayment = '/professional/collect-payment';
   static const String proJobComplete = '/professional/job-complete';
   static const String proNotifications = '/professional/notifications';
+  static const String proKitOrders = '/professional/kit-orders';
+  static const String proKitPayment = '/professional/kit-payment';
+  static const String proKitPaymentSuccess = '/professional/kit-payment-success';
+  static const String proKitOrderDetails = '/professional/kit-order/:id';
+
+  // Profile Edit Paths
+  static const String proEditPersonalInfo = '/professional/profile/edit-personal';
+  static const String proEditServiceArea = '/professional/profile/edit-service-area';
+  static const String proEditWorkingHours = '/professional/profile/edit-working-hours';
+  static const String proEditContactDetails = '/professional/profile/edit-contact';
+  static const String proEditSkills = '/professional/profile/edit-skills';
+  static const String proEditPortfolio = '/professional/profile/edit-portfolio';
+  static const String proEditBankDetails = '/professional/profile/edit-bank';
+  static const String proEditUPIDetails = '/professional/profile/edit-upi';
+  static const String proNotificationSettings = '/professional/profile/notification-settings';
+  static const String proChangePassword = '/professional/profile/change-password';
+  static const String proLanguageSettings = '/professional/profile/language';
 
   // Route Names (for context.goNamed)
   static const String rootName = 'root';
@@ -93,8 +111,9 @@ class AppRoutes {
   static const String proVerificationStatusName = 'proVerificationStatus';
   static const String proDashboardName = 'proDashboard';
   static const String proOrdersName = 'proOrders';
-  static const String proEarningsName = 'proEarnings';
   static const String proProfileName = 'proProfile';
+  static const String proTransactionsName = 'proTransactions';
+  static const String proReferEarnName = 'proReferEarn';
   static const String proJobsName = 'proJobs';
   static const String proWalletName = 'proWallet';
   static const String proScheduleName = 'proSchedule';
@@ -111,4 +130,21 @@ class AppRoutes {
   static const String proCollectPaymentName = 'proCollectPayment';
   static const String proJobCompleteName = 'proJobComplete';
   static const String proNotificationsName = 'proNotifications';
+  static const String proKitOrdersName = 'proKitOrders';
+  static const String proKitPaymentName = 'proKitPayment';
+  static const String proKitPaymentSuccessName = 'proKitPaymentSuccess';
+  static const String proKitOrderDetailsName = 'proKitOrderDetails';
+
+  // Profile Edit Routes
+  static const String proEditPersonalInfoName = 'proEditPersonalInfo';
+  static const String proEditServiceAreaName = 'proEditServiceArea';
+  static const String proEditWorkingHoursName = 'proEditWorkingHours';
+  static const String proEditContactDetailsName = 'proEditContactDetails';
+  static const String proEditSkillsName = 'proEditSkills';
+  static const String proEditPortfolioName = 'proEditPortfolio';
+  static const String proEditBankDetailsName = 'proEditBankDetails';
+  static const String proEditUPIDetailsName = 'proEditUPIDetails';
+  static const String proNotificationSettingsName = 'proNotificationSettings';
+  static const String proChangePasswordName = 'proChangePassword';
+  static const String proLanguageSettingsName = 'proLanguageSettings';
 }

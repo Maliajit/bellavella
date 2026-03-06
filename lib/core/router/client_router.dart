@@ -106,6 +106,31 @@ final _shellRoutes = [
     name: AppRoutes.clientProfileName,
     builder: (context, state) => const ClientProfileScreen(),
   ),
+  GoRoute(
+    path: AppRoutes.clientManageAddress,
+    name: AppRoutes.clientManageAddressName,
+    builder: (context, state) => const ManageAddressScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientUpdateAddress,
+    name: AppRoutes.clientUpdateAddressName,
+    builder: (context, state) => const UpdateAddressScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientReferEarn,
+    name: AppRoutes.clientReferEarnName,
+    builder: (context, state) => const ReferEarnScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientEditProfile,
+    name: AppRoutes.clientEditProfileName,
+    builder: (context, state) => const EditProfileScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientWallet,
+    name: AppRoutes.clientWalletName,
+    builder: (context, state) => const ClientWalletScreen(),
+  ),
 ];
 
 final _featureRoutes = [
@@ -160,21 +185,6 @@ final _featureRoutes = [
     ),
   ),
   GoRoute(
-    path: AppRoutes.clientManageAddress,
-    name: AppRoutes.clientManageAddressName,
-    builder: (context, state) => const ManageAddressScreen(),
-  ),
-  GoRoute(
-    path: AppRoutes.clientUpdateAddress,
-    name: AppRoutes.clientUpdateAddressName,
-    builder: (context, state) => const UpdateAddressScreen(),
-  ),
-  GoRoute(
-    path: AppRoutes.clientReferEarn,
-    name: AppRoutes.clientReferEarnName,
-    builder: (context, state) => const ReferEarnScreen(),
-  ),
-  GoRoute(
     path: AppRoutes.clientRateUs,
     name: AppRoutes.clientRateUsName,
     builder: (context, state) => const RateUsScreen(),
@@ -183,16 +193,6 @@ final _featureRoutes = [
     path: AppRoutes.clientAboutUs,
     name: AppRoutes.clientAboutUsName,
     builder: (context, state) => const AboutUsScreen(),
-  ),
-  GoRoute(
-    path: AppRoutes.clientEditProfile,
-    name: AppRoutes.clientEditProfileName,
-    builder: (context, state) => const EditProfileScreen(),
-  ),
-  GoRoute(
-    path: AppRoutes.clientWallet,
-    name: AppRoutes.clientWalletName,
-    builder: (context, state) => const ClientWalletScreen(),
   ),
   GoRoute(
     path: AppRoutes.clientCheckoutReview,
