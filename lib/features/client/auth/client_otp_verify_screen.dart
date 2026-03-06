@@ -14,8 +14,10 @@ class ClientOTPVerifyScreen extends StatefulWidget {
 }
 
 class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
-  final List<TextEditingController> _controllers =
-      List.generate(4, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    4,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
   final _referralController = TextEditingController();
   String? _errorText;
@@ -50,10 +52,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
       );
 
       if (response['success'] == true) {
-        if (response['token'] != null) {
-          await TokenManager.setToken(response['token']);
-        }
-        
+        // service already stored token if provided, so just navigate
         final int coins = response['coins_awarded'] ?? 0;
         if (coins > 0 && mounted) {
           await showDialog(
@@ -82,13 +81,13 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
             ),
           );
         }
-
         if (!mounted) return;
         // Success - Navigate to location picker (clearing auth stack)
         context.go('/client/location-picker');
       } else {
         setState(() {
-          _errorText = response['message'] ?? 'Incorrect OTP. Please try again.';
+          _errorText =
+              response['message'] ?? 'Incorrect OTP. Please try again.';
         });
       }
     } catch (e) {
@@ -143,10 +142,9 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
           children: [
             Text(
               'Verify OTP',
-              style: Theme.of(context)
-                  .textTheme
-                  .displayLarge
-                  ?.copyWith(fontSize: 28),
+              style: Theme.of(
+                context,
+              ).textTheme.displayLarge?.copyWith(fontSize: 28),
             ),
             const SizedBox(height: 8),
             Text(
@@ -167,7 +165,9 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                     keyboardType: TextInputType.number,
                     maxLength: 1,
                     style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold),
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                     decoration: InputDecoration(
                       counterText: '',
                       enabledBorder: OutlineInputBorder(
@@ -177,7 +177,9 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(
-                            color: AppTheme.primaryColor, width: 2),
+                          color: AppTheme.primaryColor,
+                          width: 2,
+                        ),
                       ),
                     ),
                     onChanged: (value) {
@@ -200,8 +202,10 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                 padding: const EdgeInsets.only(top: 16),
                 child: Text(
                   _errorText!,
-                  style:
-                      const TextStyle(color: AppTheme.errorColor, fontSize: 14),
+                  style: const TextStyle(
+                    color: AppTheme.errorColor,
+                    fontSize: 14,
+                  ),
                 ),
               ),
             const SizedBox(height: 24),
@@ -224,15 +228,18 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
             Center(
               child: Column(
                 children: [
-                  const Text("Didn't receive code?",
-                      style: TextStyle(color: AppTheme.greyText)),
+                  const Text(
+                    "Didn't receive code?",
+                    style: TextStyle(color: AppTheme.greyText),
+                  ),
                   TextButton(
                     onPressed: _isLoading ? null : _resendOTP,
                     child: const Text(
                       'Resend',
                       style: TextStyle(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold),
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],

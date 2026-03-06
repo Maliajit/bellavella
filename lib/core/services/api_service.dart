@@ -13,12 +13,12 @@ class ApiService {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
-    
+
     final token = TokenManager.token;
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
-    
+
     return headers;
   }
 
@@ -30,8 +30,16 @@ class ApiService {
     return _request('PUT', endpoint, body);
   }
 
+  static Future<Map<String, dynamic>> patch(String endpoint, Map<String, dynamic> body) async {
+    return _request('PATCH', endpoint, body);
+  }
+
   static Future<Map<String, dynamic>> get(String endpoint) async {
     return _request('GET', endpoint);
+  }
+
+  static Future<Map<String, dynamic>> delete(String endpoint) async {
+    return _request('DELETE', endpoint);
   }
 
   static Future<Map<String, dynamic>> multipart(String endpoint, Map<String, String> fields, Map<String, XFile> files) async {
@@ -81,6 +89,10 @@ class ApiService {
         response = await http.post(Uri.parse(url), headers: _headers, body: jsonEncode(body));
       } else if (method == 'PUT') {
         response = await http.put(Uri.parse(url), headers: _headers, body: jsonEncode(body));
+      } else if (method == 'PATCH') {
+        response = await http.patch(Uri.parse(url), headers: _headers, body: jsonEncode(body));
+      } else if (method == 'DELETE') {
+        response = await http.delete(Uri.parse(url), headers: _headers);
       } else {
         response = await http.get(Uri.parse(url), headers: _headers);
       }

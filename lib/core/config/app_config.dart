@@ -19,15 +19,15 @@ class AppConfig {
     } else {
       host = 'http://10.0.2.2';
     }
-    
-    // Path: /bellavella/public/api (XAMPP structure)
+
+    // Path: /bellavellaa/public/api (XAMPP structure)
     // If you run 'php artisan serve', change this back to :8000/api
-    final url = '$host/bellavella/public/api';
-    
+    final url = '$host/bellavellaa/public/api';
+
     debugPrint('AppConfig: Resolved baseUrl: $url');
     return url;
   }
-  
+
   // Get flavor from environment
   static String get flavor => const String.fromEnvironment('APP_FLAVOR');
 }

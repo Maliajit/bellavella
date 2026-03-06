@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/models/data_models.dart';
+import 'services/client_api_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -9,10 +11,44 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final TextEditingController _nameController = TextEditingController(text: 'John Kevin');
-  final TextEditingController _emailController = TextEditingController(text: 'johnkevin787@gmail.com');
-  final TextEditingController _phoneController = TextEditingController(text: '+91 1234567890');
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   String _dateOfBirth = 'Select Date';
+
+  bool _isLoading = true;
+  Customer? _profile;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await ClientApiService.getProfile();
+      if (mounted) {
+        setState(() {
+          _profile = profile;
+          _nameController.text = profile.name;
+          _emailController.text = profile.email ?? '';
+          _phoneController.text = profile.mobile;
+          _dateOfBirth = profile.dateOfBirth ?? 'Select Date';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load profile: $e')));
+    }
+  }
 
   void _showImagePicker() {
     showModalBottomSheet(
@@ -32,7 +68,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               const SizedBox(height: 20),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: AppTheme.primaryColor),
+                leading: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppTheme.primaryColor,
+                ),
                 title: const Text('Open Camera'),
                 onTap: () {
                   Navigator.pop(context);
@@ -42,7 +81,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppTheme.primaryColor),
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppTheme.primaryColor,
+                ),
                 title: const Text('Pick from Gallery'),
                 onTap: () {
                   Navigator.pop(context);
@@ -73,7 +115,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onSurface: Colors.black,
             ),
             textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+              ),
             ),
           ),
           child: child!,
@@ -82,13 +126,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
     if (picked != null) {
       setState(() {
-        _dateOfBirth = "${picked.day}/${picked.month}/${picked.year}";
+        _dateOfBirth =
+            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -115,7 +167,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 24),
             _buildInputField('Email', _emailController),
             const SizedBox(height: 24),
-            _buildInputField('Mobile Number', _phoneController),
+            _buildReadOnlyField('Mobile Number', _phoneController),
             const SizedBox(height: 24),
             _buildDatePickerField(),
             const SizedBox(height: 60),
@@ -135,8 +187,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: Colors.grey.shade100, width: 4),
-            image: const DecorationImage(
-              image: NetworkImage('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200'),
+            image: DecorationImage(
+              image: NetworkImage(
+                _profile?.avatar ??
+                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200',
+              ),
               fit: BoxFit.cover,
             ),
           ),
@@ -152,7 +207,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 color: Color(0xFFFFB6C1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+              child: const Icon(
+                Icons.edit_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -189,6 +248,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  Widget _buildReadOnlyField(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          enabled: false,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+          decoration: const InputDecoration(
+            border: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey, width: 0.5),
+            ),
+            disabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Colors.grey, width: 0.5),
+            ),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildDatePickerField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,9 +298,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               children: [
                 Text(
                   _dateOfBirth,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
                 ),
-                Icon(Icons.calendar_month_outlined, color: Colors.grey.shade400),
+                Icon(
+                  Icons.calendar_month_outlined,
+                  color: Colors.grey.shade400,
+                ),
               ],
             ),
           ),
@@ -228,10 +320,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
-        onPressed: () => Navigator.pop(context),
+        onPressed: _saveChanges,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFFB6C1).withValues(alpha: 0.8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           elevation: 0,
         ),
         child: const Text(
@@ -244,5 +338,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveChanges() async {
+    final data = <String, dynamic>{
+      'name': _nameController.text,
+      'email': _emailController.text.isNotEmpty ? _emailController.text : null,
+      'date_of_birth': _dateOfBirth != 'Select Date' ? _dateOfBirth : null,
+      // Add other fields as needed (e.g. address, city) when those
+      // controllers/inputs exist.
+    };
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Updating profile...')));
+
+    try {
+      final response = await ClientApiService.updateProfile(data);
+      if (response['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(response['message'] ?? 'Update failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 }

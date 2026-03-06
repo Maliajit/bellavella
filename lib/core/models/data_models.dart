@@ -49,9 +49,7 @@ class Service {
       description: (json['description'] ?? '').toString(),
       price: ParserUtil.safeParseDouble(json['price']),
       duration: (json['duration'] ?? '').toString(),
-      includedItems: json['included_items'] is List 
-        ? (json['included_items'] as List).map((e) => e.toString()).toList() 
-        : [],
+      includedItems: (json['included_items'] as List? ?? []).map((e) => e.toString()).toList(),
       imageUrl: (json['image_url'] ?? '').toString(),
     );
   }
@@ -94,6 +92,44 @@ class PayoutDetails {
     'branch': branch,
     'upi_id': upiId,
   };
+}
+
+class Customer {
+  final String id;
+  final String name;
+  final String? email;
+  final String mobile;
+  final String? avatar;
+  final String? dateOfBirth;
+  final String status;
+  final String? joined;
+  final String? referralCode;
+
+  Customer({
+    required this.id,
+    required this.name,
+    this.email,
+    required this.mobile,
+    this.avatar,
+    this.dateOfBirth,
+    this.status = 'Active',
+    this.joined,
+    this.referralCode,
+  });
+
+  factory Customer.fromJson(Map<String, dynamic> json) {
+    return Customer(
+      id: json['id']?.toString() ?? '',
+      name: json['name'] ?? '',
+      email: json['email'],
+      mobile: json['mobile'] ?? '',
+      avatar: json['avatar'],
+      dateOfBirth: json['date_of_birth'],
+      status: json['status'] ?? 'Active',
+      joined: json['joined'] ?? json['created_at'],
+      referralCode: json['referral_code'],
+    );
+  }
 }
 
 class Professional {
@@ -183,7 +219,15 @@ class Professional {
   }
 }
 
-enum BookingStatus { requested, accepted, onTheWay, arrived, started, completed, cancelled }
+enum BookingStatus {
+  requested,
+  accepted,
+  onTheWay,
+  arrived,
+  started,
+  completed,
+  cancelled,
+}
 
 class Booking {
   final String id;
@@ -218,7 +262,7 @@ class Booking {
     }
     return Booking(
       id: json['id']?.toString() ?? '',
-      service: Service.fromJson(json['service']),
+      service: Service.fromJson(json['service'] ?? {}),
       dateTime: json['date_time'] != null ? DateTime.parse(json['date_time'].toString()) : DateTime.now(),
       address: (json['address'] ?? '').toString(),
       status: BookingStatus.values.firstWhere(
@@ -226,11 +270,116 @@ class Booking {
         orElse: () => BookingStatus.requested,
       ),
       totalPrice: ParserUtil.safeParseDouble(json['total_price']),
-      professional: json['professional'] != null ? Professional.fromJson(json['professional']) : null,
+      professional: json['professional'] != null
+          ? Professional.fromJson(json['professional'])
+          : null,
       lat: ParserUtil.safeParseDouble(json['lat']),
       lng: ParserUtil.safeParseDouble(json['lng']),
       arrivalCode: json['arrival_code']?.toString(),
       paymentCode: json['payment_code']?.toString(),
     );
+  }
+}
+
+class Wallet {
+  final int balance;
+  final String walletType;
+  final String currencyLabel;
+  final String exchangeRate;
+  final List<Transaction> transactions;
+
+  Wallet({
+    required this.balance,
+    this.walletType = 'coin',
+    this.currencyLabel = 'BellaVella Coins',
+    this.exchangeRate = '1 Coin = ₹1.00',
+    required this.transactions,
+  });
+
+  factory Wallet.fromJson(Map<String, dynamic> json) {
+    return Wallet(
+      balance: json['balance'] is num
+          ? (json['balance'] as num).toInt()
+          : int.tryParse(json['balance'].toString()) ?? 0,
+       walletType: json['wallet_type']?.toString() ?? 'coin',
+      currencyLabel: json['currency_label']?.toString() ?? 'BellaVella Coins',
+      exchangeRate: json['exchange_rate']?.toString() ?? '1 Coin = ₹1.00',
+      transactions: (json['transactions'] as List? ?? [])
+          .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class Transaction {
+  final String id;
+  final String title;
+  final String date;
+  final int amount;
+  final String type; // 'credit' or 'debit'
+
+  Transaction({
+    required this.id,
+    required this.title,
+    required this.date,
+    required this.amount,
+    required this.type,
+  });
+
+  factory Transaction.fromJson(Map<String, dynamic> json) {
+    return Transaction(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Transaction',
+      date: json['date']?.toString() ?? '',
+      amount: json['amount'] is num
+          ? (json['amount'] as num).toInt()
+          : int.tryParse(json['amount'].toString()) ?? 0,
+      type: json['type']?.toString().toLowerCase() ?? 'credit',
+    );
+  }
+}
+
+class Address {
+  final String id;
+  final String label;
+  final String houseNumber;
+  final String area;
+  final String landmark;
+  final String city;
+  final String pincode;
+  final String phone;
+
+  Address({
+    required this.id,
+    required this.label,
+    required this.houseNumber,
+    required this.area,
+    required this.landmark,
+    required this.city,
+    required this.pincode,
+    required this.phone,
+  });
+
+  factory Address.fromJson(Map<String, dynamic> json) {
+    return Address(
+      id: json['id']?.toString() ?? '',
+      label: json['label'] ?? 'Home',
+      houseNumber: json['house_number'] ?? '',
+      area: json['address'] ?? '', // Map address to area
+      landmark: json['landmark'] ?? '',
+      city: json['city'] ?? '',
+      pincode: json['pincode'] ?? '',
+      phone: json['phone'] ?? '',
+    );
+  }
+
+  String get fullAddress {
+    List<String> parts = [];
+    if (houseNumber.isNotEmpty) parts.add(houseNumber);
+    if (area.isNotEmpty) parts.add(area);
+    if (landmark.isNotEmpty) parts.add(landmark);
+    if (city.isNotEmpty) parts.add(city);
+    if (pincode.isNotEmpty) parts.add(pincode);
+    return parts.join(', ');
   }
 }

@@ -64,7 +64,7 @@ Define the specific endpoint for the feature you are working on.
 ```dart
 class AuthApiService {
   static Future<Map> sendOtp(String mobile) {
-    return ApiService.post('/flutter/auth/send-otp', {'mobile': mobile});
+    return ApiService.post('/client/auth/send-otp', {'mobile': mobile});
   }
 }
 ```
