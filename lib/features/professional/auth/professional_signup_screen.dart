@@ -49,6 +49,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   XFile? _aadharFront;
   XFile? _aadharBack;
   XFile? _panPhoto;
+  XFile? _certificatePhoto;
   XFile? _liveSelfie;
 
   final List<String> _experienceLevels = ['Fresher', '0–1 Year', '1–3 Years', '3–5 Years', '5+ Years'];
@@ -140,6 +141,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           aadharFront: _aadharFront,
           aadharBack: _aadharBack,
           panPhoto: _panPhoto,
+          certificate: _certificatePhoto,
           selfie: _liveSelfie,
           referralCode: _referralCodeController.text.isNotEmpty ? _referralCodeController.text : null,
         );
@@ -211,6 +213,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         if (type == 'aadhar_front') _aadharFront = image;
         else if (type == 'aadhar_back') _aadharBack = image;
         else if (type == 'pan') _panPhoto = image;
+        else if (type == 'certificate') _certificatePhoto = image;
         else if (type == 'selfie') _liveSelfie = image;
       });
     }
@@ -221,6 +224,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       if (type == 'aadhar_front') _aadharFront = null;
       else if (type == 'aadhar_back') _aadharBack = null;
       else if (type == 'pan') _panPhoto = null;
+      else if (type == 'certificate') _certificatePhoto = null;
       else if (type == 'selfie') _liveSelfie = null;
     });
   }
@@ -450,6 +454,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 const Text('PAN Card Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
                 SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Photo', _panPhoto, 'pan'),),
+                const SizedBox(height: 24),
+                const Text('Professional Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 12),
+                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Certificate', _certificatePhoto, 'certificate'),),
                 const SizedBox(height: 24),
                 const Text('Live Selfie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),

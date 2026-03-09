@@ -63,6 +63,9 @@ class PayoutDetails {
   final String ifsc;
   final String branch;
   final String upiId;
+  final String verificationStatus;
+  final String? bankProofImage;
+  final String? upiScreenshot;
 
   PayoutDetails({
     this.accountHolder = '',
@@ -71,10 +74,17 @@ class PayoutDetails {
     this.ifsc = '',
     this.branch = '',
     this.upiId = '',
+    this.verificationStatus = 'Pending',
+    this.bankProofImage,
+    this.upiScreenshot,
   });
 
-  factory PayoutDetails.fromJson(dynamic json) {
-    if (json is! Map) return PayoutDetails();
+  factory PayoutDetails.fromJson(dynamic json, {String verificationStatus = 'Pending', String? bankProofImage, String? upiScreenshot}) {
+    if (json is! Map) return PayoutDetails(
+      verificationStatus: verificationStatus,
+      bankProofImage: bankProofImage,
+      upiScreenshot: upiScreenshot,
+    );
     return PayoutDetails(
       accountHolder: json['account_holder']?.toString() ?? '',
       bankName: json['bank_name']?.toString() ?? '',
@@ -82,6 +92,9 @@ class PayoutDetails {
       ifsc: json['ifsc']?.toString() ?? '',
       branch: json['branch']?.toString() ?? '',
       upiId: json['upi_id']?.toString() ?? '',
+      verificationStatus: verificationStatus,
+      bankProofImage: bankProofImage,
+      upiScreenshot: upiScreenshot,
     );
   }
 
@@ -155,6 +168,13 @@ class Professional {
   final PayoutDetails payout;
   final Map<String, dynamic> workingHours;
   final List<Service> services;
+  // KYC document URLs
+  final String? aadhaarFront;
+  final String? aadhaarBack;
+  final String? panImg;
+  final String? certificateImg;
+  final String? selfieUrl;
+
 
   Professional({
     required this.id,
@@ -178,6 +198,11 @@ class Professional {
     required this.payout,
     this.workingHours = const {},
     this.services = const [],
+    this.aadhaarFront,
+    this.aadhaarBack,
+    this.panImg,
+    this.certificateImg,
+    this.selfieUrl,
   });
 
   factory Professional.fromJson(dynamic json) {
@@ -225,10 +250,36 @@ class Professional {
       serviceArea: json['service_area']?.toString(),
       serviceRadius: ParserUtil.safeParseDouble(json['service_radius']),
       portfolio: json['portfolio'] is List ? (json['portfolio'] as List).map((e) => e.toString()).toList() : [],
-      payout: PayoutDetails.fromJson(json['payout']),
+      payout: PayoutDetails.fromJson(
+        json['payout'],
+        verificationStatus: json['payout_verification_status']?.toString() ?? 'Pending',
+        bankProofImage: _resolveDocUrl(json['bank_proof_image']?.toString()),
+        upiScreenshot: _resolveDocUrl(json['upi_screenshot']?.toString()),
+      ),
       workingHours: json['working_hours'] is Map ? Map<String, dynamic>.from(json['working_hours']) : {},
       services: services,
+      aadhaarFront: _resolveDocUrl(json['aadhaar_front']?.toString()),
+      aadhaarBack: _resolveDocUrl(json['aadhaar_back']?.toString()),
+      panImg: _resolveDocUrl(json['pan_img']?.toString()),
+      certificateImg: _resolveDocUrl(json['certificate_img']?.toString()),
+      selfieUrl: _resolveDocUrl(json['selfie']?.toString()),
     );
+  }
+
+  static String? _resolveDocUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http')) return raw;
+    
+    // Normalize path: remove public/ or storage/ if they exist at the start to avoid duplication
+    String path = raw;
+    if (path.startsWith('public/')) path = path.substring(7);
+    if (path.startsWith('/public/')) path = path.substring(8);
+    if (path.startsWith('storage/')) path = path.substring(8);
+    if (path.startsWith('/storage/')) path = path.substring(9);
+    if (path.startsWith('/')) path = path.substring(1);
+
+    final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
+    return '$hostUrl/storage/$path';
   }
 }
 

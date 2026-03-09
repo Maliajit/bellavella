@@ -1,33 +1,107 @@
 import 'package:flutter/material.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 
-class MyBookingsScreen extends StatelessWidget {
+class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
+
+  @override
+  State<MyBookingsScreen> createState() => _MyBookingsScreenState();
+}
+
+class _MyBookingsScreenState extends State<MyBookingsScreen> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  List<dynamic> _upcoming = [];
+  List<dynamic> _completed = [];
+  List<dynamic> _cancelled = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookings();
+  }
+
+  Future<void> _fetchBookings() async {
+    try {
+      final response = await ApiService.get('/client/bookings');
+
+      if (response['success'] == true) {
+        final List<dynamic> data = response['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            for (var booking in data) {
+              final status = booking['status']?.toString().toLowerCase() ?? '';
+              if (status == 'completed') {
+                _completed.add(booking);
+              } else if (status == 'cancelled') {
+                _cancelled.add(booking);
+              } else {
+                _upcoming.add(booking);
+              }
+            }
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = response['message'] ?? 'Failed to load bookings';
+            if (response['message'] == 'Unauthenticated.') {
+              _errorMessage = 'Please sign in to view your bookings.';
+            }
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Error: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: const Color(0xFFF6F7F9),
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            icon: const Icon(Icons.arrow_back, color: AppTheme.accentColor),
             onPressed: () => context.go('/client/home'),
           ),
           title: const Text(
             'My Bookings',
-            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 22),
+            style: TextStyle(
+              color: AppTheme.accentColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 22,
+              letterSpacing: -0.5,
+            ),
           ),
           centerTitle: true,
           bottom: const TabBar(
             indicatorColor: AppTheme.primaryColor,
+            indicatorWeight: 3,
             labelColor: AppTheme.primaryColor,
-            unselectedLabelColor: Colors.grey,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            unselectedLabelColor: AppTheme.greyText,
+            labelStyle: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+            unselectedLabelStyle: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
             tabs: [
               Tab(text: 'Upcoming'),
               Tab(text: 'Completed'),
@@ -35,78 +109,106 @@ class MyBookingsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+            : _errorMessage != null
+                ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.errorColor)))
+                : TabBarView(
+                    children: [
+                      _buildList(_upcoming, 'upcoming'),
+                      _buildList(_completed, 'completed'),
+                      _buildList(_cancelled, 'cancelled'),
+                    ],
+                  ),
+      ),
+    );
+  }
+
+  Widget _buildList(List<dynamic> bookings, String type) {
+    if (bookings.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _buildUpcomingList(context),
-            _buildCompletedList(context),
-            _buildCancelledList(context),
+            const Icon(Icons.event_busy_outlined, size: 60, color: AppTheme.dividerColor),
+            const SizedBox(height: 16),
+            Text(
+              'No $type bookings',
+              style: const TextStyle(
+                color: AppTheme.greyText,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      itemCount: bookings.length,
+      itemBuilder: (context, index) {
+        final booking = bookings[index];
+        final status = booking['status']?.toString().toLowerCase() ?? '';
+        
+        Color statusColor = AppTheme.primaryColor;
+        Color statusBgColor = AppTheme.primaryColor.withOpacity(0.1);
+        String displayStatus = 'Pending';
+        bool showActions = true;
 
-  Widget _buildUpcomingList(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildBookingCard(
+        if (status == 'accepted' || status == 'pending') {
+          statusColor = AppTheme.successColor;
+          statusBgColor = AppTheme.successColor.withOpacity(0.1);
+          displayStatus = status == 'accepted' ? 'Accepted' : 'Pending';
+        } else if (status == 'completed') {
+          statusColor = const Color(0xFF3B82F6);
+          statusBgColor = const Color(0xFFEFF6FF);
+          displayStatus = 'Completed';
+          showActions = false;
+        } else if (status == 'cancelled') {
+          statusColor = AppTheme.errorColor;
+          statusBgColor = AppTheme.errorColor.withOpacity(0.1);
+          displayStatus = 'Cancelled';
+          showActions = false;
+        }
+
+        final List<Map<String, String>> services = [];
+        if (booking['service'] != null) {
+          services.add({
+            'name': booking['service']['name']?.toString() ?? 'Unknown Service',
+            'price': booking['service']['price']?.toString() ?? '0',
+            'qty': '1',
+          });
+        } else if (booking['package'] != null) {
+          services.add({
+            'name': booking['package']['name']?.toString() ?? 'Unknown Package',
+            'price': booking['package']['price']?.toString() ?? '0',
+            'qty': '1',
+          });
+        }
+
+        return _buildBookingCard(
           context,
-          status: 'Accepted',
-          statusColor: Colors.green,
-          date: 'Monday, 15 Jan',
-          time: '14:00 - 15:30',
-          services: [
-            {'name': 'Korean Glass skin facial', 'price': '2099'},
-          ],
-          total: '2099',
-          showActions: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCompletedList(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        _buildBookingCard(
-          context,
-          status: 'Completed',
-          statusColor: Colors.blue,
-          date: 'Saturday, 06 Jan',
-          time: '10:00 - 11:30',
-          services: [
-            {'name': 'Arm Waxing', 'price': '400'},
-            {'name': 'Deep Cleanup', 'price': '600'},
-          ],
-          total: '1000',
-          showActions: false,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCancelledList(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.event_busy_outlined, size: 60, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
-            'No cancelled bookings',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ],
-      ),
+          bookingData: booking,
+          status: displayStatus,
+          statusColor: statusColor,
+          statusBgColor: statusBgColor,
+          date: booking['booking_date']?.toString() ?? 'N/A',
+          time: booking['booking_time']?.toString() ?? 'N/A',
+          services: services,
+          total: booking['total_amount']?.toString() ?? '0',
+          showActions: showActions,
+        );
+      },
     );
   }
 
   Widget _buildBookingCard(
     BuildContext context, {
+    required Map<String, dynamic> bookingData,
     required String status,
     required Color statusColor,
+    required Color statusBgColor,
     required String date,
     required String time,
     required List<Map<String, String>> services,
@@ -114,99 +216,145 @@ class MyBookingsScreen extends StatelessWidget {
     bool showActions = true,
   }) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.1),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.calendar_today_outlined, size: 16, color: Colors.black87),
-                    const SizedBox(width: 8),
-                    Text(
-                      date,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    status,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.access_time, size: 16, color: Colors.grey),
-                const SizedBox(width: 8),
-                Text(
-                  time,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onHover: (hovering) {
+            // Can be used for hover effects on web
+          },
+          onTap: () {
+            context.push('/client/booking', extra: bookingData);
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Top Row (Date and Status)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF6F7F9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.calendar_month_outlined,
+                            size: 16,
+                            color: AppTheme.accentColor,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                            color: AppTheme.accentColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusBgColor,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        status,
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                
+                // Time Section
+                Padding(
+                  padding: const EdgeInsets.only(left: 44, top: 4, bottom: 20),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 14, color: AppTheme.greyText),
+                      const SizedBox(width: 6),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          color: AppTheme.greyText,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                Divider(color: Colors.grey.shade100, height: 1),
+                const SizedBox(height: 20),
+                
+                // Services Section
                 Text(
                   'Services (${services.length})',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: AppTheme.accentColor,
+                  ),
                 ),
                 const SizedBox(height: 12),
+                
                 ...services.map((service) => _buildServiceItem(service)),
-                const Divider(height: 32),
+                
+                const SizedBox(height: 20),
+                Divider(color: Colors.grey.shade100, height: 1),
+                const SizedBox(height: 20),
+                
+                // Total Section
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total Amount:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      'Total Amount',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: AppTheme.accentColor,
+                      ),
                     ),
                     Text(
                       '₹$total',
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         fontSize: 18,
                         color: AppTheme.primaryColor,
                       ),
                     ),
                   ],
                 ),
+                
                 if (showActions) ...[
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 24),
                   Row(
                     children: [
                       Expanded(
@@ -217,42 +365,76 @@ class MyBookingsScreen extends StatelessWidget {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.primaryColor,
                             side: const BorderSide(color: AppTheme.primaryColor),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ).copyWith(
+                            overlayColor: WidgetStateProperty.resolveWith<Color?>(
+                              (Set<WidgetState> states) {
+                                if (states.contains(WidgetState.hovered)) {
+                                  return AppTheme.primaryColor.withOpacity(0.04);
+                                }
+                                if (states.contains(WidgetState.focused) || states.contains(WidgetState.pressed)) {
+                                  return AppTheme.primaryColor.withOpacity(0.12);
+                                }
+                                return null;
+                              },
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => context.push('/client/booking-status'),
-                          icon: const Icon(Icons.directions_bike, size: 18),
+                          onPressed: () => context.push('/client/booking-status/${bookingData['id']}'),
+                          icon: const Icon(Icons.directions_bike_outlined, size: 18),
                           label: const Text('Track Professional'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             elevation: 0,
+                            textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                           ),
                         ),
                       ),
                     ],
                   ),
                 ] else if (status == 'Completed') ...[
-                   const SizedBox(height: 20),
+                   const SizedBox(height: 24),
+                   SizedBox(
+                     width: double.infinity,
+                     child: ElevatedButton(
+                        onPressed: () {
+                          // TODO: Navigate to service booking and pre-select items
+                          // e.g. context.push('/client/book-again', extra: services);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 0,
+                          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        child: const Text('Book Again'),
+                      ),
+                   ),
+                   const SizedBox(height: 12),
                    SizedBox(
                      width: double.infinity,
                      child: ElevatedButton.icon(
-                        onPressed: () => context.push('/client/service-review/BOOKING123'),
-                        icon: const Icon(Icons.star_outline, size: 18),
+                        onPressed: () => context.push('/client/service-review/${bookingData['id']}'),
+                        icon: const Icon(Icons.star_rounded, size: 20),
                         label: const Text('Rate Service'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
+                          backgroundColor: AppTheme.accentColor, // Dark navy
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           elevation: 0,
+                          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                       ),
                    ),
@@ -260,7 +442,7 @@ class MyBookingsScreen extends StatelessWidget {
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -270,43 +452,70 @@ class MyBookingsScreen extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF6F7F9),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: Colors.transparent),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            height: 50,
-            width: 50,
+            height: 48,
+            width: 48,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: const Center(
-              child: Icon(Icons.spa_outlined, color: AppTheme.primaryColor, size: 24),
+              child: Icon(Icons.spa_outlined, color: AppTheme.primaryColor, size: 22),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   service['name']!,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: AppTheme.accentColor,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '₹${service['price']!}',
-                  style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
           ),
-          const Text(
-            'Qty: 1',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'Qty: ${service['qty']!}',
+              style: const TextStyle(
+                color: AppTheme.greyText,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -318,21 +527,38 @@ class MyBookingsScreen extends StatelessWidget {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Cancel Booking?'),
-          content: const Text('Are you sure you want to cancel this booking? This action cannot be undone.'),
+          title: const Text(
+            'Cancel Booking?',
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accentColor),
+          ),
+          content: const Text(
+            'Are you sure you want to cancel this booking? This action cannot be undone.',
+            style: TextStyle(color: AppTheme.greyText, fontSize: 14, height: 1.4),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('No', style: TextStyle(color: Colors.grey)),
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.greyText,
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              child: const Text('No'),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: const Text('Order cancelled successfully'),
-                    backgroundColor: Colors.green,
+                    content: const Row(
+                      children: [
+                        Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text('Order cancelled successfully', style: TextStyle(fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                    backgroundColor: AppTheme.successColor,
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
@@ -342,8 +568,10 @@ class MyBookingsScreen extends StatelessWidget {
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              child: const Text('Yes, Cancel'),
+              child: const Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
             ),
           ],
         );

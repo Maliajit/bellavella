@@ -39,12 +39,12 @@ class ProfessionalProfileController extends ChangeNotifier {
     return _performUpdate(() => ProfessionalApiService.updateWorkingHours(data));
   }
 
-  Future<bool> updateBankDetails(Map<String, dynamic> data) async {
-    return _performUpdate(() => ProfessionalApiService.updateBankDetails(data));
+  Future<bool> updateBankDetails(Map<String, String> data, {XFile? proofImage}) async {
+    return _performUpdate(() => ProfessionalApiService.updateBankDetails(data, proofImage: proofImage));
   }
 
-  Future<bool> updateUPIDetails(Map<String, dynamic> data) async {
-    return _performUpdate(() => ProfessionalApiService.updateUPIDetails(data));
+  Future<bool> updateUPIDetails(Map<String, String> data, {XFile? screenshot}) async {
+    return _performUpdate(() => ProfessionalApiService.updateUPIDetails(data, screenshot: screenshot));
   }
 
   Future<bool> changePassword(String cur, String next) async {

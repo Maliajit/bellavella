@@ -16,7 +16,7 @@ class AppRoutes {
   static const String clientServiceDetail = '/client/service-detail/:id';
   static const String clientCart = '/client/cart';
   static const String clientBooking = '/client/booking';
-  static const String clientBookingStatus = '/client/booking-status';
+  static const String clientBookingStatus = '/client/booking-status/:bookingId';
   static const String clientLiveTracking = '/client/live-tracking/:bookingId';
   static const String clientMyBookings = '/client/my-bookings';
   static const String clientServiceReview = '/client/service-review/:bookingId';
@@ -61,6 +61,11 @@ class AppRoutes {
   static const String proKitPayment = '/professional/kit-payment';
   static const String proKitPaymentSuccess = '/professional/kit-payment-success';
   static const String proKitOrderDetails = '/professional/kit-order/:id';
+  static const String proLeaveApply = '/professional/leave-apply';
+  static const String proKycDocuments = '/professional/kyc-documents';
+  static const String proDocumentView = '/professional/document-view';
+  static const String proWithdrawalRequest = '/professional/withdrawal-request';
+  static const String proWithdrawalHistory = '/professional/withdrawal-history';
 
   // Profile Edit Paths
   static const String proEditPersonalInfo = '/professional/profile/edit-personal';
@@ -134,6 +139,11 @@ class AppRoutes {
   static const String proKitPaymentName = 'proKitPayment';
   static const String proKitPaymentSuccessName = 'proKitPaymentSuccess';
   static const String proKitOrderDetailsName = 'proKitOrderDetails';
+  static const String proLeaveApplyName = 'proLeaveApply';
+  static const String proKycDocumentsName = 'proKycDocuments';
+  static const String proDocumentViewName = 'proDocumentView';
+  static const String proWithdrawalRequestName = 'proWithdrawalRequest';
+  static const String proWithdrawalHistoryName = 'proWithdrawalHistory';
 
   // Profile Edit Routes
   static const String proEditPersonalInfoName = 'proEditPersonalInfo';

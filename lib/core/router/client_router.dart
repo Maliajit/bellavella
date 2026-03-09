@@ -162,12 +162,17 @@ final _featureRoutes = [
   GoRoute(
     path: AppRoutes.clientBooking,
     name: AppRoutes.clientBookingName,
-    builder: (context, state) => const BookingScreen(),
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>? ?? {};
+      return BookingScreen(bookingData: extra);
+    },
   ),
   GoRoute(
     path: AppRoutes.clientBookingStatus,
     name: AppRoutes.clientBookingStatusName,
-    builder: (context, state) => const BookingStatusScreen(),
+    builder: (context, state) => BookingStatusScreen(
+      bookingId: state.pathParameters['bookingId'] ?? '',
+    ),
   ),
   GoRoute(
     path: AppRoutes.clientLiveTracking,

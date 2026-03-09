@@ -12,6 +12,8 @@ import '../../features/professional/auth/verification_status_screen.dart';
 import '../../features/professional/orders/professional_order_list_screen.dart';
 import '../../features/professional/dashboard/professional_dashboard_screen.dart';
 import '../../features/professional/profile/professional_profile_screen.dart';
+import '../../features/professional/profile/kyc_documents_screen.dart';
+import '../../features/professional/profile/document_view_screen.dart';
 import '../../features/professional/earnings/professional_jobs_screen.dart';
 import '../../features/professional/earnings/professional_wallet_screen.dart';
 import '../../features/professional/earnings/professional_schedule_screen.dart';
@@ -20,6 +22,8 @@ import '../../features/professional/bookings/professional_booking_requests_scree
 import '../../features/professional/bookings/professional_booking_detail_screen.dart';
 import '../../features/professional/earnings/professional_availability_screen.dart';
 import '../../features/professional/earnings/professional_transaction_history_screen.dart';
+import '../../features/professional/earnings/withdrawal_request_screen.dart';
+import '../../features/professional/earnings/withdrawal_history_screen.dart';
 import '../../features/professional/earnings/professional_refer_earn_screen.dart';
 import '../../features/professional/notifications/incoming_request_screen.dart';
 import '../../features/professional/screens/kit_store/kit_store_screen.dart';
@@ -42,6 +46,8 @@ import '../../features/professional/screens/profile/language_settings_screen.dar
 import '../../features/professional/screens/kit_store/kit_order_history_screen.dart';
 import '../../features/professional/screens/kit_store/payment_success_screen.dart';
 import '../../features/professional/screens/kit_store/kit_order_details_screen.dart';
+import '../../features/professional/leave/leave_apply_screen.dart';
+import '../../core/models/data_models.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 
 final professionalRouter = GoRouter(
@@ -155,6 +161,11 @@ final _shellRoutes = [
     name: AppRoutes.proTransactionsName,
     builder: (context, state) => const ProfessionalTransactionHistoryScreen(),
   ),
+  GoRoute(
+    path: AppRoutes.proWithdrawalHistory,
+    name: AppRoutes.proWithdrawalHistoryName,
+    builder: (context, state) => const WithdrawalHistoryScreen(),
+  ),
 ];
 
 final _proOtherRoutes = [
@@ -167,6 +178,11 @@ final _proOtherRoutes = [
     path: AppRoutes.proSchedule,
     name: AppRoutes.proScheduleName,
     builder: (context, state) => const ProfessionalScheduleScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proWithdrawalRequest,
+    name: AppRoutes.proWithdrawalRequestName,
+    builder: (context, state) => const WithdrawalRequestScreen(),
   ),
   GoRoute(
     path: AppRoutes.proReferEarn,
@@ -383,5 +399,29 @@ final _proOtherRoutes = [
     builder: (context, state) => KitOrderDetailsScreen(
       orderId: state.pathParameters['id'] ?? '',
     ),
+  ),
+  GoRoute(
+    path: AppRoutes.proLeaveApply,
+    name: AppRoutes.proLeaveApplyName,
+    builder: (context, state) => const LeaveApplyScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proKycDocuments,
+    name: AppRoutes.proKycDocumentsName,
+    builder: (context, state) {
+      final professional = state.extra as Professional;
+      return KycDocumentsScreen(professional: professional);
+    },
+  ),
+  GoRoute(
+    path: AppRoutes.proDocumentView,
+    name: AppRoutes.proDocumentViewName,
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>;
+      return DocumentViewScreen(
+        title: extra['title'] as String,
+        imageUrl: extra['imageUrl'] as String,
+      );
+    },
   ),
 ];

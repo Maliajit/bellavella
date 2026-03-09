@@ -134,6 +134,7 @@ class ProfessionalWallet {
   final int kits;
   final double weeklyEarnings;
   final double monthlyEarnings;
+  final double todayEarnings;
   final int totalJobs;
   final List<Transaction> transactions;
 
@@ -146,6 +147,7 @@ class ProfessionalWallet {
     required this.kits,
     this.weeklyEarnings = 0,
     this.monthlyEarnings = 0,
+    this.todayEarnings = 0,
     this.totalJobs = 0,
     required this.transactions,
   });
@@ -174,6 +176,7 @@ class ProfessionalWallet {
       kits: int.tryParse((json['kit_count'] ?? json['kits'])?.toString() ?? '0') ?? 0,
       weeklyEarnings: ParserUtil.safeParseDouble(json['weekly_earnings'] ?? 0),
       monthlyEarnings: ParserUtil.safeParseDouble(json['monthly_earnings'] ?? 0),
+      todayEarnings: ParserUtil.safeParseDouble(json['today_earnings'] ?? 0),
       totalJobs: int.tryParse((json['total_jobs'] ?? json['total_bookings'])?.toString() ?? '0') ?? 0,
       transactions: transactionsList,
     );

@@ -201,15 +201,10 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       },
                     ),
                     _buildListOption(
-                      Icons.access_time_rounded,
-                      "Working Hours",
-                      subtitle: profile.workingHours['start_time'] != null 
-                        ? "${profile.workingHours['start_time']} - ${profile.workingHours['end_time']}" 
-                        : "Availability & Breaks",
-                      onTap: () async {
-                        await context.pushNamed(AppRoutes.proEditWorkingHoursName);
-                        controller.fetchProfile();
-                      },
+                      Icons.event_note_outlined,
+                      "Leave Apply",
+                      subtitle: "Apply for sick, casual or emergency leave",
+                      onTap: () => context.pushNamed(AppRoutes.proLeaveApplyName),
                     ),
                     _buildListOption(
                       Icons.call_outlined,
@@ -228,29 +223,27 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                     _buildListOption(
                       Icons.badge_outlined,
                       "ID Verification",
+                      subtitle: "Aadhaar & PAN Card",
                       value: profile?.verification == 'Verified' ? "Verified" : "Pending",
                       isVerified: profile?.verification == 'Verified',
-                      onTap: () => context.pushNamed(AppRoutes.proVerificationStatusName),
-                    ),
-                    _buildListOption(
-                      Icons.description_outlined,
-                      "Address Proof",
-                      value: profile?.verification == 'Verified' ? "Verified" : "Pending",
-                      isVerified: profile?.verification == 'Verified',
-                      onTap: () => context.pushNamed(AppRoutes.proVerificationStatusName),
+                      onTap: () => context.pushNamed(AppRoutes.proKycDocumentsName, extra: profile),
                     ),
                     _buildListOption(
                       Icons.school_outlined,
                       "Professional Certificate",
                       value: profile?.verification == 'Verified' ? "Verified" : "Pending",
                       isVerified: profile?.verification == 'Verified',
-                      onTap: () => context.pushNamed(AppRoutes.proVerificationStatusName),
+                      onTap: () {
+                        if (profile?.verification == 'Verified' && profile?.certificateImg != null) {
+                          context.pushNamed(AppRoutes.proDocumentViewName, extra: {
+                            'title': 'Certificate',
+                            'imageUrl': profile!.certificateImg,
+                          });
+                        } else {
+                          context.pushNamed(AppRoutes.proKycDocumentsName, extra: profile);
+                        }
+                      },
                     ),
-                  ]),
-
-                  const SizedBox(height: 16),
-                  _buildSectionWrapper([
-                    _buildSectionHeader("Payout Details"),
                     _buildListOption(
                       Icons.account_balance_outlined,
                       "Bank Account",
@@ -299,11 +292,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       Icons.notifications_none_rounded, 
                       "Notification Settings",
                       onTap: () => context.pushNamed(AppRoutes.proNotificationSettingsName),
-                    ),
-                    _buildListOption(
-                      Icons.lock_outline_rounded, 
-                      "Change Password",
-                      onTap: () => context.pushNamed(AppRoutes.proChangePasswordName),
                     ),
                     _buildListOption(
                       Icons.language_rounded, 
@@ -436,7 +424,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 VerticalDivider(color: Colors.grey.shade300, thickness: 1, indent: 4, endIndent: 4, width: 32),
                 _buildHeaderStat("${((profile?.rating ?? 4.5) * 27).toInt()}+", "Reviews"),
                 VerticalDivider(color: Colors.grey.shade300, thickness: 1, indent: 4, endIndent: 4, width: 32),
-                _buildHeaderStat("${profile?.experience ?? '3'} Years", "Exp"),
+                _buildHeaderStat("${profile?.experience ?? '3'}", "Exp"),
               ],
             ),
           ),
@@ -534,72 +522,80 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     bool isDestructive = false, 
     VoidCallback? onTap
   }) {
-    return InkWell(
-      onTap: onTap ?? () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("$label feature coming soon!")),
-        );
-      },
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isDestructive ? Colors.red.shade50 : const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon, 
-                size: 20, 
-                color: isDestructive ? Colors.red.shade600 : Colors.black87
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: isDestructive ? Colors.red.shade600 : Colors.black,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (isVerified)
-              Padding(
-                padding: EdgeInsets.only(right: 8),
-                child: Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade600),
-              ),
-            if (value != null)
-              Text(
-                value,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: isVerified ? Colors.green.shade600 : Colors.grey.shade700,
-                  fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          debugPrint("ListOption tapped: $label");
+          if (onTap != null) {
+            onTap();
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("$label feature coming soon!")),
+            );
+          }
+        },
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDestructive ? Colors.red.shade50 : const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon, 
+                  size: 20, 
+                  color: isDestructive ? Colors.red.shade600 : Colors.black87
                 ),
               ),
-            const SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
-          ],
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDestructive ? Colors.red.shade600 : Colors.black,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (isVerified)
+                Padding(
+                  padding: EdgeInsets.only(right: 8),
+                  child: Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade600),
+                ),
+              if (value != null)
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: isVerified ? Colors.green.shade600 : Colors.grey.shade700,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded, size: 20, color: Colors.grey.shade400),
+            ],
+          ),
         ),
       ),
     );

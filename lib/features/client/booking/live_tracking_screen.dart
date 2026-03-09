@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/models/data_models.dart';
 
@@ -19,9 +22,56 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
   final String _arrivalCode = "1234"; // Mock code for physical verification
   final _paymentConfirmController = TextEditingController();
 
+  Timer? _timer;
+  GoogleMapController? _mapController;
+  LatLng? _proLocation;
+  bool _isTrackingAvailable = true;
+  final LatLng _clientLocation = const LatLng(23.0200, 72.5700); // Mock client location
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchLocation());
+  }
+
+  Future<void> _fetchLocation() async {
+    try {
+      final response = await ApiService.get('/client/bookings/${widget.bookingId}/tracking');
+
+      if (response['success'] == true) {
+        final data = response['data'] ?? {};
+        if (data['professional_lat'] != null && data['professional_lng'] != null) {
+          final lat = double.tryParse(data['professional_lat'].toString());
+          final lng = double.tryParse(data['professional_lng'].toString());
+          if (lat != null && lng != null) {
+            if (mounted) {
+              setState(() {
+                _proLocation = LatLng(lat, lng);
+                _isTrackingAvailable = true;
+              });
+              _mapController?.animateCamera(CameraUpdate.newLatLng(_proLocation!));
+            }
+            return;
+          }
+        }
+      }
+      
+      if (mounted) {
+        setState(() => _isTrackingAvailable = false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isTrackingAvailable = false);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    _timer?.cancel();
     _paymentConfirmController.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -91,34 +141,47 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       body: Stack(
         children: [
           // Mock Map Area
-          Container(
-            color: Colors.grey.shade100,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.map_outlined, size: 100, color: Colors.grey.shade300),
-                  Text('Interactive Map View', style: TextStyle(color: Colors.grey.shade400)),
-                  const SizedBox(height: 20),
-                  // Mock Professional Marker
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const Icon(Icons.location_on, color: AppTheme.primaryColor, size: 40),
-                    ],
-                  ),
-                ],
+          // Map Area
+          if (!_isTrackingAvailable)
+            Container(
+              color: Colors.grey.shade100,
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.location_off_outlined, size: 80, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text('Tracking unavailable', style: TextStyle(color: Colors.grey, fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 120), // padding for bottom sheet
+                  ],
+                ),
               ),
+            )
+          else
+            GoogleMap(
+              initialCameraPosition: CameraPosition(
+                target: _proLocation ?? _clientLocation,
+                zoom: 14.0,
+              ),
+              onMapCreated: (controller) => _mapController = controller,
+              markers: {
+                if (_proLocation != null)
+                  Marker(
+                    markerId: const MarkerId('pro'),
+                    position: _proLocation!,
+                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                    infoWindow: const InfoWindow(title: 'Professional'),
+                  ),
+                Marker(
+                  markerId: const MarkerId('client'),
+                  position: _clientLocation,
+                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+                  infoWindow: const InfoWindow(title: 'You'),
+                ),
+              },
+              myLocationEnabled: false,
+              zoomControlsEnabled: false,
             ),
-          ),
           
           // Bottom Info Sheet
           Align(
@@ -142,7 +205,15 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   if (_currentStatus == BookingStatus.onTheWay)
                     _buildArrivalCodeSection(),
                   if (_currentStatus == BookingStatus.arrived || _currentStatus == BookingStatus.started)
-                    PrimaryButton(label: 'Verify Payment (Offline)', onPressed: _showPaymentEntryDialog),
+                    ElevatedButton(
+                      onPressed: _showPaymentEntryDialog,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Verify Payment (Offline)', style: TextStyle(color: Colors.white)),
+                    ),
                   const SizedBox(height: 12),
                 ],
               ),

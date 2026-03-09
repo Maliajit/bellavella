@@ -8,6 +8,7 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
+import 'package:bellavella/core/models/data_models.dart';
 
 enum WalletTab { earnings, deposit, coins, kits }
 
@@ -21,6 +22,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     with SingleTickerProviderStateMixin {
   pro_models.ProfessionalWallet? _wallet;
   pro_models.ProfessionalDashboardStats? _stats;
+  Professional? _profile;
   bool _isLoading = true;
   String? _error;
   late TabController _tabController;
@@ -70,7 +72,8 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     try {
       final wallet = await ProfessionalApiService.getWallet(tab: 'earnings');
       final stats  = await ProfessionalApiService.getDashboardStats();
-      if (mounted) setState(() { _wallet = wallet; _stats = stats; _isLoading = false; });
+      final profile = await ProfessionalApiService.getProfile();
+      if (mounted) setState(() { _wallet = wallet; _stats = stats; _profile = profile; _isLoading = false; });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
@@ -431,7 +434,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   //  EARNINGS TAB
   // ══════════════════════════════════════════════════════
   Widget _earningsTab() {
-    final today   = (_stats?.todayEarnings  ?? 0.0).toDouble();
+    final today   = (_wallet?.todayEarnings   ?? _stats?.todayEarnings ?? 0.0).toDouble();
     final weekly  = (_wallet?.weeklyEarnings  ?? 0.0).toDouble();
     final monthly = (_wallet?.monthlyEarnings ?? 0.0).toDouble();
     final jobs    = _wallet?.totalJobs ?? _stats?.totalBookings ?? 0;
@@ -442,7 +445,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
       // Action buttons row
       Row(children: [
-        Expanded(child: _actionCard(Icons.call_received_rounded, 'Withdraw', _primary, () => _showWithdrawSheet(isEarnings: true))),
+        Expanded(child: _actionCard(Icons.call_received_rounded, 'Withdraw', _primary, () => _handleWithdrawClick(isEarnings: true))),
         const SizedBox(width: 12),
         Expanded(child: _actionCard(Icons.receipt_long_rounded, 'Transactions', Colors.black87, () => context.pushNamed(AppRoutes.proTransactionsName), outlined: true)),
       ]),
@@ -534,7 +537,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       Row(children: [
         Expanded(child: _actionCard(Icons.add_circle_outline_rounded, 'Add Money', _blue, () => _showAddMoneySheet())),
         const SizedBox(width: 12),
-        Expanded(child: _actionCard(Icons.arrow_upward_rounded, 'Withdraw', Colors.black87, () => _showWithdrawSheet(isEarnings: false), outlined: true)),
+        Expanded(child: _actionCard(Icons.arrow_upward_rounded, 'Withdraw', Colors.black87, () => _handleWithdrawClick(isEarnings: false), outlined: true)),
       ]),
       const SizedBox(height: 24),
 
@@ -792,7 +795,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
                   color: isCredit ? _green : Colors.red, size: 20)),
           const SizedBox(width: 14),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tx.description, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
+            Text(tx.description.isEmpty ? 'Transaction' : tx.description, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
             const SizedBox(height: 2),
             Text(tx.date, style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade400)),
           ])),
@@ -839,17 +842,51 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
         }));
   }
 
-  void _showWithdrawSheet({bool isEarnings = true}) {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-        builder: (_) => _WithdrawSheet(
-          maxAmount: isEarnings ? _earn : _dep,
-          label: isEarnings ? 'Earnings' : 'Deposit',
-          onWithdraw: (amount) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested.'), backgroundColor: _primary));
-          },
-        ));
+  void _handleWithdrawClick({bool isEarnings = true}) {
+    if (isEarnings) {
+      final isVerified = _profile?.payout.verificationStatus == 'Verified';
+      if (!isVerified) {
+        _showVerificationPrompt();
+        return;
+      }
+      context.pushNamed(AppRoutes.proWithdrawalRequestName).then((_) => _fetchData());
+    } else {
+      showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+          builder: (_) => _WithdrawSheet(
+            maxAmount: _dep,
+            label: 'Deposit',
+            onWithdraw: (amount) {
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested.'), backgroundColor: _primary));
+            },
+          ));
+    }
+  }
+
+  void _showVerificationPrompt() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Verification Required', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+        content: Text('You need to complete your payout verification before you can withdraw funds.', style: GoogleFonts.outfit()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              context.pushNamed(AppRoutes.proEditBankDetailsName).then((_) => _fetchData());
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: Text('Verify Now', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
   }
 }
 

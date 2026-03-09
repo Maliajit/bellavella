@@ -4,13 +4,14 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 
 class BookingScreen extends StatelessWidget {
-  const BookingScreen({super.key});
+  final Map<String, dynamic> bookingData;
+  const BookingScreen({super.key, required this.bookingData});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Confirm Booking'),
+        title: const Text('Booking Details'),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -20,11 +21,15 @@ class BookingScreen extends StatelessWidget {
           children: [
             _buildSectionHeader(context, 'Date & Time'),
             const SizedBox(height: 16),
-            _buildDateTimePicker(context),
+            _buildDateTimePicker(context, bookingData['booking_date'] ?? 'N/A', bookingData['booking_time'] ?? 'N/A'),
             const SizedBox(height: 32),
             _buildSectionHeader(context, 'Delivery Address'),
             const SizedBox(height: 16),
             _buildAddressUI(context),
+            const SizedBox(height: 32),
+            _buildSectionHeader(context, 'Services'),
+            const SizedBox(height: 16),
+            _buildServicesList(),
             const SizedBox(height: 32),
             _buildSectionHeader(context, 'Price Summary'),
             const SizedBox(height: 16),
@@ -43,12 +48,12 @@ class BookingScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDateTimePicker(BuildContext context) {
+  Widget _buildDateTimePicker(BuildContext context, String date, String time) {
     return Row(
       children: [
-        _buildPickerItem(Icons.calendar_today_rounded, '12 Feb, 2026'),
+        _buildPickerItem(Icons.calendar_today_rounded, date),
         const SizedBox(width: 12),
-        _buildPickerItem(Icons.access_time_rounded, '10:30 AM'),
+        _buildPickerItem(Icons.access_time_rounded, time),
       ],
     );
   }
@@ -100,20 +105,60 @@ class BookingScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildServicesList() {
+    final List<Map<String, String>> services = [];
+    if (bookingData['service'] != null) {
+      services.add({
+        'name': bookingData['service']['name']?.toString() ?? 'Unknown Service',
+        'price': bookingData['service']['price']?.toString() ?? '0',
+        'qty': '1',
+      });
+    } else if (bookingData['package'] != null) {
+      services.add({
+        'name': bookingData['package']['name']?.toString() ?? 'Unknown Package',
+        'price': bookingData['package']['price']?.toString() ?? '0',
+        'qty': '1',
+      });
+    }
+
+    if (services.isEmpty) return const Text('No services found');
+
+    return Column(
+      children: services.map((service) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  '${service['qty']}x ${service['name']}',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                ),
+              ),
+              Text(
+                '₹${service['price']}',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildPriceSummary() {
+    final int total = bookingData['total_amount'] ?? 0;
+    
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppTheme.accentColor.withOpacity(0.02),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          _PriceRow(label: 'Item Total', value: '₹1200'),
-          _PriceRow(label: 'Service Fee', value: '₹50'),
-          _PriceRow(label: 'Tax (GST)', value: '₹108'),
-          Divider(height: 32),
-          _PriceRow(label: 'Total Amount', value: '₹1358', isTotal: true),
+          _PriceRow(label: 'Total Amount', value: '₹$total', isTotal: true),
         ],
       ),
     );
@@ -129,8 +174,8 @@ class BookingScreen extends StatelessWidget {
         ],
       ),
       child: PrimaryButton(
-        label: 'Confirm & Pay',
-        onPressed: () => context.push('/client/booking-status'),
+        label: 'View Tracking / Status',
+        onPressed: () => context.push('/client/booking-status/${bookingData['id']}'),
       ),
     );
   }

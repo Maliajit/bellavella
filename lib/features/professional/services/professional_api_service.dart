@@ -50,6 +50,7 @@ class ProfessionalApiService {
     XFile? aadharFront,
     XFile? aadharBack,
     XFile? panPhoto,
+    XFile? certificate,
     XFile? selfie,
     String? referralCode,
   }) async {
@@ -75,6 +76,7 @@ class ProfessionalApiService {
       if (aadharFront != null) 'aadhar_front': aadharFront,
       if (aadharBack != null) 'aadhar_back': aadharBack,
       if (panPhoto != null) 'pan_photo': panPhoto,
+      if (certificate != null) 'certificate': certificate,
       if (selfie != null) 'selfie': selfie,
     };
 
@@ -194,8 +196,10 @@ class ProfessionalApiService {
       'razorpay_signature': razorpaySignature,
     });
 
-    if (response['success'] == true && response['data'] != null) {
-      return response['data'];
+    // Note: success with null data is valid — the endpoint returns success:true
+    // with no data payload. Throwing on null data would show a false error.
+    if (response['success'] == true) {
+      return response['data'] ?? {};
     }
     throw Exception(response['message'] ?? 'Payment verification failed');
   }
@@ -214,6 +218,10 @@ class ProfessionalApiService {
       'amount': amount,
       'payment_method': method,
     });
+  }
+
+  static Future<Map<String, dynamic>> getWithdrawalHistory() async {
+    return await ApiService.get('$_prefix/withdrawals/history');
   }
 
   // --- Profile ---
@@ -279,12 +287,20 @@ class ProfessionalApiService {
     return await updateProfile(data);
   }
 
-  static Future<Map<String, dynamic>> updateBankDetails(Map<String, dynamic> data) async {
-    return await updateProfile({'payout': data});
+  static Future<Map<String, dynamic>> updateBankDetails(Map<String, String> data, {XFile? proofImage}) async {
+    final Map<String, XFile> files = {};
+    if (proofImage != null) {
+      files['bank_proof_image'] = proofImage;
+    }
+    return await ApiService.multipart('$_prefix/update-bank-details', data, files);
   }
 
-  static Future<Map<String, dynamic>> updateUPIDetails(Map<String, dynamic> data) async {
-    return await updateProfile({'payout': data});
+  static Future<Map<String, dynamic>> updateUPIDetails(Map<String, String> data, {XFile? screenshot}) async {
+    final Map<String, XFile> files = {};
+    if (screenshot != null) {
+      files['upi_screenshot'] = screenshot;
+    }
+    return await ApiService.multipart('$_prefix/update-upi-details', data, files);
   }
 
   static Future<Map<String, dynamic>> changePassword(String currentPassword, String newPassword) async {
@@ -365,8 +381,8 @@ class ProfessionalApiService {
       'razorpay_signature': razorpaySignature,
     });
 
-    if (response['success'] == true && response['data'] != null) {
-      return response['data'];
+    if (response['success'] == true) {
+      return response['data'] ?? {};
     }
     throw Exception(response['message'] ?? 'Deposit verification failed');
   }
@@ -419,5 +435,44 @@ class ProfessionalApiService {
       // Quietly fail as it's a heartbeat
       debugPrint('Heartbeat failed: $e');
     }
+  }
+  // --- Schedule ---
+  static Future<Map<String, dynamic>> getSchedule(String date) async {
+    return await ApiService.get('$_prefix/schedule?date=$date');
+  }
+
+  static Future<Map<String, dynamic>> updateSlots({
+    bool? morning,
+    bool? afternoon,
+    bool? evening,
+  }) async {
+    final body = <String, dynamic>{};
+    if (morning != null) body['morning'] = morning;
+    if (afternoon != null) body['afternoon'] = afternoon;
+    if (evening != null) body['evening'] = evening;
+    return await ApiService.post('$_prefix/schedule/slots', body);
+  }
+
+  // --- Leave Requests ---
+  static Future<Map<String, dynamic>> getLeaves() async {
+    return await ApiService.get('$_prefix/leaves');
+  }
+
+  static Future<Map<String, dynamic>> applyLeave({
+    required String leaveType,
+    required String startDate,
+    required String endDate,
+    required String reason,
+  }) async {
+    return await ApiService.post('$_prefix/leaves', {
+      'leave_type': leaveType,
+      'start_date': startDate,
+      'end_date': endDate,
+      'reason': reason,
+    });
+  }
+
+  static Future<Map<String, dynamic>> cancelLeave(int id) async {
+    return await ApiService.delete('$_prefix/leaves/$id');
   }
 }
