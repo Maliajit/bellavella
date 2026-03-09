@@ -9,6 +9,7 @@ import 'core/services/token_manager.dart';
 
 import 'package:provider/provider.dart';
 import 'features/professional/controllers/professional_profile_controller.dart';
+import 'features/client/home/controllers/home_provider.dart';
 
 void main({RouterConfig<Object>? router}) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -31,6 +32,7 @@ void main({RouterConfig<Object>? router}) async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProfessionalProfileController()),
+        ChangeNotifierProvider(create: (_) => HomeProvider()),
         // Add other providers here as needed
       ],
       child: BellavellaApp(routerConfig: effectiveRouter),

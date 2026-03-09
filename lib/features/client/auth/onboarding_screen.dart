@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
-import '../../../core/config/app_config.dart';
-import '../../../core/services/token_manager.dart';
-import '../../../core/router/route_names.dart';
+import 'package:bellavella/core/config/app_config.dart';
+import 'package:bellavella/core/services/token_manager.dart';
+import 'package:bellavella/core/router/route_names.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
