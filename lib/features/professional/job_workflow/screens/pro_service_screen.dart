@@ -1,12 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import '../../../../core/router/route_names.dart';
 import '../widgets/workflow_stepper.dart';
 
-class ProServiceScreen extends StatelessWidget {
-  const ProServiceScreen({super.key});
+class ProServiceScreen extends StatefulWidget {
+  final ProfessionalBooking booking;
+  const ProServiceScreen({super.key, required this.booking});
+
+  @override
+  State<ProServiceScreen> createState() => _ProServiceScreenState();
+}
+
+class _ProServiceScreenState extends State<ProServiceScreen> {
+  bool _isProcessing = false;
+
+  Future<void> _proceedToPayment() async {
+    setState(() => _isProcessing = true);
+    try {
+      // Logic: Backend might want "Start Service" called either at the beginning or end
+      // For this workflow, we call it when moving to payment to ensure status is correctly synced
+      final res = await ProfessionalApiService.jobStartService(widget.booking.id);
+      if (mounted) {
+        if (res['success'] == true) {
+          context.pushNamed(AppRoutes.proCollectPaymentName, extra: widget.booking);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['message'] ?? 'Failed to proceed to payment')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +101,7 @@ class ProServiceScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         Text(
-                          'Nikhil Sharma',
+                          widget.booking.clientName,
                           style: GoogleFonts.inter(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
@@ -74,7 +110,7 @@ class ProServiceScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Classic Haircut + Beard Styling',
+                          widget.booking.serviceName,
                           style: GoogleFonts.inter(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -85,7 +121,7 @@ class ProServiceScreen extends StatelessWidget {
                     ),
                   ),
 
-                  // Job Timer Section
+                  // Job Timer Section (Mockup)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 28),
@@ -131,9 +167,7 @@ class ProServiceScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _checklistItem("Classic Haircut", true),
-                  _checklistItem("Beard Trimming & Shaping", true),
-                  _checklistItem("Hair Wash & Conditioning", false),
+                  _checklistItem(widget.booking.serviceName, true),
                   _checklistItem("Post-service Cleanup", false),
 
                   const SizedBox(height: 24),
@@ -161,7 +195,7 @@ class ProServiceScreen extends StatelessWidget {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => context.pushNamed(AppRoutes.proCollectPaymentName),
+                onPressed: _isProcessing ? null : _proceedToPayment,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
@@ -169,10 +203,12 @@ class ProServiceScreen extends StatelessWidget {
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                child: Text(
-                  "Proceed to Payment",
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                ),
+                child: _isProcessing 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        "Proceed to Payment",
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                      ),
               ),
             ),
           ),

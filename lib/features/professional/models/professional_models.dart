@@ -22,6 +22,17 @@ class ProfessionalBooking {
     required this.status,
   });
 
+  factory ProfessionalBooking.empty() => ProfessionalBooking(
+    id: '', 
+    clientName: 'Unknown', 
+    serviceName: 'Service', 
+    time: '', 
+    date: '', 
+    totalPrice: 0, 
+    address: '', 
+    status: BookingStatus.requested
+  );
+
   factory ProfessionalBooking.fromJson(dynamic json) {
     if (json is! Map) {
       return ProfessionalBooking(id: '', clientName: 'Unknown', serviceName: 'Service', time: '', date: '', totalPrice: 0, address: '', status: BookingStatus.requested);
@@ -30,10 +41,19 @@ class ProfessionalBooking {
     String statusStr = (json['status'] ?? '').toString().toLowerCase().trim().replaceAll(' ', '');
     BookingStatus status = BookingStatus.requested;
     
-    if (statusStr == 'confirmed' || statusStr == 'assigned' || statusStr == 'accepted') status = BookingStatus.accepted;
-    else if (statusStr == 'inprogress' || statusStr == 'started') status = BookingStatus.started;
-    else if (statusStr == 'completed') status = BookingStatus.completed;
-    else if (statusStr == 'cancelled') status = BookingStatus.cancelled;
+    if (statusStr == 'confirmed' || statusStr == 'assigned' || statusStr == 'accepted') {
+      status = BookingStatus.accepted;
+    } else if (statusStr == 'started') {
+      status = BookingStatus.onTheWay;
+    } else if (statusStr == 'arrived') {
+      status = BookingStatus.arrived;
+    } else if (statusStr == 'inprogress' || statusStr == 'service_started') {
+      status = BookingStatus.started;
+    } else if (statusStr == 'completed') {
+      status = BookingStatus.completed;
+    } else if (statusStr == 'cancelled') {
+      status = BookingStatus.cancelled;
+    }
 
     return ProfessionalBooking(
       id: json['id']?.toString() ?? '',
@@ -79,6 +99,16 @@ class ProfessionalDashboardStats {
     if (json is! Map) {
       return ProfessionalDashboardStats(todayEarnings: 0, totalEarnings: 0, totalBookings: 0, rating: 0, activeJobsCount: 0, distanceToJob: 0, recentBookings: []);
     }
+    // Safe parsing for recent bookings (handle both List and Paginated Map)
+    List<ProfessionalBooking> bookingsList = [];
+    final jsonBookings = json['todays_bookings'] ?? json['recent_bookings'];
+    
+    if (jsonBookings is List) {
+      bookingsList = jsonBookings.map((i) => ProfessionalBooking.fromJson(i)).toList();
+    } else if (jsonBookings is Map && jsonBookings['data'] is List) {
+      bookingsList = (jsonBookings['data'] as List).map((i) => ProfessionalBooking.fromJson(i)).toList();
+    }
+
     return ProfessionalDashboardStats(
       todayEarnings: ParserUtil.safeParseDouble(json['todays_earnings'] ?? json['today_earnings']),
       totalEarnings: ParserUtil.safeParseDouble(json['total_earnings'] ?? json['earnings']),
@@ -90,37 +120,62 @@ class ProfessionalDashboardStats {
       distanceToJob: ParserUtil.safeParseDouble(json['distance_to_job']),
       activeJobStatus: json['status']?.toString(),
       isOnline: json['is_online'] == true,
-      recentBookings: ( (json['todays_bookings'] ?? json['recent_bookings']) as List? ?? [])
-          .map((i) => ProfessionalBooking.fromJson(i))
-          .toList(),
+      recentBookings: bookingsList,
     );
   }
 }
 
 class ProfessionalWallet {
-  final double balance;
+  final double balance; // legacy fallback
+  final double earningsBalance;
+  final double depositBalance;
+  final double totalBalance;
   final int coins;
   final int kits;
+  final double weeklyEarnings;
+  final double monthlyEarnings;
+  final int totalJobs;
   final List<Transaction> transactions;
 
   ProfessionalWallet({
     required this.balance,
+    required this.earningsBalance,
+    required this.depositBalance,
+    required this.totalBalance,
     required this.coins,
     required this.kits,
+    this.weeklyEarnings = 0,
+    this.monthlyEarnings = 0,
+    this.totalJobs = 0,
     required this.transactions,
   });
 
   factory ProfessionalWallet.fromJson(dynamic json) {
     if (json is! Map) {
-      return ProfessionalWallet(balance: 0, coins: 0, kits: 0, transactions: []);
+      return ProfessionalWallet(balance: 0, earningsBalance: 0, depositBalance: 0, totalBalance: 0, coins: 0, kits: 0, transactions: []);
     }
+    final earnings = ParserUtil.safeParseDouble(json['earnings_balance'] ?? json['cash_balance'] ?? json['balance']);
+    final deposit = ParserUtil.safeParseDouble(json['deposit_balance'] ?? 0);
+    // Safe parsing for transactions
+    List<Transaction> transactionsList = [];
+    final jsonTransactions = json['transactions'];
+    if (jsonTransactions is List) {
+      transactionsList = jsonTransactions.map((i) => Transaction.fromJson(i)).toList();
+    } else if (jsonTransactions is Map && jsonTransactions['data'] is List) {
+      transactionsList = (jsonTransactions['data'] as List).map((i) => Transaction.fromJson(i)).toList();
+    }
+
     return ProfessionalWallet(
-      balance: ParserUtil.safeParseDouble(json['cash_balance'] ?? json['balance']),
+      balance: earnings,
+      earningsBalance: earnings,
+      depositBalance: deposit,
+      totalBalance: ParserUtil.safeParseDouble(json['total_balance'] ?? (earnings + deposit)),
       coins: int.tryParse((json['coin_balance'] ?? json['coins'])?.toString() ?? '0') ?? 0,
       kits: int.tryParse((json['kit_count'] ?? json['kits'])?.toString() ?? '0') ?? 0,
-      transactions: (json['transactions'] as List? ?? [])
-          .map((i) => Transaction.fromJson(i))
-          .toList(),
+      weeklyEarnings: ParserUtil.safeParseDouble(json['weekly_earnings'] ?? 0),
+      monthlyEarnings: ParserUtil.safeParseDouble(json['monthly_earnings'] ?? 0),
+      totalJobs: int.tryParse((json['total_jobs'] ?? json['total_bookings'])?.toString() ?? '0') ?? 0,
+      transactions: transactionsList,
     );
   }
 }
@@ -148,8 +203,8 @@ class Transaction {
       id: (json['id'] ?? '').toString(),
       amount: ParserUtil.safeParseDouble(json['amount']),
       type: (json['type'] ?? 'credit').toString(),
-      date: (json['created_at'] ?? '').toString(),
-      description: (json['description'] ?? '').toString(),
+      date: (json['subtitle'] ?? json['created_at'] ?? '').toString(),
+      description: (json['title'] ?? json['description'] ?? '').toString(),
     );
   }
 }
@@ -277,6 +332,15 @@ class ReferralStats {
         history: [],
       );
     }
+    // Safe parsing for history
+    List<ReferralHistory> historyList = [];
+    final jsonHistory = json['history'];
+    if (jsonHistory is List) {
+      historyList = jsonHistory.map((i) => ReferralHistory.fromJson(i)).toList();
+    } else if (jsonHistory is Map && jsonHistory['data'] is List) {
+      historyList = (jsonHistory['data'] as List).map((i) => ReferralHistory.fromJson(i)).toList();
+    }
+
     return ReferralStats(
       referralCode: (json['referral_code'] ?? '').toString(),
       totalReferrals: int.tryParse(json['total_referrals']?.toString() ?? '0') ?? 0,
@@ -284,10 +348,7 @@ class ReferralStats {
       pendingReferrals: int.tryParse(json['pending_referrals']?.toString() ?? '0') ?? 0,
       referrerReward: int.tryParse(json['referrer_reward']?.toString() ?? '0') ?? 0,
       referredReward: int.tryParse(json['referred_reward']?.toString() ?? '0') ?? 0,
-      history: (json['history'] as List? ?? [])
-          .where((i) => i != null)
-          .map((i) => ReferralHistory.fromJson(i))
-          .toList(),
+      history: historyList,
     );
   }
 }

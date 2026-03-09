@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
+import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -93,6 +95,15 @@ class ProfessionalApiService {
     return response;
   }
 
+  // --- Bookings ---
+  static Future<Map<String, dynamic>> acceptBooking(String id) async {
+    return await ApiService.post('$_prefix/bookings/$id/accept', {});
+  }
+
+  static Future<Map<String, dynamic>> rejectBooking(String id) async {
+    return await ApiService.post('$_prefix/bookings/$id/reject', {});
+  }
+
   // --- Dashboard ---
   static Future<pro_models.ProfessionalDashboardStats> getDashboardStats() async {
     final response = await ApiService.get('$_prefix/dashboard');
@@ -110,9 +121,14 @@ class ProfessionalApiService {
   static Future<List<pro_models.ProfessionalBooking>> getBookingRequests() async {
     final response = await ApiService.get('$_prefix/booking-requests');
     if (response['success'] == true) {
-      return (response['data'] as List)
-          .map((i) => pro_models.ProfessionalBooking.fromJson(i))
-          .toList();
+      final rawData = response['data'];
+      List listData = [];
+      if (rawData is List) {
+        listData = rawData;
+      } else if (rawData is Map && rawData['data'] is List) {
+        listData = rawData['data'];
+      }
+      return listData.map((i) => pro_models.ProfessionalBooking.fromJson(i)).toList();
     }
     throw Exception(response['message'] ?? 'Failed to load booking requests');
   }
@@ -120,15 +136,29 @@ class ProfessionalApiService {
   static Future<List<pro_models.ProfessionalBooking>> getBookings() async {
     final response = await ApiService.get('$_prefix/bookings');
     if (response['success'] == true) {
-      return (response['data'] as List)
-          .map((i) => pro_models.ProfessionalBooking.fromJson(i))
-          .toList();
+      final rawData = response['data'];
+      List listData = [];
+      if (rawData is List) {
+        listData = rawData;
+      } else if (rawData is Map && rawData['data'] is List) {
+        listData = rawData['data'];
+      }
+      return listData.map((i) => pro_models.ProfessionalBooking.fromJson(i)).toList();
     }
     throw Exception(response['message'] ?? 'Failed to load bookings');
   }
 
-  static Future<Map<String, dynamic>> acceptBooking(String id) async {
-    return await ApiService.post('$_prefix/bookings/$id/accept', {});
+
+  static Future<pro_models.ProfessionalBooking> getBookingDetail(String id) async {
+    final response = await ApiService.get('$_prefix/bookings/$id');
+    if (response['success'] == true) {
+      return pro_models.ProfessionalBooking.fromJson(response['data']);
+    }
+    throw Exception(response['message'] ?? 'Failed to load booking details');
+  }
+
+  static Future<Map<String, dynamic>> jobStartJourney(String id) async {
+    return await ApiService.post('$_prefix/jobs/$id/start-journey', {});
   }
 
   static Future<Map<String, dynamic>> jobArrived(String id) async {
@@ -143,9 +173,36 @@ class ProfessionalApiService {
     return await ApiService.post('$_prefix/jobs/$id/complete', {});
   }
 
+  // --- Job Payment (Razorpay) ---
+  static Future<Map<String, dynamic>> createJobPaymentOrder(String id) async {
+    final response = await ApiService.post('$_prefix/jobs/$id/payment/create-order', {});
+    if (response['success'] == true && response['data'] != null) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Failed to create job payment order');
+  }
+
+  static Future<Map<String, dynamic>> verifyJobPayment({
+    required String id,
+    required String razorpayPaymentId,
+    required String razorpayOrderId,
+    required String razorpaySignature,
+  }) async {
+    final response = await ApiService.post('$_prefix/jobs/$id/payment/verify', {
+      'razorpay_payment_id': razorpayPaymentId,
+      'razorpay_order_id': razorpayOrderId,
+      'razorpay_signature': razorpaySignature,
+    });
+
+    if (response['success'] == true && response['data'] != null) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Payment verification failed');
+  }
+
   // --- Wallet ---
-  static Future<pro_models.ProfessionalWallet> getWallet() async {
-    final response = await ApiService.get('$_prefix/wallet');
+  static Future<pro_models.ProfessionalWallet> getWallet({String tab = 'earnings'}) async {
+    final response = await ApiService.get('$_prefix/wallet?tab=$tab');
     if (response['success'] == true) {
       return pro_models.ProfessionalWallet.fromJson(response['data']);
     }
@@ -175,13 +232,39 @@ class ProfessionalApiService {
     return await ApiService.put('$_prefix/profile', data);
   }
 
+  static Future<Map<String, dynamic>> uploadProfileImage(XFile image) async {
+    return await ApiService.multipart('$_prefix/upload-profile-image', {}, {'image': image});
+  }
+
   // --- Notifications ---
   static Future<List<Map<String, dynamic>>> getNotifications() async {
     final response = await ApiService.get('$_prefix/notifications');
     if (response['success'] == true) {
-      return List<Map<String, dynamic>>.from(response['data']);
+      final rawData = response['data'];
+      
+      // Case 1: Directly a list
+      if (rawData is List) {
+        return List<Map<String, dynamic>>.from(
+          rawData.map((e) => Map<String, dynamic>.from(e))
+        );
+      } 
+      
+      // Case 2: Paginated response with nested 'data' list
+      if (rawData is Map) {
+        final nestedData = rawData['data'];
+        if (nestedData is List) {
+          return List<Map<String, dynamic>>.from(
+            nestedData.map((e) => Map<String, dynamic>.from(e))
+          );
+        }
+      }
+      return [];
     }
     throw Exception(response['message'] ?? 'Failed to load notifications');
+  }
+
+  static Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
+    return await ApiService.post('$_prefix/notifications/$id/read', {});
   }
 
   static Future<Map<String, dynamic>> markAllNotificationsRead() async {
@@ -216,26 +299,97 @@ class ProfessionalApiService {
   }
 
   // --- Kit Store ---
-  static Future<List<Map<String, dynamic>>> getKitProducts() async {
-    final response = await ApiService.get('$_prefix/kit-products');
-    if (response['success'] == true) {
-      return List<Map<String, dynamic>>.from(response['data']);
-    }
-    throw Exception(response['message'] ?? 'Failed to load kit products');
+  static Future<List<pro_models.KitProductModel>> getKitProducts() async {
+    final response = await ApiService.get('/professional/kit-products');
+    final List data = response['data'] ?? [];
+    return data.map((e) => pro_models.KitProductModel.fromJson(e)).toList();
   }
 
-  static Future<Map<String, dynamic>> placeKitOrder(int kitProductId, int quantity, {String? notes}) async {
-    return await ApiService.post('$_prefix/orders', {
+  /// Step 1: Create Razorpay Order on Backend
+  static Future<Map<String, dynamic>> createKitPaymentOrder(int productId, int quantity) async {
+    final response = await ApiService.post('/professional/payment/create-order', {
+      'kit_product_id': productId,
+      'quantity': quantity,
+    });
+    
+    if (response['success'] == true && response['data'] != null) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Failed to create kit payment order');
+  }
+
+  /// Step 2: Verify Razorpay Payment Signature on Backend
+  static Future<Map<String, dynamic>> verifyKitPayment({
+    required int kitProductId,
+    required int quantity,
+    required String razorpayPaymentId,
+    required String razorpayOrderId,
+    required String razorpaySignature,
+  }) async {
+    final response = await ApiService.post('/professional/payment/verify', {
       'kit_product_id': kitProductId,
       'quantity': quantity,
-      'notes': notes,
+      'razorpay_payment_id': razorpayPaymentId,
+      'razorpay_order_id': razorpayOrderId,
+      'razorpay_signature': razorpaySignature,
     });
+
+    if (response['success'] == true && response['data'] != null) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Payment verification failed');
+  }
+
+  // --- Wallet Deposit ---
+  static Future<Map<String, dynamic>> createWalletDepositOrder(double amount) async {
+    final response = await ApiService.post('$_prefix/wallet/deposit/create-order', {
+      'amount': amount,
+    });
+    
+    if (response['success'] == true && response['data'] != null) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Failed to create deposit order');
+  }
+
+  static Future<Map<String, dynamic>> verifyWalletDeposit({
+    required double amount,
+    required String razorpayPaymentId,
+    required String razorpayOrderId,
+    required String razorpaySignature,
+  }) async {
+    final response = await ApiService.post('$_prefix/wallet/deposit/verify', {
+      'amount': amount,
+      'razorpay_payment_id': razorpayPaymentId,
+      'razorpay_order_id': razorpayOrderId,
+      'razorpay_signature': razorpaySignature,
+    });
+
+    if (response['success'] == true && response['data'] != null) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Deposit verification failed');
+  }
+
+  /// Legacy / Wallet Order
+  static Future<Map<String, dynamic>> placeKitOrder(int productId, int quantity) async {
+    final response = await ApiService.post('/professional/orders', {
+      'kit_product_id': productId,
+      'quantity': quantity,
+    });
+    return response;
   }
 
   static Future<List<Map<String, dynamic>>> getKitOrders() async {
     final response = await ApiService.get('$_prefix/orders');
     if (response['success'] == true) {
-      return List<Map<String, dynamic>>.from(response['data']);
+      final data = response['data'];
+      if (data is List) {
+        return List<Map<String, dynamic>>.from(data);
+      } else if (data is Map && data.containsKey('data')) {
+        return List<Map<String, dynamic>>.from(data['data']);
+      }
+      return [];
     }
     throw Exception(response['message'] ?? 'Failed to load kit orders');
   }
@@ -248,24 +402,6 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to load order details');
   }
 
-  static Future<Map<String, dynamic>> verifyKitPayment({
-    required int kitProductId,
-    required int quantity,
-    required String paymentId,
-    String? razorpayOrderId,
-    String? paymentMethod,
-    String? notes,
-  }) async {
-    return await ApiService.post('$_prefix/payment/verify', {
-      'kit_product_id': kitProductId,
-      'quantity': quantity,
-      'payment_id': paymentId,
-      'razorpay_order_id': razorpayOrderId,
-      'payment_method': paymentMethod ?? 'UPI',
-      'notes': notes,
-    });
-  }
-
   // --- Refer & Earn ---
   static Future<Map<String, dynamic>> getReferralStats() async {
     final response = await ApiService.get('$_prefix/referrals');
@@ -273,5 +409,15 @@ class ProfessionalApiService {
       return response['data'];
     }
     throw Exception(response['message'] ?? 'Failed to load referral stats');
+  }
+
+  /// Heartbeat to keep professional online
+  static Future<void> updateOnlineStatus() async {
+    try {
+      await ApiService.post('$_prefix/update-online-status', {});
+    } catch (e) {
+      // Quietly fail as it's a heartbeat
+      debugPrint('Heartbeat failed: $e');
+    }
   }
 }

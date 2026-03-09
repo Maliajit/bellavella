@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../services/professional_api_service.dart';
 import '../models/professional_models.dart';
 
@@ -101,7 +101,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
             else ...[
               SliverToBoxAdapter(child: _buildCategoryFilter()),
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => _buildKitCard(_filteredKits[index]),
@@ -139,7 +139,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
   Widget _buildInventoryHero() {
     final bool isMet = _currentKits >= 5;
     return Container(
-      margin: const EdgeInsets.all(20),
+      margin: EdgeInsets.all(20),
       height: 180,
       child: Stack(
         children: [
@@ -173,13 +173,13 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(28),
+            padding: EdgeInsets.all(28),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
@@ -216,19 +216,19 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
   Widget _buildCategoryFilter() {
     final categories = _categories;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: EdgeInsets.symmetric(vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Text('CATEGORIES', style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.grey.shade400, letterSpacing: 1)),
           ),
           SizedBox(
             height: 44,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: 20),
               itemCount: categories.length,
               itemBuilder: (context, index) {
                 final category = categories[index];
@@ -237,8 +237,8 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
                   onTap: () => setState(() => _selectedCategory = category),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.only(right: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    margin: EdgeInsets.only(right: 10),
+                    padding: EdgeInsets.symmetric(horizontal: 20),
                     decoration: BoxDecoration(
                       color: isSelected ? Colors.black : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(22),
@@ -265,7 +265,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
 
   Widget _buildKitCard(KitProductModel kit) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: EdgeInsets.only(bottom: 20),
       height: 140, // Horizontal fixed height
       decoration: BoxDecoration(
         color: Colors.white,
@@ -293,7 +293,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
                     top: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(color: Colors.black.withOpacity(0.8), borderRadius: BorderRadius.circular(8)),
                       child: Text('PRO', style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
                     ),
@@ -304,7 +304,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
           // Content Right
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -329,7 +329,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: EdgeInsets.all(6),
                         decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
                         child: Text(kit.icon ?? '📦', style: const TextStyle(fontSize: 14)),
                       ),
@@ -341,7 +341,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.black,
                             elevation: 0,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            padding: EdgeInsets.symmetric(horizontal: 16),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                           child: Text((kit.stock > 0) == true ? 'BUY' : 'SOLD', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
@@ -366,7 +366,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
       builder: (sheetContext) => Container(
         height: 380,
         decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(40))),
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           children: [
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(2))),

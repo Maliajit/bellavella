@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/professional_models.dart';
 import '../../services/professional_api_service.dart';
 import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitOrderHistoryScreen extends StatefulWidget {
   const KitOrderHistoryScreen({super.key});
@@ -82,9 +83,9 @@ class _KitOrderHistoryScreenState extends State<KitOrderHistoryScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _fetchOrders,
-        color: const Color(0xFFFF2D6F),
+        color: AppTheme.primaryColor,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF2D6F)))
+            ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
             : _error != null
                 ? _buildError()
                 : _orders.isEmpty
@@ -96,7 +97,7 @@ class _KitOrderHistoryScreenState extends State<KitOrderHistoryScreen> {
 
   Widget _buildList() {
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       itemCount: _orders.length,
       itemBuilder: (context, index) => _KitOrderCard(order: _orders[index]),
     );
@@ -105,7 +106,7 @@ class _KitOrderHistoryScreenState extends State<KitOrderHistoryScreen> {
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -126,7 +127,7 @@ class _KitOrderHistoryScreenState extends State<KitOrderHistoryScreen> {
             TextButton(
               onPressed: _fetchOrders,
               child: Text('Try Again',
-                style: GoogleFonts.poppins(color: const Color(0xFFFF2D6F), fontWeight: FontWeight.w700)),
+                style: GoogleFonts.poppins(color: AppTheme.primaryColor, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -137,7 +138,7 @@ class _KitOrderHistoryScreenState extends State<KitOrderHistoryScreen> {
   Widget _buildEmpty() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -225,7 +226,7 @@ class _KitOrderCard extends StatelessWidget {
         pathParameters: {'id': order.id.toString()},
       ),
       child: Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -238,7 +239,7 @@ class _KitOrderCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -279,7 +280,7 @@ class _KitOrderCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: _statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -329,7 +330,7 @@ class _KitOrderCard extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: const Color(0xFFFF2D6F),
+                          color: AppTheme.primaryColor,
                         ),
                       ),
                     ],
@@ -346,7 +347,7 @@ class _KitOrderCard extends StatelessWidget {
 
   Widget _chip(String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(6),

@@ -2,7 +2,7 @@ import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class UpdateAddressScreen extends StatefulWidget {
   final Address? address; // If null, it's for adding new address

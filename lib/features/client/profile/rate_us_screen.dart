@@ -1,7 +1,7 @@
 import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class RateUsScreen extends StatefulWidget {
   const RateUsScreen({super.key});

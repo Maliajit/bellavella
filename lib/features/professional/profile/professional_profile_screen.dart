@@ -1,8 +1,10 @@
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../core/router/route_names.dart';
 import '../services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
@@ -53,6 +55,77 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         "Download the app now: https://play.google.com/store/apps/details?id=com.bellavella.professional";
     
     Share.share(shareText);
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('Select Profile Picture', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Take a photo'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Choose from gallery'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (source == null) return; // User canceled the picker
+
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image;
+      
+      if (source == ImageSource.camera) {
+        // On Web, ImageSource.camera might still open a file picker unless capture is specified.
+        // Standard image_picker on web should handle this if source is camera.
+        image = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 70,
+          preferredCameraDevice: CameraDevice.rear,
+        );
+      } else {
+        image = await picker.pickImage(
+          source: ImageSource.gallery,
+          imageQuality: 70,
+        );
+      }
+
+      if (image != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Uploading image...')));
+        final success = await context.read<ProfessionalProfileController>().uploadProfileImage(image);
+        if (mounted) {
+          if (success) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile image updated successfully!')));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to update profile image.')));
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error selecting image: $e')));
+      }
+    }
   }
 
   @override
@@ -281,14 +354,14 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   Widget _buildProfileHeader(Professional? profile) {
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      padding: EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
         children: [
           Stack(
             alignment: Alignment.bottomRight,
             children: [
               Container(
-                padding: const EdgeInsets.all(4),
+                padding: EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1), width: 3),
@@ -297,28 +370,31 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                   radius: 48,
                   backgroundColor: const Color(0xFFF3F4F6),
                   backgroundImage: profile?.photoUrl.isNotEmpty == true 
-                    ? NetworkImage(profile!.photoUrl) as ImageProvider
+                    ? NetworkImage('${profile!.photoUrl}?v=${DateTime.now().millisecondsSinceEpoch}') as ImageProvider
                     : null,
                   child: profile?.photoUrl.isEmpty == true 
                     ? const Icon(Icons.person_rounded, size: 48, color: Colors.grey)
                     : null,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+              InkWell(
+                onTap: _pickAndUploadImage,
+                child: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
                 ),
-                child: const Icon(Icons.camera_alt_rounded, size: 16, color: Colors.white),
               ),
             ],
           ),
@@ -396,7 +472,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
   Widget _badge(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(100),
@@ -415,7 +491,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   Widget _buildSectionWrapper(List<Widget> children) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -436,7 +512,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
   Widget _buildSectionHeader(String title) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: Text(
         title,
         style: GoogleFonts.inter(
@@ -465,11 +541,11 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         );
       },
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: isDestructive ? Colors.red.shade50 : const Color(0xFFF9FAFB),
                 borderRadius: BorderRadius.circular(12),
@@ -509,7 +585,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
             ),
             if (isVerified)
               Padding(
-                padding: const EdgeInsets.only(right: 8),
+                padding: EdgeInsets.only(right: 8),
                 child: Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade600),
               ),
             if (value != null)

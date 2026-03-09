@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../core/widgets/base_widgets.dart';
 
 class ProfessionalAvailabilityScreen extends StatefulWidget {
@@ -17,7 +17,7 @@ class _ProfessionalAvailabilityScreenState extends State<ProfessionalAvailabilit
     return Scaffold(
       appBar: AppBar(title: const Text('Working Hours')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -38,7 +38,7 @@ class _ProfessionalAvailabilityScreenState extends State<ProfessionalAvailabilit
 
   Widget _buildStatusToggle() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: isAcceptingBookings ? Colors.green.shade50 : Colors.red.shade50,
         borderRadius: BorderRadius.circular(24),

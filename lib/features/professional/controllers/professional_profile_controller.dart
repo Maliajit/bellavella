@@ -1,3 +1,4 @@
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import '../services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
@@ -48,6 +49,10 @@ class ProfessionalProfileController extends ChangeNotifier {
 
   Future<bool> changePassword(String cur, String next) async {
     return _performUpdate(() => ProfessionalApiService.changePassword(cur, next));
+  }
+
+  Future<bool> uploadProfileImage(XFile image) async {
+    return _performUpdate(() => ProfessionalApiService.uploadProfileImage(image));
   }
 
   Future<bool> _performUpdate(Future<Map<String, dynamic>> Function() updateCall) async {

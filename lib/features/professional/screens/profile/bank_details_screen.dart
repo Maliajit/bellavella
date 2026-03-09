@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -72,7 +72,7 @@ class _BankDetailsScreenState extends State<BankDetailsScreen> {
       body: Consumer<ProfessionalProfileController>(
         builder: (context, controller, child) {
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(

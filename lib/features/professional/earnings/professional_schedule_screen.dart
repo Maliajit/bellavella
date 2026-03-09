@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class ProfessionalScheduleScreen extends StatefulWidget {
   const ProfessionalScheduleScreen({super.key});
@@ -49,7 +49,7 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
                   children: [
                     _buildCalendarStrip(),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -86,7 +86,7 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
   Widget _buildHeader() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: _isScrolled ? AppTheme.primaryColor : Colors.white,
         boxShadow: _isScrolled 
@@ -116,13 +116,13 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
   Widget _buildCalendarStrip() {
     return Container(
       height: 100,
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.pink.shade50.withOpacity(0.2),
+        color: AppTheme.primaryColor.withOpacity(0.2),
       ),
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 15),
+        padding: EdgeInsets.symmetric(horizontal: 15),
         itemCount: 7,
         itemBuilder: (context, index) {
           final date = DateTime.now().add(Duration(days: index));
@@ -132,7 +132,7 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
             onTap: () => setState(() => _selectedDate = date),
             child: Container(
               width: 60,
-              margin: const EdgeInsets.symmetric(horizontal: 5),
+              margin: EdgeInsets.symmetric(horizontal: 5),
               decoration: BoxDecoration(
                 color: isSelected ? AppTheme.primaryColor : Colors.white,
                 borderRadius: BorderRadius.circular(15),
@@ -170,7 +170,7 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
 
   Widget _buildScheduleItem(String time, String service, String client, bool isCompleted) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
+      margin: EdgeInsets.only(bottom: 15),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -183,7 +183,7 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
           ),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: isCompleted ? Colors.grey.shade50 : Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -214,8 +214,8 @@ class _ProfessionalScheduleScreenState extends State<ProfessionalScheduleScreen>
 
   Widget _buildAvailabilityToggle(String label, bool isOn) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),

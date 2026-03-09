@@ -3,7 +3,7 @@ import 'package:bellavella/features/client/profile/services/client_api_service.d
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class ClientWalletScreen extends StatefulWidget {
   const ClientWalletScreen({super.key});

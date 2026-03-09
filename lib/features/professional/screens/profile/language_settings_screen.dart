@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class LanguageSettingsScreen extends StatefulWidget {
   const LanguageSettingsScreen({super.key});
@@ -30,20 +30,20 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
         centerTitle: true,
       ),
       body: ListView.builder(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(24),
         itemCount: _languages.length,
         itemBuilder: (context, index) {
           final lang = _languages[index];
           final isSelected = _selectedLanguage == lang['name'];
           return Container(
-            margin: const EdgeInsets.only(bottom: 12),
+            margin: EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: isSelected ? AppTheme.primaryColor.withOpacity(0.05) : Colors.white,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent, width: 1.5),
             ),
             child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               title: Text(lang['name']!, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700)),
               subtitle: Text(lang['sub']!, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500)),
               trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryColor) : null,

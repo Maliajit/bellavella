@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/professional_models.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitProductCard extends StatelessWidget {
   final KitProductModel kit;
@@ -33,7 +34,7 @@ class KitProductCard extends StatelessWidget {
     final bool inStock = kit.stock > 0;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -56,9 +57,9 @@ class KitProductCard extends StatelessWidget {
         child: InkWell(
           onTap: onViewDetails,
           borderRadius: BorderRadius.circular(20),
-          splashColor: const Color(0xFFFF2D6F).withOpacity(0.05),
+          splashColor: AppTheme.primaryColor.withOpacity(0.05),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: EdgeInsets.all(14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -91,7 +92,7 @@ class KitProductCard extends StatelessWidget {
                         top: 6,
                         left: 6,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
                             color: const Color(0xFF111827).withOpacity(0.85),
                             borderRadius: BorderRadius.circular(6),
@@ -119,7 +120,7 @@ class KitProductCard extends StatelessWidget {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                             decoration: BoxDecoration(
                               color: _badgeColor.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(6),
@@ -182,7 +183,7 @@ class KitProductCard extends StatelessWidget {
                             style: GoogleFonts.poppins(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
-                              color: const Color(0xFFFF2D6F),
+                              color: AppTheme.primaryColor,
                               height: 1.0,
                             ),
                           ),
@@ -210,11 +211,11 @@ class KitProductCard extends StatelessWidget {
                             onTap: inStock ? onBuy : null,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                 gradient: inStock
-                                    ? const LinearGradient(
-                                        colors: [Color(0xFFFF2D6F), Color(0xFFFF6B9D)],
+                                    ? LinearGradient(
+                                        colors: [AppTheme.primaryColor, Color(0xFFFF6B9D)],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       )
@@ -224,7 +225,7 @@ class KitProductCard extends StatelessWidget {
                                 boxShadow: inStock
                                     ? [
                                         BoxShadow(
-                                          color: const Color(0xFFFF2D6F).withOpacity(0.3),
+                                          color: AppTheme.primaryColor.withOpacity(0.3),
                                           blurRadius: 8,
                                           offset: const Offset(0, 3),
                                         ),

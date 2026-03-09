@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class ProfessionalEditProfileScreen extends StatefulWidget {
   const ProfessionalEditProfileScreen({super.key});
@@ -51,7 +51,7 @@ class _ProfessionalEditProfileScreenState extends State<ProfessionalEditProfileS
               child: SingleChildScrollView(
                 controller: _scrollController,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Form(
                     key: _formKey,
                     child: Column(
@@ -83,7 +83,7 @@ class _ProfessionalEditProfileScreenState extends State<ProfessionalEditProfileS
   Widget _buildHeader() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: _isScrolled ? AppTheme.primaryColor : Colors.white,
         boxShadow: _isScrolled 
@@ -124,14 +124,14 @@ class _ProfessionalEditProfileScreenState extends State<ProfessionalEditProfileS
           keyboardType: keyboardType,
           maxLines: maxLines,
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Colors.pink.shade300),
+            prefixIcon: Icon(icon, color: AppTheme.primaryColor),
             filled: true,
             fillColor: Colors.grey.shade50,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -147,7 +147,7 @@ class _ProfessionalEditProfileScreenState extends State<ProfessionalEditProfileS
   Widget _buildSaveButton() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 20),
+      padding: EdgeInsets.symmetric(vertical: 20),
       child: ElevatedButton(
         onPressed: () {
           if (_formKey.currentState!.validate()) {
@@ -159,7 +159,7 @@ class _ProfessionalEditProfileScreenState extends State<ProfessionalEditProfileS
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: AppTheme.primaryColor,
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 5,
           shadowColor: AppTheme.primaryColor.withOpacity(0.5),

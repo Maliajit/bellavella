@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -56,7 +56,7 @@ class _UPIDetailsScreenState extends State<UPIDetailsScreen> {
       body: Consumer<ProfessionalProfileController>(
         builder: (context, controller, child) {
           return Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(
@@ -64,7 +64,7 @@ class _UPIDetailsScreenState extends State<UPIDetailsScreen> {
                    _buildTextField("UPI ID", _upiController, Icons.alternate_email_rounded),
                    const SizedBox(height: 12),
                    Container(
-                     padding: const EdgeInsets.all(16),
+                     padding: EdgeInsets.all(16),
                      decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(12)),
                      child: Row(
                        children: [

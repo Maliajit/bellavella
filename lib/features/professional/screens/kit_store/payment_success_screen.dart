@@ -3,6 +3,7 @@ import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class PaymentSuccessScreen extends StatefulWidget {
   final String orderId;
@@ -64,13 +65,13 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
               emissionFrequency: 0.05,
               numberOfParticles: 20,
               gravity: 0.2,
-              colors: const [Color(0xFFFF2D6F), Color(0xFF8B5CF6), Color(0xFF10B981), Color(0xFFF59E0B)],
+              colors: [AppTheme.primaryColor, Color(0xFF8B5CF6), Color(0xFF10B981), Color(0xFFF59E0B)],
             ),
           ),
 
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -84,7 +85,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [Color(0xFF10B981), Color(0xFF34D399)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
@@ -133,14 +134,14 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 4))],
                     ),
-                    padding: const EdgeInsets.all(22),
+                    padding: EdgeInsets.all(22),
                     child: Column(
                       children: [
                         _row('Order ID', '#KIT${widget.orderId.isNotEmpty ? widget.orderId.padLeft(4, '0') : '----'}', valueBold: true),
                         const SizedBox(height: 12),
                         _row('Kit', widget.kitName),
                         const SizedBox(height: 12),
-                        _row('Amount Paid', '₹${widget.amount.toStringAsFixed(0)}', valueColor: const Color(0xFFFF2D6F), valueBold: true),
+                        _row('Amount Paid', '₹${widget.amount.toStringAsFixed(0)}', valueColor: AppTheme.primaryColor, valueBold: true),
                         if (widget.paymentId.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           _row('Payment ID', widget.paymentId.length > 14 ? '${widget.paymentId.substring(0, 14)}...' : widget.paymentId),
@@ -152,7 +153,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                   const SizedBox(height: 24),
 
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: const Color(0xFF10B981).withOpacity(0.08),
                       borderRadius: BorderRadius.circular(14),
@@ -183,7 +184,7 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                           ? () => context.pushNamed(AppRoutes.proKitOrderDetailsName, pathParameters: {'id': widget.orderId})
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF2D6F),
+                        backgroundColor: AppTheme.primaryColor,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         elevation: 0,
                       ),

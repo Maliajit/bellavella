@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class WorkflowStepper extends StatelessWidget {
   final int currentStep; // 1 to 5
@@ -15,7 +15,7 @@ class WorkflowStepper extends StatelessWidget {
     final List<String> steps = ['Arrived', 'Scan Kit', 'Service', 'Payment', 'Complete'];
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+      padding: EdgeInsets.symmetric(vertical: 20, horizontal: 24),
       color: Colors.white,
       child: Column(
         children: [

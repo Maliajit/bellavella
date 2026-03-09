@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/services/token_manager.dart';
 import '../../../../core/router/route_names.dart';
@@ -50,7 +50,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: EdgeInsets.all(24.0),
           child: Column(
             children: [
               const Spacer(),
@@ -58,7 +58,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(32),
+                      padding: EdgeInsets.all(32),
                       decoration: BoxDecoration(
                         color: (isRejected ? Colors.red : AppTheme.secondaryColor).withOpacity(0.3),
                         shape: BoxShape.circle,
@@ -97,7 +97,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                     const SizedBox(height: 24),
                     if (!isRejected)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(30),

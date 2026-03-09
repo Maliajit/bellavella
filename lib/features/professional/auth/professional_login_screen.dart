@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../services/professional_api_service.dart';
 
@@ -14,8 +14,10 @@ class ProfessionalLoginScreen extends StatefulWidget {
 
 class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _referralController = TextEditingController();
   bool _isAgreed = false;
   bool _isLoading = false;
+  bool _showReferral = false;
 
   Future<void> _sendOtp() async {
     if (!_isContinueEnabled) return;
@@ -26,7 +28,13 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
       final res = await ProfessionalApiService.sendOtp(_phoneController.text);
       if (mounted) {
         if (res['success'] == true) {
-          context.push('/professional/verify-otp', extra: _phoneController.text);
+          context.push(
+            '/professional/verify-otp',
+            extra: {
+              'phone': _phoneController.text.trim(),
+              'referral_code': _referralController.text.trim(),
+            },
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(res['message'] ?? 'Failed to send OTP')),
@@ -55,6 +63,7 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
   @override
   void dispose() {
     _phoneController.dispose();
+    _referralController.dispose();
     super.dispose();
   }
 
@@ -77,7 +86,7 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+        padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -148,7 +157,7 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
                     borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
                 ),
               ),
             ),
@@ -198,32 +207,87 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
               onPressed: _isContinueEnabled && !_isLoading ? _sendOtp : null,
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
             
             Center(
               child: GestureDetector(
-                onTap: () => context.push('/professional/signup'),
-                child: Text.rich(
-                  TextSpan(
-                    text: "Don't have an account? ",
-                    style: GoogleFonts.outfit(
-                      color: const Color(0xFF7A7A7A),
-                      fontWeight: FontWeight.w500,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: 'Sign up',
-                        style: GoogleFonts.outfit(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                onTap: () {
+                  setState(() {
+                    _showReferral = !_showReferral;
+                  });
+                },
+                child: Text(
+                  _showReferral ? 'Hide referral code' : 'Have a referral code?',
+                  style: GoogleFonts.outfit(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 40),
+            
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _showReferral ? 1.0 : 0.0,
+                child: _showReferral ? Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: TextField(
+                        controller: _referralController,
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF2E2E2E),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Referral Code (Optional)',
+                          hintStyle: GoogleFonts.outfit(
+                            fontSize: 16,
+                            color: const Color(0xFFA0A0A0),
+                          ),
+                          prefixIcon: const Icon(Icons.card_giftcard, size: 20, color: Color(0xFF7A7A7A)),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                        ),
+                      ),
+                    ),
+                  ],
+                ) : const SizedBox.shrink(),
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            
+            const SizedBox(height: 32),
           ],
         ),
       ),

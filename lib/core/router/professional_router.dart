@@ -40,10 +40,9 @@ import '../../features/professional/screens/profile/notification_settings_screen
 import '../../features/professional/screens/profile/change_password_screen.dart';
 import '../../features/professional/screens/profile/language_settings_screen.dart';
 import '../../features/professional/screens/kit_store/kit_order_history_screen.dart';
-import '../../features/professional/screens/kit_store/payment_screen.dart';
 import '../../features/professional/screens/kit_store/payment_success_screen.dart';
 import '../../features/professional/screens/kit_store/kit_order_details_screen.dart';
-import '../../features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
 
 final professionalRouter = GoRouter(
   initialLocation: AppRoutes.splash,
@@ -88,17 +87,33 @@ final _authRoutes = [
     path: AppRoutes.proVerifyOtp,
     name: AppRoutes.proVerifyOtpName,
     builder: (context, state) {
-      final String? phoneNumber = state.extra as String?;
-      if (phoneNumber == null) return const ProfessionalLoginScreen();
-      return OTPVerifyScreen(phoneNumber: phoneNumber);
+      final extra = state.extra;
+      if (extra is String) {
+        return OTPVerifyScreen(phoneNumber: extra);
+      } else if (extra is Map) {
+        return OTPVerifyScreen(
+          phoneNumber: extra['phone'] as String? ?? '',
+          referralCode: extra['referral_code'] as String?,
+        );
+      }
+      return const ProfessionalLoginScreen();
     },
   ),
   GoRoute(
     path: AppRoutes.proSignup,
     name: AppRoutes.proSignupName,
-    builder: (context, state) => ProfessionalSignupScreen(
-      phoneNumber: state.extra as String?,
-    ),
+    builder: (context, state) {
+      final extra = state.extra;
+      if (extra is String) {
+        return ProfessionalSignupScreen(phoneNumber: extra);
+      } else if (extra is Map) {
+        return ProfessionalSignupScreen(
+          phoneNumber: extra['phone'] as String?,
+          referralCode: extra['referral_code'] as String?,
+        );
+      }
+      return const ProfessionalSignupScreen();
+    },
   ),
   GoRoute(
     path: AppRoutes.proVerificationStatus,
@@ -183,37 +198,106 @@ final _proOtherRoutes = [
   GoRoute(
     path: AppRoutes.proIncomingRequest,
     name: AppRoutes.proIncomingRequestName,
-    builder: (context, state) => const IncomingRequestScreen(),
+    builder: (context, state) {
+      final notification = state.extra as Map<String, dynamic>? ?? {};
+      return IncomingRequestScreen(notification: notification);
+    },
   ),
   GoRoute(
     path: AppRoutes.proNavigation,
     name: AppRoutes.proNavigationName,
-    builder: (context, state) => const ProfessionalNavigationScreen(),
+    builder: (context, state) {
+      final extra = state.extra;
+      ProfessionalBooking booking;
+      if (extra is ProfessionalBooking) {
+        booking = extra;
+      } else if (extra is Map<String, dynamic>) {
+        booking = ProfessionalBooking.fromJson(extra);
+      } else {
+        booking = ProfessionalBooking.empty();
+      }
+      return ProfessionalNavigationScreen(booking: booking);
+    },
   ),
   GoRoute(
     path: AppRoutes.proActiveJob,
     name: AppRoutes.proActiveJobName,
-    builder: (context, state) => const ProServiceScreen(),
+    builder: (context, state) {
+      final extra = state.extra;
+      ProfessionalBooking booking;
+      if (extra is ProfessionalBooking) {
+        booking = extra;
+      } else if (extra is Map<String, dynamic>) {
+        booking = ProfessionalBooking.fromJson(extra);
+      } else {
+        booking = ProfessionalBooking.empty();
+      }
+      return ProServiceScreen(booking: booking);
+    },
   ),
   GoRoute(
     path: AppRoutes.proArrive,
     name: AppRoutes.proArriveName,
-    builder: (context, state) => const ProArrivalScreen(),
+    builder: (context, state) {
+      final extra = state.extra;
+      ProfessionalBooking booking;
+      if (extra is ProfessionalBooking) {
+        booking = extra;
+      } else if (extra is Map<String, dynamic>) {
+        booking = ProfessionalBooking.fromJson(extra);
+      } else {
+        booking = ProfessionalBooking.empty();
+      }
+      return ProArrivalScreen(booking: booking);
+    },
   ),
   GoRoute(
     path: AppRoutes.proScanKit,
     name: AppRoutes.proScanKitName,
-    builder: (context, state) => const ProKitScanScreen(),
+    builder: (context, state) {
+      final extra = state.extra;
+      ProfessionalBooking booking;
+      if (extra is ProfessionalBooking) {
+        booking = extra;
+      } else if (extra is Map<String, dynamic>) {
+        booking = ProfessionalBooking.fromJson(extra);
+      } else {
+        booking = ProfessionalBooking.empty();
+      }
+      return ProKitScanScreen(booking: booking);
+    },
   ),
   GoRoute(
     path: AppRoutes.proCollectPayment,
     name: AppRoutes.proCollectPaymentName,
-    builder: (context, state) => const ProPaymentScreen(),
+    builder: (context, state) {
+      final extra = state.extra;
+      ProfessionalBooking booking;
+      if (extra is ProfessionalBooking) {
+        booking = extra;
+      } else if (extra is Map<String, dynamic>) {
+        booking = ProfessionalBooking.fromJson(extra);
+      } else {
+        booking = ProfessionalBooking.empty();
+      }
+      return ProPaymentScreen(booking: booking);
+    },
   ),
   GoRoute(
     path: AppRoutes.proJobComplete,
     name: AppRoutes.proJobCompleteName,
-    builder: (context, state) => const ProJobCompleteScreen(),
+    builder: (context, state) {
+      final extra = state.extra;
+      ProfessionalBooking booking;
+      if (extra is ProfessionalBooking) {
+        booking = extra;
+      } else if (extra is Map<String, dynamic>) {
+        booking = ProfessionalBooking.fromJson(extra);
+      } else {
+        booking = ProfessionalBooking.empty();
+      }
+      return ProJobCompleteScreen(booking: booking);
+    },
   ),
   GoRoute(
     path: AppRoutes.proNotifications,
@@ -279,17 +363,6 @@ final _proOtherRoutes = [
     path: AppRoutes.proKitOrders,
     name: AppRoutes.proKitOrdersName,
     builder: (context, state) => const KitOrderHistoryScreen(),
-  ),
-  GoRoute(
-    path: AppRoutes.proKitPayment,
-    name: AppRoutes.proKitPaymentName,
-    builder: (context, state) {
-      final extra = state.extra as Map<String, dynamic>? ?? {};
-      return PaymentScreen(
-        kit: extra['kit'] as KitProductModel,
-        quantity: extra['quantity'] as int? ?? 1,
-      );
-    },
   ),
   GoRoute(
     path: AppRoutes.proKitPaymentSuccess,

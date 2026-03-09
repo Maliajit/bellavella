@@ -97,7 +97,7 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
               onRefresh: _fetchRequests,
               color: AppTheme.primaryColor,
               child: ListView.builder(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(24),
                 itemCount: _requests.length,
                 itemBuilder: (context, index) {
                   final booking = _requests[index];
@@ -141,8 +141,8 @@ class _RequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 20),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -190,7 +190,7 @@ class _RequestCard extends StatelessWidget {
             ],
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: EdgeInsets.symmetric(vertical: 16),
             child: const Divider(),
           ),
           Text(

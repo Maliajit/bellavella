@@ -1,4 +1,5 @@
 import 'package:bellavella/core/utils/parser_util.dart';
+import 'package:bellavella/core/config/app_config.dart';
 
 class Category {
   final String id;
@@ -193,10 +194,22 @@ class Professional {
           .toList();
     }
 
+    String rawAvatar = (json['avatar'] ?? json['photo_url'] ?? '').toString();
+    if (rawAvatar.isNotEmpty) {
+      if (rawAvatar.contains('/storage/') || rawAvatar.startsWith('storage/')) {
+        final cleanPath = rawAvatar.split('/storage/').last;
+        rawAvatar = '${AppConfig.baseUrl}/images/$cleanPath';
+      } else if (!rawAvatar.startsWith('http')) {
+        final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
+        if (!rawAvatar.startsWith('/')) rawAvatar = '/$rawAvatar';
+        rawAvatar = '$hostUrl$rawAvatar';
+      }
+    }
+
     return Professional(
       id: json['id']?.toString() ?? '',
       name: (json['name'] ?? 'Professional').toString(),
-      photoUrl: (json['avatar'] ?? json['photo_url'] ?? '').toString(),
+      photoUrl: rawAvatar,
       rating: ParserUtil.safeParseDouble(json['rating']),
       phone: (json['phone'] ?? json['mobile'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),

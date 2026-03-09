@@ -113,7 +113,7 @@ class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificati
                       onRefresh: _fetchNotifications,
                       color: AppTheme.primaryColor,
                       child: ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                         itemCount: _notifications.length,
                         itemBuilder: (context, index) {
                           final n = _notifications[index];
@@ -170,8 +170,8 @@ class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificati
     required bool isUnread,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isUnread ? Colors.blue.withOpacity(0.02) : Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -184,7 +184,7 @@ class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificati
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: iconColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),

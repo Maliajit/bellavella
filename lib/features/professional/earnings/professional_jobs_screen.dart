@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../services/professional_api_service.dart';
 import '../models/professional_models.dart' as pro_models;
 import '../../../../core/models/data_models.dart';
@@ -94,7 +94,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
                             controller: _scrollController,
                             physics: const AlwaysScrollableScrollPhysics(),
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              padding: EdgeInsets.symmetric(horizontal: 20),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -136,7 +136,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
   Widget _buildHeader() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
         color: _isScrolled ? AppTheme.primaryColor : Colors.white,
         boxShadow: _isScrolled 
@@ -165,8 +165,8 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
 
   Widget _buildJobCard(String id, String name, String service, String time, String price, String location) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
+      margin: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
@@ -223,7 +223,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: EdgeInsets.symmetric(vertical: 12),
               ),
               child: const Text('Accept Request', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),

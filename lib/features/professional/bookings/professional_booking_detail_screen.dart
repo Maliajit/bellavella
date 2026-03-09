@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/models/data_models.dart';
+import '../../../../features/professional/services/professional_api_service.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 
 class ProfessionalBookingDetailScreen extends StatefulWidget {
   final String bookingId;
@@ -14,11 +16,60 @@ class ProfessionalBookingDetailScreen extends StatefulWidget {
 }
 
 class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDetailScreen> {
-  BookingStatus _status = BookingStatus.accepted;
-  final String _clientArrivalCode = "1234"; // Mock
-  final String _professionalPaymentCode = "1234"; // Mock
+  pro_models.ProfessionalBooking? _booking;
+  bool _isLoading = true;
+  String? _error;
+  
+  final String _clientArrivalCode = "1234"; // Still mock for now as per controller logic
+  final String _professionalPaymentCode = "1234"; 
   final _codeController = TextEditingController();
   bool _isKitVerified = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookingDetails();
+  }
+
+  Future<void> _fetchBookingDetails() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final booking = await ProfessionalApiService.getBookingDetail(widget.bookingId);
+      setState(() {
+        _booking = booking;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateStatus(Future<Map<String, dynamic>> Function(String) apiCall) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      
+      await apiCall(widget.bookingId);
+      
+      Navigator.pop(context); // Close loading
+      await _fetchBookingDetails(); // Refresh
+      
+    } catch (e) {
+      Navigator.pop(context); // Close loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.errorColor),
+      );
+    }
+  }
 
   void _verifyKitQR() {
     showDialog(
@@ -96,9 +147,9 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
           ElevatedButton(
             onPressed: () {
               if (_codeController.text == _clientArrivalCode) {
-                setState(() => _status = BookingStatus.arrived);
                 Navigator.pop(context);
                 _codeController.clear();
+                _updateStatus(ProfessionalApiService.jobArrived);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Invalid Code'), backgroundColor: AppTheme.errorColor),
@@ -132,10 +183,10 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
         actions: [
           PrimaryButton(
             label: 'Done',
-            onPressed: () {
-              setState(() => _status = BookingStatus.completed);
+            onPressed: () async {
               Navigator.pop(context);
-              context.go('/professional/orders');
+              await _updateStatus(ProfessionalApiService.jobComplete);
+              if (mounted) context.go('/professional/orders');
             },
           ),
         ],
@@ -145,21 +196,29 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (_error != null) return Scaffold(body: Center(child: Text('Error: $_error')));
+    if (_booking == null) return const Scaffold(body: Center(child: Text('Booking not found')));
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Booking Details')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildClientInfo(),
-            const SizedBox(height: 32),
-            _buildServiceInfo(),
-            const SizedBox(height: 32),
-            _buildLocationInfo(),
-            const SizedBox(height: 48),
-            _buildStatusUpdateUI(context),
-          ],
+      appBar: AppBar(title: Text('Booking #${_booking!.id}')),
+      body: RefreshIndicator(
+        onRefresh: _fetchBookingDetails,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildClientInfo(),
+              const SizedBox(height: 32),
+              _buildServiceInfo(),
+              const SizedBox(height: 32),
+              _buildLocationInfo(),
+              const SizedBox(height: 48),
+              _buildStatusUpdateUI(context),
+            ],
+          ),
         ),
       ),
     );
@@ -173,12 +232,12 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
           backgroundImage: NetworkImage('https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200'),
         ),
         const SizedBox(width: 16),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Sarah Johnson', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-              Text('Customer since 2023', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              Text(_booking!.clientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const Text('BellaVella Customer', style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
         ),
@@ -201,11 +260,11 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppTheme.secondaryColor),
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Hydrating hair Spa', style: TextStyle(fontWeight: FontWeight.w500)),
-              Text('₹1,200', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              Text(_booking!.serviceName, style: const TextStyle(fontWeight: FontWeight.w500)),
+              Text('₹${_booking!.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
             ],
           ),
         ),
@@ -214,18 +273,18 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
   }
 
   Widget _buildLocationInfo() {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Text('Location', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
+            const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
             const SizedBox(width: 12),
             Expanded(
-              child: Text('123, Rose Villa, Sector 5, Near Lotus Park, Mumbai, 400001', style: TextStyle(height: 1.4)),
+              child: Text(_booking!.address, style: const TextStyle(height: 1.4)),
             ),
           ],
         ),
@@ -239,40 +298,40 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
       children: [
         const Text('Update Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
-        if (_status == BookingStatus.accepted)
+        if (_booking!.status == BookingStatus.accepted)
           PrimaryButton(
             label: 'Start Journey', 
-            onPressed: () => setState(() => _status = BookingStatus.onTheWay),
+            onPressed: () => _updateStatus(ProfessionalApiService.jobStartJourney),
           ),
-        if (_status == BookingStatus.onTheWay)
+        if (_booking!.status == BookingStatus.onTheWay)
           PrimaryButton(
             label: 'I Have Arrived', 
             onPressed: _verifyArrival,
           ),
-        if (_status == BookingStatus.arrived)
+        if (_booking!.status == BookingStatus.arrived)
           _isKitVerified 
             ? PrimaryButton(
                 label: 'Start Service', 
-                onPressed: () => setState(() => _status = BookingStatus.started),
+                onPressed: () => _updateStatus(ProfessionalApiService.jobStartService),
               )
             : PrimaryButton(
                 label: 'Verify Kit QR', 
                 onPressed: _verifyKitQR,
               ),
-        if (_status == BookingStatus.started)
+        if (_booking!.status == BookingStatus.started)
           PrimaryButton(
             label: 'Complete & Collect Payment', 
             onPressed: _showPaymentCode,
           ),
         const SizedBox(height: 12),
-        if (_status != BookingStatus.completed)
+        if (_booking!.status != BookingStatus.completed)
           OutlinedButton(
             onPressed: () => context.pop(),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 56),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
-            child: const Text('Cancel Request'),
+            child: const Text('Back to Dashboard'),
           ),
       ],
     );

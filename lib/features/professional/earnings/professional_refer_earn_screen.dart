@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../core/widgets/base_widgets.dart';
 import '../services/professional_api_service.dart';
 import '../models/professional_models.dart' as pro_models;
@@ -181,7 +181,9 @@ class _ProfessionalReferEarnScreenState extends State<ProfessionalReferEarnScree
   }
 
   Widget _buildReferralCodeCard() {
-    final code = _stats?.referralCode ?? 'NGA7NSUI';
+    final code = (_stats?.referralCode == null || _stats!.referralCode.isEmpty) 
+        ? 'NGA7NSUI' 
+        : _stats!.referralCode;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(24),

@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../models/professional_models.dart';
-import '../../services/professional_api_service.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
+import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
 import 'widgets/kit_store_header.dart';
 import 'widgets/kit_store_banner.dart';
 import 'widgets/kit_product_card.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitStoreScreen extends StatefulWidget {
   const KitStoreScreen({super.key});
@@ -22,7 +26,14 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   List<KitProductModel> _kits = [];
   bool _isLoading = true;
   String? _errorMessage;
+  bool _isProcessing = false;
   final TextEditingController _searchCtrl = TextEditingController();
+  rzp_helper.RazorpayService? _razorpayService;
+  static const String _razorpayKey = 'rzp_test_S7dlJIqMvrpcaj'; 
+  
+  // Selected kit for Razorpay callback
+   KitProductModel? _selectedKitForRZP;
+  int _selectedQtyForRZP = 1;
 
   List<KitProductModel> get _filteredKits {
     if (_searchQuery.isEmpty) return _kits;
@@ -38,11 +49,18 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   void initState() {
     super.initState();
     _fetchKits();
+    _initRazorpay();
+  }
+
+  void _initRazorpay() {
+    _razorpayService = rzp_helper.getService();
+    _razorpayService?.init(_onPaymentSuccess, _onPaymentError, _onExternalWallet);
   }
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _razorpayService?.clear();
     super.dispose();
   }
 
@@ -57,7 +75,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
       final stats = await ProfessionalApiService.getDashboardStats();
       if (!mounted) return;
       setState(() {
-        _kits = products.map((p) => KitProductModel.fromJson(p)).toList();
+        _kits = products;
         _currentKits = stats.kitCount;
         _isLoading = false;
       });
@@ -71,6 +89,87 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
     }
   }
 
+  // --- Razorpay Methods ---
+  
+  void _openRazorpay(KitProductModel kit, int qty) async {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isProcessing = true;
+      _selectedKitForRZP = kit;
+      _selectedQtyForRZP = qty;
+    });
+
+    try {
+      // Step 1: Create Order on Backend
+      final orderData = await ProfessionalApiService.createKitPaymentOrder(kit.id, qty);
+      final String razorpayOrderId = orderData['order_id'];
+      final int amountPaise = orderData['amount'];
+
+      final options = {
+        'key': _razorpayKey,
+        'amount': amountPaise,
+        'name': 'Bella Villa',
+        'description': '${kit.name} × $qty',
+        'order_id': razorpayOrderId, // MUST pass order_id for signature verification
+        'prefill': {'contact': '', 'email': ''},
+        'theme': {'color': '#FF2D6F'},
+      };
+
+      _razorpayService?.open(options);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order Creation Failed: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  void _onPaymentSuccess(PaymentSuccessResponse response) async {
+    if (_selectedKitForRZP == null) return;
+    
+    // Step 2: Verify Payment Signature on Backend
+    setState(() => _isProcessing = true);
+    try {
+      final res = await ProfessionalApiService.verifyKitPayment(
+        kitProductId: _selectedKitForRZP!.id,
+        quantity: _selectedQtyForRZP,
+        razorpayPaymentId: response.paymentId ?? '',
+        razorpayOrderId: response.orderId ?? '',
+        razorpaySignature: response.signature ?? '',
+      );
+      
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      _fetchKits(); // Refresh inventory count
+
+      final orderId = res['id']?.toString() ?? 'N/A';
+      context.pushReplacementNamed(
+        AppRoutes.proKitPaymentSuccessName,
+        extra: {
+          'orderId': orderId,
+          'amount': _selectedKitForRZP!.price * _selectedQtyForRZP,
+          'kitName': _selectedKitForRZP!.name,
+          'paymentId': response.paymentId ?? '',
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment Verification Failed: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  void _onPaymentError(PaymentFailureResponse response) {
+    setState(() => _isProcessing = false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment failed: ${response.message}'), backgroundColor: Colors.red),
+    );
+  }
+
+  void _onExternalWallet(ExternalWalletResponse response) {
+    setState(() => _isProcessing = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -78,7 +177,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _fetchKits,
-          color: const Color(0xFFFF2D6F),
+          color: AppTheme.primaryColor,
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
@@ -111,7 +210,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
               if (_isLoading)
                 const SliverFillRemaining(
                   child: Center(
-                    child: CircularProgressIndicator(color: Color(0xFFFF2D6F)),
+                    child: CircularProgressIndicator(color: AppTheme.primaryColor),
                   ),
                 )
               // Error state
@@ -129,7 +228,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
 
                 // Results count / search indicator
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
                   sliver: SliverToBoxAdapter(
                     child: Row(
                       children: [
@@ -165,7 +264,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
                   SliverFillRemaining(
                     child: Center(
                       child: Padding(
-                        padding: const EdgeInsets.all(32),
+                        padding: EdgeInsets.all(32),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -182,7 +281,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
                 else
                   // Kit cards
                   SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
@@ -211,7 +310,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   Widget _buildErrorState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -238,10 +337,10 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
             GestureDetector(
               onTap: _fetchKits,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                padding: EdgeInsets.symmetric(horizontal: 32, vertical: 14),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFFF2D6F), Color(0xFFFF6B9D)],
+                  gradient: LinearGradient(
+                    colors: [AppTheme.primaryColor, Color(0xFFFF6B9D)],
                   ),
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -276,6 +375,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   void _showBuySheet(KitProductModel kit) {
     HapticFeedback.mediumImpact();
     int qty = 1;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -283,6 +383,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
       builder: (sheetCtx) => StatefulBuilder(
         builder: (context, setSheetState) {
           final total = kit.price * qty;
+          
           return Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -294,7 +395,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
               children: [
                 Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2))),
                 const SizedBox(height: 20),
-                Text('Select Quantity', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF111827))),
+                Text('Confirm Order', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.w800, color: const Color(0xFF111827))),
                 const SizedBox(height: 20),
                 Row(
                   children: [
@@ -315,7 +416,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
                   Text('Quantity', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600, color: const Color(0xFF374151))),
                   Row(children: [
                     _qtyBtn(icon: Icons.remove_rounded, active: qty > 1, onTap: qty > 1 ? () => setSheetState(() => qty--) : null),
-                    Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+                    Padding(padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Text('$qty', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFF111827)))),
                     _qtyBtn(icon: Icons.add_rounded, active: true, primary: true, onTap: () => setSheetState(() => qty++)),
                   ]),
@@ -324,34 +425,37 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
                 const Divider(height: 1),
                 const SizedBox(height: 12),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text('Total', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
-                  Text('₹${total.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: const Color(0xFFFF2D6F))),
+                  Text('Total Amount', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
+                  Text('₹${total.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.primaryColor)),
                 ]),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+                
+                // Direct Razorpay Button
                 SizedBox(
                   width: double.infinity,
-                  height: 52,
+                  height: 54,
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(sheetCtx);
-                      context.pushNamed(
-                        AppRoutes.proKitPaymentName,
-                        extra: {'kit': kit, 'quantity': qty},
-                      );
+                      _openRazorpay(kit, qty);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF2D6F),
+                      backgroundColor: const Color(0xFF111827),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
-                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const Icon(Icons.payment_rounded, color: Colors.white, size: 18),
-                      const SizedBox(width: 8),
-                      Text('Proceed to Payment', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
-                    ]),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.flash_on_rounded, color: Colors.amber, size: 18),
+                        const SizedBox(width: 8),
+                        Text('Proceed to Pay ₹${total.toStringAsFixed(0)}', 
+                          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 TextButton(
                   onPressed: () => Navigator.pop(sheetCtx),
                   child: Text('Cancel', style: GoogleFonts.poppins(color: const Color(0xFF9CA3AF), fontWeight: FontWeight.w600)),
@@ -371,7 +475,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
         duration: const Duration(milliseconds: 150),
         width: 36, height: 36,
         decoration: BoxDecoration(
-          color: primary ? const Color(0xFFFF2D6F) : active ? const Color(0xFFF3F4F6) : const Color(0xFFE5E7EB),
+          color: primary ? AppTheme.primaryColor : active ? const Color(0xFFF3F4F6) : const Color(0xFFE5E7EB),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, size: 18, color: primary ? Colors.white : active ? const Color(0xFF374151) : const Color(0xFFD1D5DB)),
@@ -388,7 +492,7 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(40),
+        padding: EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -458,7 +562,7 @@ class _DetailsSheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
                 ClipRRect(
@@ -504,7 +608,7 @@ class _DetailsSheet extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
-                          color: const Color(0xFFFF2D6F),
+                          color: AppTheme.primaryColor,
                         ),
                       ),
                     ],
@@ -517,7 +621,7 @@ class _DetailsSheet extends StatelessWidget {
           const Divider(height: 1, indent: 24, endIndent: 24),
           const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -568,7 +672,7 @@ class _DetailsSheet extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: kit.stock > 0 ? onBuy : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF2D6F),
+                      backgroundColor: AppTheme.primaryColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -612,7 +716,7 @@ class _DetailsSheet extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
@@ -631,259 +735,6 @@ class _DetailsSheet extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Buy Bottom Sheet ──────────────────────────────────────────────────────────
-class _BuySheet extends StatefulWidget {
-  final KitProductModel kit;
-  final Future<void> Function(int quantity) onConfirm;
-
-  const _BuySheet({required this.kit, required this.onConfirm});
-
-  @override
-  State<_BuySheet> createState() => _BuySheetState();
-}
-
-class _BuySheetState extends State<_BuySheet> {
-  int _qty = 1;
-  bool _isLoading = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = widget.kit.price * _qty;
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Confirm Order',
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF111827),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Product row
-          Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Image.network(
-                  widget.kit.image,
-                  width: 70,
-                  height: 70,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 70,
-                    height: 70,
-                    color: const Color(0xFFF3F4F6),
-                    child: const Center(child: Text('💼', style: TextStyle(fontSize: 28))),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.kit.name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                    Text(
-                      '₹${widget.kit.price.toStringAsFixed(0)} per kit',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        color: const Color(0xFF9CA3AF),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Divider(height: 1),
-          const SizedBox(height: 16),
-          // Quantity selector
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Quantity',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF374151),
-                ),
-              ),
-              Row(
-                children: [
-                  _qtyButton(
-                    icon: Icons.remove_rounded,
-                    onTap: _qty > 1
-                        ? () => setState(() => _qty--)
-                        : null,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      '$_qty',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF111827),
-                      ),
-                    ),
-                  ),
-                  _qtyButton(
-                    icon: Icons.add_rounded,
-                    onTap: () => setState(() => _qty++),
-                    primary: true,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          // Total
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Total Amount',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF111827),
-                ),
-              ),
-              Text(
-                '₹${total.toStringAsFixed(0)}',
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFFFF2D6F),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Will be deducted from your earnings wallet',
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              color: const Color(0xFF9CA3AF),
-            ),
-          ),
-          const SizedBox(height: 20),
-          // Confirm button
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton(
-              onPressed: _isLoading
-                  ? null
-                  : () async {
-                      setState(() => _isLoading = true);
-                      await widget.onConfirm(_qty);
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2D6F),
-                disabledBackgroundColor: const Color(0xFFE5E7EB),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                elevation: 0,
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2.5,
-                      ),
-                    )
-                  : Text(
-                      'Confirm Purchase',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: GoogleFonts.poppins(
-                color: const Color(0xFF9CA3AF),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-        ],
-      ),
-    );
-  }
-
-  Widget _qtyButton({
-    required IconData icon,
-    required VoidCallback? onTap,
-    bool primary = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: primary
-              ? const Color(0xFFFF2D6F)
-              : onTap != null
-                  ? const Color(0xFFF3F4F6)
-                  : const Color(0xFFE5E7EB),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: primary
-              ? Colors.white
-              : onTap != null
-                  ? const Color(0xFF374151)
-                  : const Color(0xFFD1D5DB),
-        ),
       ),
     );
   }

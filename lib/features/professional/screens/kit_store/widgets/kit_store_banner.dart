@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitStoreBanner extends StatelessWidget {
   final int kitCount;
@@ -14,14 +15,14 @@ class KitStoreBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 4, 20, 16),
+      margin: EdgeInsets.fromLTRB(20, 4, 20, 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFF2D6F),
+            AppTheme.primaryColor,
             Color(0xFFFF6B9D),
             Color(0xFF9B59B6),
           ],
@@ -29,7 +30,7 @@ class KitStoreBanner extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF2D6F).withOpacity(0.25),
+            color: AppTheme.primaryColor.withOpacity(0.25),
             blurRadius: 20,
             offset: const Offset(0, 8),
             spreadRadius: -2,
@@ -64,7 +65,7 @@ class KitStoreBanner extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -73,7 +74,7 @@ class KitStoreBanner extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.white.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(20),
@@ -103,7 +104,7 @@ class KitStoreBanner extends StatelessWidget {
                           ),
                           const SizedBox(width: 6),
                           Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
+                            padding: EdgeInsets.only(bottom: 6),
                             child: Text(
                               'Kits',
                               style: GoogleFonts.poppins(
@@ -130,7 +131,7 @@ class KitStoreBanner extends StatelessWidget {
                       GestureDetector(
                         onTap: onManage,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -138,7 +139,7 @@ class KitStoreBanner extends StatelessWidget {
                           child: Text(
                             'Manage Inventory',
                             style: GoogleFonts.poppins(
-                              color: const Color(0xFFFF2D6F),
+                              color: AppTheme.primaryColor,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
                             ),

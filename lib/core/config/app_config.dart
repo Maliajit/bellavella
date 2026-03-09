@@ -15,14 +15,13 @@ class AppConfig {
   static String get baseUrl {
     String host;
     if (kIsWeb) {
-      host = 'http://127.0.0.1';
+      host = 'http://127.0.0.1:8000';
     } else {
-      host = 'http://10.0.2.2';
+      host = 'http://10.0.2.2:8000';
     }
 
-    // Path: /bellavellaa/public/api (XAMPP structure)
-    // If you run 'php artisan serve', change this back to :8000/api
-    final url = '$host/bellavellaa/public/api';
+    // Assuming we use php artisan serve -> port 8000 -> /api
+    final url = '$host/api';
 
     debugPrint('AppConfig: Resolved baseUrl: $url');
     return url;

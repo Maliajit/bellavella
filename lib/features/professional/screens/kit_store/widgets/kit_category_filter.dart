@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitCategoryFilter extends StatelessWidget {
   final List<String> categories;
@@ -19,7 +20,7 @@ class KitCategoryFilter extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 10),
+          padding: EdgeInsets.fromLTRB(20, 4, 20, 10),
           child: Text(
             'CATEGORIES',
             style: GoogleFonts.poppins(
@@ -35,7 +36,7 @@ class KitCategoryFilter extends StatelessWidget {
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: 20),
             itemCount: categories.length,
             itemBuilder: (context, index) {
               final cat = categories[index];
@@ -45,15 +46,15 @@ class KitCategoryFilter extends StatelessWidget {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeInOut,
-                  margin: const EdgeInsets.only(right: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  margin: EdgeInsets.only(right: 10),
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFFFF2D6F) : Colors.white,
+                    color: isSelected ? AppTheme.primaryColor : Colors.white,
                     borderRadius: BorderRadius.circular(21),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: const Color(0xFFFF2D6F).withOpacity(0.3),
+                              color: AppTheme.primaryColor.withOpacity(0.3),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),

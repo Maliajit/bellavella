@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/router/route_names.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProJobCompleteScreen extends StatelessWidget {
-  const ProJobCompleteScreen({super.key});
+  final ProfessionalBooking booking;
+  const ProJobCompleteScreen({super.key, required this.booking});
 
   @override
   Widget build(BuildContext context) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -52,7 +57,7 @@ class ProJobCompleteScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "₹499",
+                        currencyFormat.format(booking.totalPrice),
                         style: GoogleFonts.inter(
                           fontSize: 48,
                           fontWeight: FontWeight.w900,
@@ -69,9 +74,11 @@ class ProJobCompleteScreen extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
+                            _summaryItem(Icons.person_outline_rounded, "Client", booking.clientName),
+                            const SizedBox(height: 16),
                             _summaryItem(Icons.timer_outlined, "Duration", "45 mins"),
                             const SizedBox(height: 16),
-                            _summaryItem(Icons.qr_code_rounded, "Payment", "UPI Received"),
+                            _summaryItem(Icons.qr_code_rounded, "Payment", "Received"),
                           ],
                         ),
                       ),
@@ -116,9 +123,12 @@ class ProJobCompleteScreen extends StatelessWidget {
           style: GoogleFonts.inter(fontSize: 14, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
         ),
         const Spacer(),
-        Text(
-          value,
-          style: GoogleFonts.inter(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w700),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: GoogleFonts.inter(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     );

@@ -1,14 +1,18 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/utils/permission_handler_util.dart';
 import 'package:bellavella/core/router/route_names.dart';
 import './widgets/availability_toggle.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
+import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
+import './widgets/booking_request_dialog.dart';
 import 'package:bellavella/core/models/data_models.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
@@ -20,7 +24,7 @@ class ProfessionalDashboardScreen extends StatefulWidget {
 }
 
 class _ProfessionalDashboardScreenState
-    extends State<ProfessionalDashboardScreen> with TickerProviderStateMixin {
+    extends State<ProfessionalDashboardScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   // Real Data State
   pro_models.ProfessionalDashboardStats? _stats;
   bool _isLoading = true;
@@ -31,12 +35,16 @@ class _ProfessionalDashboardScreenState
   bool _hasActiveJob = false;
   int _kitCount = 0;
   double _walletCash = 0;
+  Timer? _heartbeatTimer;
+  String? _lastNotificationId;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _fetchDashboardData();
+    WidgetsBinding.instance.addObserver(this);
+    _startHeartbeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _confettiController.play();
@@ -44,30 +52,80 @@ class _ProfessionalDashboardScreenState
     });
   }
 
-  Future<void> _fetchDashboardData() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _fetchDashboardData({bool isSilent = false}) async {
+    if (!isSilent) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
     try {
       final stats = await ProfessionalApiService.getDashboardStats();
       if (mounted) {
         setState(() {
           _stats = stats;
           _isLoading = false;
-          _hasActiveJob = stats.activeJobsCount > 0;
+          // A job is "active" if it's assigned to me and not completed/cancelled
+          _hasActiveJob = stats.recentBookings.any((b) => 
+            b.status == BookingStatus.accepted || 
+            b.status == BookingStatus.onTheWay || 
+            b.status == BookingStatus.arrived || 
+            b.status == BookingStatus.started
+          );
           _kitCount = stats.kitCount;
-          _walletCash = stats.walletBalance; // Actual wallet balance
-          _isOnline = false;                 // Force "Off by default" as per user request
+          _walletCash = stats.walletBalance; 
+          // _isOnline = stats.isOnline; // Removed as per your previous requirement for manual toggle
         });
+        
+        // Check for new notifications
+        _checkNewNotifications();
       }
     } catch (e) {
-      if (mounted) {
+      debugPrint('Dashboard fetch error: $e');
+      if (mounted && !isSilent) {
         setState(() {
           _errorMessage = e.toString();
           _isLoading = false;
         });
       }
+    }
+  }
+
+  Future<void> _checkNewNotifications() async {
+    if (!_isOnline) return; // Only show alerts if professional is online
+
+    try {
+      final notifications = await ProfessionalApiService.getNotifications();
+// ... (rest of the existing logic remains inside)
+      if (notifications.isNotEmpty && mounted) {
+        final latest = notifications.first;
+        final String currentId = latest['id'].toString();
+        final bool isUnread = latest['read_at'] == null;
+        
+        // Trigger if it's an assignment AND unread
+        if (latest['type'] == 'booking_assigned' && isUnread) {
+          // Mark as read immediately to prevent duplicate triggers
+          await ProfessionalApiService.markNotificationAsRead(currentId);
+          
+          // Navigate to the full-screen interactive request screen
+          if (mounted) {
+            final result = await context.pushNamed(
+              AppRoutes.proIncomingRequestName,
+              extra: latest['data'] ?? latest, // Use 'data' if nested, else the whole map
+            );
+            
+            // If the user accepted (returned true), refresh the dashboard
+            if (result == true) {
+              _fetchDashboardData(isSilent: true);
+              _confettiController.play();
+            }
+          }
+        }
+        
+        _lastNotificationId = currentId;
+      }
+    } catch (e) {
+      debugPrint('[Notifications] Fetch error: $e');
     }
   }
 
@@ -78,23 +136,60 @@ class _ProfessionalDashboardScreenState
       return;
     }
 
+    final previousState = _isOnline;
+    setState(() => _isOnline = value); // Optimistic Update
+
     try {
       final res = await ProfessionalApiService.toggleAvailability(value);
       if (res['success'] == true) {
-        setState(() => _isOnline = value);
+        if (value) _checkNewNotifications(); // Immediate check when going online
+      } else {
+        // Rollback on server failure
+        if (mounted) {
+          setState(() => _isOnline = previousState);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['message'] ?? 'Failed to update status')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      // Rollback on error
+      if (mounted) {
+        setState(() => _isOnline = previousState);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _heartbeatTimer?.cancel();
     _scrollController.dispose();
     _confettiController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startHeartbeat();
+    } else {
+      _heartbeatTimer?.cancel();
+    }
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      // Periodic heartbeat + data refresh
+      ProfessionalApiService.updateOnlineStatus();
+      _fetchDashboardData(isSilent: true);
+    });
+    // Initial heartbeat
+    ProfessionalApiService.updateOnlineStatus();
   }
 
   @override
@@ -162,63 +257,82 @@ class _ProfessionalDashboardScreenState
 
   // 1️⃣ Smart Compact Header
   Widget _buildSmartHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Left side: Name stack
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Hello, ${_stats?.activeJobStatus ?? 'Professional'}', // Using a placeholder or name
-                  style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _isOnline ? 'Available for bookings' : 'Currently Offline',
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: _isOnline ? Colors.green.shade600 : Colors.grey.shade500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          
-          // Right side: Toggle & Notification
-          Row(
+    return Consumer<ProfessionalProfileController>(
+      builder: (context, profileController, child) {
+        final profile = profileController.profile;
+        
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              AvailabilityToggle(
-                isOnline: _isOnline,
-                onChanged: (value) => _toggleAvailability(value),
+              // Left side: Name stack
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hello, ${profile?.name ?? 'Professional'}',
+                      style: GoogleFonts.inter(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _isOnline ? 'Available for bookings' : 'Currently Offline',
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: _isOnline ? Colors.green.shade600 : Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => context.pushNamed(AppRoutes.proNotificationsName),
-                icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Colors.black87),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+              
+              // Right side: Toggle & Notification
+              Row(
+                children: [
+                  AvailabilityToggle(
+                    isOnline: _isOnline,
+                    onChanged: (value) => _toggleAvailability(value),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: () => context.pushNamed(AppRoutes.proNotificationsName),
+                    icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Colors.black87),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   // Micro-UX Status Feedback
   Widget _buildStatusFeedback() {
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 300),
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 350),
+      transitionBuilder: (child, animation) {
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0, 0.1),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutQuart)),
+            child: child,
+          ),
+        );
+      },
       child: Container(
+        key: ValueKey<bool>(_isOnline),
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 24),
         child: _isOnline 
@@ -262,15 +376,17 @@ class _ProfessionalDashboardScreenState
 
   // 2️⃣ Primary Focus Panel (Adaptive)
   Widget _buildPrimaryFocusPanel() {
+    final bool showActiveCard = _hasActiveJob && _isOnline;
+
     return AnimatedSize(
       duration: const Duration(milliseconds: 300),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: _hasActiveJob ? AppTheme.primaryColor : const Color(0xFFF9FAFB),
+          color: showActiveCard ? AppTheme.primaryColor : const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(28),
-          boxShadow: _hasActiveJob
+          boxShadow: showActiveCard
               ? [
                   BoxShadow(
                     color: AppTheme.primaryColor.withValues(alpha: 0.2),
@@ -280,7 +396,7 @@ class _ProfessionalDashboardScreenState
                 ]
               : [],
         ),
-        child: _hasActiveJob ? _buildJobActiveContent() : _buildNoJobContent(),
+        child: showActiveCard ? _buildJobActiveContent() : _buildNoJobContent(),
       ),
     );
   }
@@ -315,9 +431,43 @@ class _ProfessionalDashboardScreenState
   }
 
   Widget _buildJobActiveContent() {
-    // Note: In a real app, you might want a more detailed ActiveJob model
-    // Using the first booking from recentBookings as placeholder if no explicit activeJob field
-    final activeJob = _stats?.recentBookings.firstOrNull; 
+    // Find the most relevant active job
+    if (_stats == null || _stats!.recentBookings.isEmpty) {
+      return const SizedBox.shrink(); // No jobs to show in the active card
+    }
+
+    final activeJob = _stats?.recentBookings.firstWhere(
+      (b) => b.status == BookingStatus.started || 
+             b.status == BookingStatus.arrived || 
+             b.status == BookingStatus.onTheWay || 
+             b.status == BookingStatus.accepted,
+      orElse: () => _stats!.recentBookings.first
+    );
+
+    String buttonText = "Start Job";
+    VoidCallback onPressed = () => context.pushNamed(AppRoutes.proArriveName);
+
+    switch (activeJob?.status) {
+      case BookingStatus.accepted:
+        buttonText = "Start Journey";
+        onPressed = () => context.pushNamed(AppRoutes.proNavigationName, extra: activeJob);
+        break;
+      case BookingStatus.onTheWay:
+        buttonText = "I Have Arrived";
+        onPressed = () => context.pushNamed(AppRoutes.proArriveName, extra: activeJob);
+        break;
+      case BookingStatus.arrived:
+        buttonText = "Start Job";
+        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, extra: activeJob);
+        break;
+      case BookingStatus.started:
+        buttonText = "Continue Job";
+        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, extra: activeJob);
+        break;
+      default:
+        buttonText = "View Details";
+        onPressed = () => context.pushNamed(AppRoutes.proBookingDetailName, pathParameters: {'id': activeJob?.id ?? ''});
+    }
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -325,30 +475,39 @@ class _ProfessionalDashboardScreenState
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              activeJob?.time ?? 'Asap',
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.white.withValues(alpha: 0.8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                activeJob?.time ?? 'Asap',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
             ),
-            const Icon(Icons.more_horiz, color: Colors.white70),
+            const Icon(Icons.more_horiz_rounded, color: Colors.white70),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Text(
           activeJob?.clientName ?? 'Customer',
-          style: GoogleFonts.inter(
-            fontSize: 26,
+          style: GoogleFonts.outfit(
+            fontSize: 28,
             fontWeight: FontWeight.w900,
             color: Colors.white,
+            height: 1.1,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           activeJob?.serviceName ?? 'Service',
-          style: GoogleFonts.inter(
-            fontSize: 15,
+          style: GoogleFonts.outfit(
+            fontSize: 16,
             fontWeight: FontWeight.w500,
             color: Colors.white.withValues(alpha: 0.9),
           ),
@@ -356,21 +515,22 @@ class _ProfessionalDashboardScreenState
         const SizedBox(height: 20),
         Row(
           children: [
-            const Icon(Icons.location_on_rounded, size: 14, color: Colors.white70),
+            const Icon(Icons.location_on_rounded, size: 16, color: Colors.white70),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 activeJob?.address ?? 'Location not set',
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
+                style: GoogleFonts.outfit(
+                  fontSize: 13,
                   color: Colors.white.withValues(alpha: 0.7),
                 ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
         Row(
           children: [
             _panelAction(Icons.phone_rounded, "Call", Colors.green),
@@ -382,17 +542,21 @@ class _ProfessionalDashboardScreenState
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () => context.pushNamed(AppRoutes.proArriveName),
+            onPressed: onPressed,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
               foregroundColor: AppTheme.primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 18),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             ),
             child: Text(
-              "Start Job",
-              style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 15),
+              buttonText,
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.w900, 
+                fontSize: 16,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ),
@@ -405,21 +569,22 @@ class _ProfessionalDashboardScreenState
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: Colors.white),
+              Icon(icon, size: 18, color: Colors.white),
               const SizedBox(width: 8),
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),

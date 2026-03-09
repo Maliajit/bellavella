@@ -3,7 +3,7 @@ import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
 import '../models/story_model.dart';
 import '../widgets/story_progress_bar.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class StoryViewerScreen extends StatefulWidget {
   final List<Story> stories;

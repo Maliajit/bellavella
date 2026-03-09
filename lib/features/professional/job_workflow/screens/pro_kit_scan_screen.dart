@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
 import '../../../../core/router/route_names.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProKitScanScreen extends StatefulWidget {
-  const ProKitScanScreen({super.key});
+  final ProfessionalBooking booking;
+  const ProKitScanScreen({super.key, required this.booking});
 
   @override
   State<ProKitScanScreen> createState() => _ProKitScanScreenState();
@@ -165,7 +166,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.pushNamed(AppRoutes.proActiveJobName),
+                  onPressed: () => context.pushNamed(AppRoutes.proActiveJobName, extra: widget.booking),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,

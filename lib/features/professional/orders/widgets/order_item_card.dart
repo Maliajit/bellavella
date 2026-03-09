@@ -20,7 +20,7 @@ class OrderItemCard extends StatelessWidget {
     final bool isPending = status == 'Pending';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 16),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Dismissible(
@@ -44,7 +44,7 @@ class OrderItemCard extends StatelessWidget {
           child: GestureDetector(
             onTap: onTap,
             child: Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
@@ -177,7 +177,7 @@ class OrderItemCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(20),
@@ -197,7 +197,7 @@ class OrderItemCard extends StatelessWidget {
   Widget _buildSwipeBackground(String label, Color color, Alignment alignment) {
     return Container(
       alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 30),
+      padding: EdgeInsets.symmetric(horizontal: 30),
       color: color,
       child: Text(
         label,

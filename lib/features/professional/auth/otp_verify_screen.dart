@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../services/professional_api_service.dart';
 
 class OTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
-  const OTPVerifyScreen({super.key, required this.phoneNumber});
+  final String? referralCode;
+  const OTPVerifyScreen({super.key, required this.phoneNumber, this.referralCode});
 
   @override
   State<OTPVerifyScreen> createState() => _OTPVerifyScreenState();
@@ -44,7 +45,10 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
       if (mounted) {
         if (response['success'] == true) {
           if (response['data'] != null && response['data']['is_new_user'] == true) {
-            context.go('/professional/signup', extra: widget.phoneNumber);
+            context.go('/professional/signup', extra: {
+              'phone': widget.phoneNumber,
+              'referral_code': widget.referralCode,
+            });
           } else {
             context.go('/professional/dashboard');
           }
@@ -78,7 +82,7 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -158,7 +162,7 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
             ),
             if (_errorText != null)
               Padding(
-                padding: const EdgeInsets.only(top: 20),
+                padding: EdgeInsets.only(top: 20),
                 child: Center(
                   child: Text(
                     _errorText!,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -69,35 +69,25 @@ class _EditPersonalInformationScreenState extends State<EditPersonalInformationS
       body: Consumer<ProfessionalProfileController>(
         builder: (context, controller, child) {
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildTextField("Full Name", _nameController, Icons.person_outlined),
-                  const SizedBox(height: 20),
-                  _buildGenderPicker(),
-                  const SizedBox(height: 20),
-                  _buildDatePicker(),
-                  const SizedBox(height: 20),
-                  _buildTextField("Bio / About Me", _bioController, Icons.description_outlined, maxLines: 4),
-                  const SizedBox(height: 40),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: controller.isLoading ? null : _save,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 0,
-                      ),
-                      child: controller.isLoading 
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Save Changes', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
+                   _buildTextField("Full Name", _nameController, Icons.person_outlined, readOnly: true),
+                   const SizedBox(height: 20),
+                   _buildGenderPicker(),
+                   const SizedBox(height: 20),
+                   _buildDatePicker(),
+                   const SizedBox(height: 20),
+                   _buildTextField("Bio / About Me", _bioController, Icons.description_outlined, maxLines: 4, readOnly: true),
+                   const SizedBox(height: 20),
+                   Text(
+                     "Contact support to update your personal information.",
+                     textAlign: TextAlign.center,
+                     style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 12),
+                   ),
                 ],
               ),
             ),
@@ -107,7 +97,7 @@ class _EditPersonalInformationScreenState extends State<EditPersonalInformationS
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {int maxLines = 1}) {
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {int maxLines = 1, bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -116,13 +106,15 @@ class _EditPersonalInformationScreenState extends State<EditPersonalInformationS
         TextFormField(
           controller: controller,
           maxLines: maxLines,
+          readOnly: readOnly,
+          style: TextStyle(color: readOnly ? Colors.grey.shade700 : Colors.black),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, size: 20),
+            prefixIcon: Icon(icon, size: 20, color: readOnly ? Colors.grey.shade500 : Colors.black87),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: AppTheme.primaryColor)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: readOnly ? Colors.transparent : AppTheme.primaryColor)),
           ),
           validator: (v) => v == null || v.isEmpty ? 'Please enter $label' : null,
         ),
@@ -140,14 +132,14 @@ class _EditPersonalInformationScreenState extends State<EditPersonalInformationS
           children: ['Male', 'Female', 'Other'].map((g) {
             final isSelected = _selectedGender == g;
             return Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: EdgeInsets.only(right: 12),
               child: ChoiceChip(
                 label: Text(g),
                 selected: isSelected,
-                onSelected: (val) => setState(() => _selectedGender = val ? g : null),
-                selectedColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                labelStyle: TextStyle(color: isSelected ? AppTheme.primaryColor : Colors.black54),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100), side: BorderSide(color: isSelected ? AppTheme.primaryColor : Colors.transparent)),
+                onSelected: null, // Disabled
+                disabledColor: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.1) : Colors.grey.shade100,
+                labelStyle: TextStyle(color: isSelected ? AppTheme.primaryColor : Colors.grey.shade500),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100), side: BorderSide(color: Colors.transparent)),
               ),
             );
           }).toList(),
@@ -162,28 +154,20 @@ class _EditPersonalInformationScreenState extends State<EditPersonalInformationS
       children: [
         Text("Date of Birth", style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black)),
         const SizedBox(height: 8),
-        InkWell(
-          onTap: () async {
-            final date = await showDatePicker(
-              context: context, 
-              initialDate: _selectedDob ?? DateTime(1995), 
-              firstDate: DateTime(1950), 
-              lastDate: DateTime.now()
-            );
-            if (date != null) setState(() => _selectedDob = date);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-            child: Row(
-              children: [
-                const Icon(Icons.calendar_month_outlined, size: 20, color: Colors.black54),
-                const SizedBox(width: 12),
-                Text(_selectedDob == null ? 'Select Date' : _selectedDob!.toIso8601String().split('T').first, style: const TextStyle(fontSize: 14)),
-                const Spacer(),
-                const Icon(Icons.keyboard_arrow_down, color: Colors.black54),
-              ],
-            ),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(12)),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined, size: 20, color: Colors.grey),
+              const SizedBox(width: 12),
+              Text(
+                _selectedDob == null ? 'Not specified' : _selectedDob!.toIso8601String().split('T').first, 
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade700)
+              ),
+              const Spacer(),
+              const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+            ],
           ),
         ),
       ],

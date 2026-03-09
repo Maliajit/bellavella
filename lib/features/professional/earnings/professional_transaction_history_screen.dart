@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../models/professional_models.dart' as pro_models;
 import '../services/professional_api_service.dart';
 
@@ -101,7 +101,7 @@ class _ProfessionalTransactionHistoryScreenState extends State<ProfessionalTrans
     if (txs.isEmpty) return _buildEmptyState('No cash transactions yet');
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       itemCount: txs.length,
       itemBuilder: (context, index) {
         final tx = txs[index];
@@ -150,8 +150,8 @@ class _ProfessionalTransactionHistoryScreenState extends State<ProfessionalTrans
     required IconData icon,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -163,7 +163,7 @@ class _ProfessionalTransactionHistoryScreenState extends State<ProfessionalTrans
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isCredit ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
               shape: BoxShape.circle,

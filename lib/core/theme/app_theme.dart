@@ -3,13 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Brand Colors - Bella Villa Theme
-  static const Color primaryColor = Color(0xFFFF2D6F); // Premium Pink/Rose
-  static const Color secondaryColor = Color(0xFFF8BBD0); // Light Pink
-  static const Color accentColor = Color(0xFF212121); // Dark Grey/Black
-  static const Color backgroundColor = Color(0xFFFAFAFA);
-  static const Color surfaceColor = Colors.white;
-  static const Color errorColor = Color(0xFFB00020);
-  static const Color greyText = Color(0xFF757575);
+  static const Color primaryColor = Color(0xFFFF4D7D);
+  static const Color secondaryColor = Color(0xFFF8BBD0);
+  static const Color accentColor = Color(0xFF1F2937); // Primary Text
+  static const Color backgroundColor = Color(0xF6F7F9FF); // #F6F7F9
+  static const Color surfaceColor = Colors.white; // Card Background
+  static const Color errorColor = Color(0xFFEF4444);
+  static const Color successColor = Color(0xFF22C55E);
+  static const Color greyText = Color(0xFF6B7280); // Secondary Text
+  static const Color dividerColor = Color(0xFFE5E7EB);
 
   static ThemeData get lightTheme {
     return ThemeData(

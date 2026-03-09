@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/professional_models.dart';
 import '../../services/professional_api_service.dart';
 import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitOrderDetailsScreen extends StatefulWidget {
   final String orderId;
@@ -59,7 +60,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF2D6F)))
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _error != null
               ? _buildError()
               : _order == null
@@ -71,7 +72,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
   Widget _buildError() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -81,7 +82,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
             const SizedBox(height: 8),
             Text(_error ?? '', textAlign: TextAlign.center, style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF9CA3AF))),
             const SizedBox(height: 20),
-            TextButton(onPressed: _fetchOrder, child: Text('Retry', style: GoogleFonts.poppins(color: const Color(0xFFFF2D6F), fontWeight: FontWeight.w700))),
+            TextButton(onPressed: _fetchOrder, child: Text('Retry', style: GoogleFonts.poppins(color: AppTheme.primaryColor, fontWeight: FontWeight.w700))),
           ],
         ),
       ),
@@ -91,7 +92,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
   Widget _buildContent() {
     final order = _order!;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -115,7 +116,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
                       const SizedBox(height: 4),
                       Text('Qty: ${order.quantity}', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280))),
                       const SizedBox(height: 4),
-                      Text('₹${order.totalAmount.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w900, color: const Color(0xFFFF2D6F))),
+                      Text('₹${order.totalAmount.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.primaryColor)),
                     ],
                   ),
                 ),
@@ -146,7 +147,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
               children: [
                 Text('PAYMENT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF9CA3AF), letterSpacing: 1.2)),
                 const SizedBox(height: 14),
-                _infoRow('Amount', '₹${order.totalAmount.toStringAsFixed(0)}', valueColor: const Color(0xFFFF2D6F), bold: true),
+                _infoRow('Amount', '₹${order.totalAmount.toStringAsFixed(0)}', valueColor: AppTheme.primaryColor, bold: true),
                 const Divider(height: 20),
                 _infoRow('Method', order.paymentMethod.isNotEmpty ? order.paymentMethod.toUpperCase() : '—'),
                 const Divider(height: 20),
@@ -184,7 +185,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
             child: ElevatedButton.icon(
               onPressed: () => context.pushNamed(AppRoutes.proKitStoreName),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF2D6F),
+                backgroundColor: AppTheme.primaryColor,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 elevation: 0,
               ),
@@ -205,7 +206,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
       borderRadius: BorderRadius.circular(20),
       boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 14, offset: const Offset(0, 4))],
     ),
-    padding: const EdgeInsets.all(18),
+    padding: EdgeInsets.all(18),
     child: child,
   );
 
@@ -269,7 +270,7 @@ class _StatusTracker extends StatelessWidget {
             child: Container(
               height: 3,
               decoration: BoxDecoration(
-                color: isDone ? const Color(0xFFFF2D6F) : const Color(0xFFE5E7EB),
+                color: isDone ? AppTheme.primaryColor : const Color(0xFFE5E7EB),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -283,7 +284,7 @@ class _StatusTracker extends StatelessWidget {
               width: 28, height: 28,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isDone ? const Color(0xFFFF2D6F) : const Color(0xFFE5E7EB),
+                color: isDone ? AppTheme.primaryColor : const Color(0xFFE5E7EB),
               ),
               child: Icon(
                 isDone && stepIdx < current ? Icons.check_rounded : Icons.circle,
@@ -299,7 +300,7 @@ class _StatusTracker extends StatelessWidget {
                 style: GoogleFonts.poppins(
                   fontSize: 9,
                   fontWeight: stepIdx == current ? FontWeight.w700 : FontWeight.w500,
-                  color: stepIdx == current ? const Color(0xFFFF2D6F) : const Color(0xFF9CA3AF),
+                  color: stepIdx == current ? AppTheme.primaryColor : const Color(0xFF9CA3AF),
                 ),
                 textAlign: TextAlign.center,
               ),

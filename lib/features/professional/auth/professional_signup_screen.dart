@@ -6,12 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 
 class ProfessionalSignupScreen extends StatefulWidget {
   final String? phoneNumber;
-  const ProfessionalSignupScreen({super.key, this.phoneNumber});
+  final String? referralCode;
+  const ProfessionalSignupScreen({super.key, this.phoneNumber, this.referralCode});
 
   @override
   State<ProfessionalSignupScreen> createState() => _ProfessionalSignupScreenState();
@@ -54,6 +55,14 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   final List<String> _indianStates = ['Gujarat', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Delhi', 'Karnataka'];
 
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.referralCode != null) {
+      _referralCodeController.text = widget.referralCode!;
+    }
+  }
 
   @override
   void dispose() {
@@ -226,7 +235,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Container(
-        padding: const EdgeInsets.symmetric(vertical: 24),
+        padding: EdgeInsets.symmetric(vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -257,7 +266,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -293,7 +302,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+        padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
@@ -473,11 +482,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
 
   Widget _buildSectionHeader(String title, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16, top: 8),
+      padding: EdgeInsets.only(bottom: 16, top: 8),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
@@ -501,7 +510,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   Widget _buildCard(List<Widget> children) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -536,7 +545,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         counterText: '',
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
@@ -560,7 +569,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
@@ -596,7 +605,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                     child: GestureDetector(
                       onTap: () => _removeImage(type),
                       child: Container(
-                        padding: const EdgeInsets.all(4),
+                        padding: EdgeInsets.all(4),
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,

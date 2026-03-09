@@ -4,10 +4,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
 import 'package:go_router/go_router.dart';
 import 'package:audioplayers/audioplayers.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
 
 class IncomingRequestScreen extends StatefulWidget {
-  const IncomingRequestScreen({super.key});
+  final Map<String, dynamic> notification;
+  const IncomingRequestScreen({super.key, required this.notification});
 
   @override
   State<IncomingRequestScreen> createState() => _IncomingRequestScreenState();
@@ -16,9 +18,12 @@ class IncomingRequestScreen extends StatefulWidget {
 class _IncomingRequestScreenState extends State<IncomingRequestScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   Timer? _vibrationTimer;
+  Timer? _countdownTimer;
+  int _secondsRemaining = 15;
   double _swipePosition = 0;
   final double _swipeThreshold = 150;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isProcessing = false;
 
   @override
   void initState() {
@@ -30,11 +35,23 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
 
     _startVibrationLoop();
     _startAudioLoop();
+    _startCountdown();
+  }
+
+  void _startCountdown() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        if (mounted) setState(() => _secondsRemaining--);
+      } else {
+        _handleReject();
+      }
+    });
   }
 
   void _startAudioLoop() async {
     try {
       await _audioPlayer.setReleaseMode(ReleaseMode.loop);
+      // Ensure the asset exists or use a generic sound if needed
       await _audioPlayer.play(AssetSource('audio/incoming_call.mp3'));
     } catch (e) {
       debugPrint('Error playing audio: $e');
@@ -42,12 +59,15 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
   }
 
   void _startVibrationLoop() async {
-    if (await Vibration.hasVibrator() == true) {
-      _vibrationTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    try {
+      if (await Vibration.hasVibrator() == true) {
+        _vibrationTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+          Vibration.vibrate(duration: 1000);
+        });
         Vibration.vibrate(duration: 1000);
-      });
-      // Initial vibration
-      Vibration.vibrate(duration: 1000);
+      }
+    } catch (e) {
+      debugPrint('Vibration error: $e');
     }
   }
 
@@ -55,27 +75,58 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
   void dispose() {
     _pulseController.dispose();
     _vibrationTimer?.cancel();
+    _countdownTimer?.cancel();
     Vibration.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
 
-  void _handleAccept() {
-    Vibration.cancel();
+  Future<void> _handleAccept() async {
+    if (_isProcessing) return;
+    if (mounted) setState(() => _isProcessing = true);
+    
     _vibrationTimer?.cancel();
+    _countdownTimer?.cancel();
+    Vibration.cancel();
     _audioPlayer.stop();
-    context.pop(true); // Return true for accepted
+
+    try {
+      final bookingId = widget.notification['booking_id']?.toString() ?? '';
+      await ProfessionalApiService.acceptBooking(bookingId);
+      if (mounted) context.pop(true);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        setState(() => _isProcessing = false);
+      }
+    }
   }
 
-  void _handleReject() {
-    Vibration.cancel();
+  Future<void> _handleReject() async {
+    if (_isProcessing) return;
+    if (mounted) setState(() => _isProcessing = true);
+
     _vibrationTimer?.cancel();
+    _countdownTimer?.cancel();
+    Vibration.cancel();
     _audioPlayer.stop();
-    context.pop(false); // Return false for rejected
+
+    try {
+      final bookingId = widget.notification['booking_id']?.toString() ?? '';
+      await ProfessionalApiService.rejectBooking(bookingId);
+      if (mounted) context.pop(false);
+    } catch (e) {
+      if (mounted) context.pop(false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final String clientName = widget.notification['client_name'] ?? 'New Customer';
+    final String serviceName = widget.notification['service'] ?? widget.notification['service_name'] ?? 'New Service Request';
+    final String location = widget.notification['location'] ?? 'Nearby Location';
+    final String earnings = widget.notification['price']?.toString() ?? '850';
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: Stack(
@@ -83,7 +134,7 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
           SafeArea(
             child: Column(
               children: [
-                const SizedBox(height: 60),
+                const SizedBox(height: 40),
                 // Header Info
                 Text(
                   'INCOMING REQUEST',
@@ -94,10 +145,27 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                     fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(height: 10),
+                // Countdown Timer
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Accept in ${_secondsRemaining}s',
+                    style: GoogleFonts.outfit(
+                      color: Colors.redAccent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 20),
                 SizedBox(
-                  height: 280,
-                  width: 280,
+                  height: 240,
+                  width: 240,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -106,8 +174,8 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                         animation: _pulseController,
                         builder: (context, child) {
                           return Container(
-                            width: 280 * _pulseController.value,
-                            height: 280 * _pulseController.value,
+                            width: 240 * _pulseController.value,
+                            height: 240 * _pulseController.value,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: AppTheme.primaryColor.withValues(alpha: 1 - _pulseController.value),
@@ -117,14 +185,14 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                       ),
                       const CircleAvatar(
                         radius: 50,
-                        backgroundImage: NetworkImage('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200'),
+                        backgroundImage: NetworkImage('https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200'),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Rahul Sharma',
+                  clientName,
                   style: GoogleFonts.outfit(
                     color: AppTheme.accentColor,
                     fontSize: 28,
@@ -132,7 +200,8 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                   ),
                 ),
                 Text(
-                  'Signature Deep Tissue Massage',
+                  serviceName,
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
                     color: AppTheme.greyText,
                     fontSize: 16,
@@ -141,95 +210,106 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                 const SizedBox(height: 40),
                 
                 // Location info
-                _buildInfoRow(Icons.location_on, 'Ahmedabad, 3.2 km away'),
-                _buildInfoRow(Icons.account_balance_wallet, 'Earnings: ₹850'),
+                _buildInfoRow(Icons.location_on, location),
+                _buildInfoRow(Icons.account_balance_wallet, 'Potential Earnings: ₹$earnings'),
                 
                 const Spacer(),
                 
-                // Swipe Action UI
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final double maxDisplacement = (constraints.maxWidth - 70) / 2;
-                      final double activeThreshold = maxDisplacement * 0.9;
+                if (_isProcessing)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 100),
+                    child: CircularProgressIndicator(color: AppTheme.primaryColor),
+                  )
+                else
+                  // Swipe Action UI
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final double maxDisplacement = (constraints.maxWidth - 70) / 2;
+                        final double activeThreshold = maxDisplacement * 0.9;
 
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Track
-                          Container(
-                            height: 70,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(35),
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Track
+                            Container(
+                              height: 70,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(35),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Padding(
+                                    padding: EdgeInsets.only(left: 20),
+                                    child: Icon(Icons.close, color: Colors.redAccent, size: 28),
+                                  ),
+                                  Padding(
+                                    padding: EdgeInsets.only(right: 20),
+                                    child: Icon(Icons.check, color: Colors.greenAccent, size: 28),
+                                  ),
+                                ],
+                              ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 20),
-                                  child: Icon(Icons.close, color: Colors.redAccent, size: 28),
-                                ),
-                                Text(
-                                  'Swipe to Respond',
-                                  style: TextStyle(color: AppTheme.greyText.withValues(alpha: 0.5)),
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.only(right: 20),
-                                  child: Icon(Icons.check, color: Colors.greenAccent, size: 28),
-                                ),
-                              ],
+                            
+                            // Track Text
+                            Text(
+                              'Swipe to Respond',
+                              style: TextStyle(color: AppTheme.greyText.withValues(alpha: 0.5)),
                             ),
-                          ),
-                          
-                          // Slider Handle
-                          GestureDetector(
-                            onHorizontalDragUpdate: (details) {
-                              setState(() {
-                                _swipePosition += details.delta.dx;
-                                // Clamp position to stay within track
-                                _swipePosition = _swipePosition.clamp(-maxDisplacement, maxDisplacement);
-                              });
-                            },
-                            onHorizontalDragEnd: (details) {
-                              if (_swipePosition > activeThreshold) {
-                                _handleAccept();
-                              } else if (_swipePosition < -activeThreshold) {
-                                _handleReject();
-                              } else {
-                                setState(() {
-                                  _swipePosition = 0;
-                                });
-                              }
-                            },
-                            child: Transform.translate(
-                              offset: Offset(_swipePosition, 0),
-                              child: Container(
-                                width: 70,
-                                height: 70,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Colors.white,
-                                  border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
-                                  boxShadow: [
-                                    BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.1), blurRadius: 15, spreadRadius: 2),
-                                  ],
-                                ),
-                                child: Icon(
-                                  _swipePosition > 20 ? Icons.arrow_forward : (_swipePosition < -20 ? Icons.arrow_back : Icons.arrow_forward),
-                                  color: AppTheme.primaryColor,
-                                  size: 30,
+
+                            // Slider Handle
+                            GestureDetector(
+                              onHorizontalDragUpdate: (details) {
+                                if (mounted) {
+                                  setState(() {
+                                    _swipePosition += details.delta.dx;
+                                    _swipePosition = _swipePosition.clamp(-maxDisplacement, maxDisplacement);
+                                  });
+                                }
+                              },
+                              onHorizontalDragEnd: (details) {
+                                if (_swipePosition > activeThreshold) {
+                                  _handleAccept();
+                                } else if (_swipePosition < -activeThreshold) {
+                                  _handleReject();
+                                } else {
+                                  if (mounted) {
+                                    setState(() {
+                                      _swipePosition = 0;
+                                    });
+                                  }
+                                }
+                              },
+                              child: Transform.translate(
+                                offset: Offset(_swipePosition, 0),
+                                child: Container(
+                                  width: 70,
+                                  height: 70,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.white,
+                                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                                    boxShadow: [
+                                      BoxShadow(color: AppTheme.primaryColor.withValues(alpha: 0.1), blurRadius: 15, spreadRadius: 2),
+                                    ],
+                                  ),
+                                  child: Icon(
+                                    _swipePosition > 20 ? Icons.arrow_forward : (_swipePosition < -20 ? Icons.arrow_back : Icons.arrow_forward),
+                                    color: AppTheme.primaryColor,
+                                    size: 30,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      );
-                    }
+                          ],
+                        );
+                      }
+                    ),
                   ),
-                ),
                 
                 const SizedBox(height: 20),
                 Text(

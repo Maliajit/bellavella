@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../services/client_api_service.dart';
 
 class ReferEarnScreen extends StatefulWidget {
@@ -157,7 +157,8 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
   }
 
   Widget _buildReferralCodeContainer() {
-    final code = _stats?['referral_code'] ?? '----------';
+    final String? refCode = _stats?['referral_code'];
+    final String code = (refCode == null || refCode.isEmpty) ? '----------' : refCode;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),

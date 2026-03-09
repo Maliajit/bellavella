@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/router/route_names.dart';
 
 class ProfessionalActiveJobScreen extends StatelessWidget {
@@ -52,14 +52,14 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
+              padding: EdgeInsets.fromLTRB(24, 8, 24, 120),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 2️⃣ Active Job Header Section
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    padding: EdgeInsets.symmetric(vertical: 20),
                     child: Column(
                       children: [
                         Text(
@@ -97,7 +97,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                   // 3️⃣ Job Timer Section
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    padding: EdgeInsets.symmetric(vertical: 32),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(28),
@@ -142,7 +142,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
@@ -153,7 +153,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.all(12),
+                              padding: EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.blue.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
@@ -191,7 +191,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                               style: IconButton.styleFrom(
                                 backgroundColor: Colors.green.shade50,
                                 foregroundColor: Colors.green.shade700,
-                                padding: const EdgeInsets.all(12),
+                                padding: EdgeInsets.all(12),
                               ),
                               icon: const Icon(Icons.phone_rounded, size: 20),
                             ),
@@ -199,7 +199,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade50,
                             borderRadius: BorderRadius.circular(12),
@@ -270,7 +270,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
               left: 0,
               right: 0,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                padding: EdgeInsets.fromLTRB(24, 20, 24, 32),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -288,7 +288,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      padding: EdgeInsets.symmetric(vertical: 20),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
@@ -308,9 +308,9 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
 
   Widget _checklistItem(String title, bool isDone) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.only(bottom: 12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: isDone ? Colors.green.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -321,7 +321,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(2),
+              padding: EdgeInsets.all(2),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(

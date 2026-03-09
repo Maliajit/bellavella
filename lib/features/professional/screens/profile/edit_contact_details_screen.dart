@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import '../../controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -60,24 +60,20 @@ class _EditContactDetailsScreenState extends State<EditContactDetailsScreen> {
       body: Consumer<ProfessionalProfileController>(
         builder: (context, controller, child) {
           return Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(24),
             child: Form(
               key: _formKey,
               child: Column(
                 children: [
-                   _buildTextField("Mobile Number", _phoneController, Icons.phone_android_outlined, keyboardType: TextInputType.phone),
+                   _buildTextField("Mobile Number", _phoneController, Icons.phone_android_outlined, keyboardType: TextInputType.phone, readOnly: true),
                    const SizedBox(height: 20),
-                   _buildTextField("Email Address", _emailController, Icons.email_outlined, keyboardType: TextInputType.emailAddress),
-                   const SizedBox(height: 48),
-                   SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: controller.isLoading ? null : _save,
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-                      child: controller.isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Save Changes', style: TextStyle(color: Colors.white)),
-                    ),
-                  ),
+                   _buildTextField("Email Address", _emailController, Icons.email_outlined, keyboardType: TextInputType.emailAddress, readOnly: true),
+                   const SizedBox(height: 16),
+                   Text(
+                     "Contact support to change your registered mobile number or email address.",
+                     textAlign: TextAlign.center,
+                     style: GoogleFonts.inter(color: Colors.grey.shade600, fontSize: 12),
+                   ),
                 ],
               ),
             ),
@@ -87,7 +83,7 @@ class _EditContactDetailsScreenState extends State<EditContactDetailsScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType? keyboardType}) {
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType? keyboardType, bool readOnly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -96,10 +92,12 @@ class _EditContactDetailsScreenState extends State<EditContactDetailsScreen> {
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
+          readOnly: readOnly,
+          style: TextStyle(color: readOnly ? Colors.grey.shade700 : Colors.black),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, size: 20),
+            prefixIcon: Icon(icon, size: 20, color: readOnly ? Colors.grey.shade500 : Colors.black87),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
           validator: (v) => v == null || v.isEmpty ? 'Please enter $label' : null,
