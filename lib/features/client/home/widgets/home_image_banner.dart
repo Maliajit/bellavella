@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/app_network_image.dart';
 
 class HomeImageBanner extends StatelessWidget {
-  final String image;
+  final String? image;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
@@ -22,44 +23,57 @@ class HomeImageBanner extends StatelessWidget {
         width: double.infinity,
         height: 160,
         margin: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          image: DecorationImage(
-            image: NetworkImage(image),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.7),
-                Colors.transparent,
-              ],
-            ),
-          ),
-          padding: const EdgeInsets.all(20),
-          alignment: Alignment.bottomLeft,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Stack(
+            fit: StackFit.expand,
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              // Background image with fallback
+              AppNetworkImage(
+                url: image,
+                width: double.infinity,
+                height: 160,
+                fit: BoxFit.cover,
+              ),
+              // Gradient overlay
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.transparent,
+                    ],
+                  ),
                 ),
               ),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 13,
+              // Text overlay
+              Positioned(
+                left: 20,
+                right: 20,
+                bottom: 20,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty)
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],

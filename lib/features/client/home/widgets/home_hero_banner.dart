@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_network_image.dart';
 import '../models/home_models.dart';
 
 class HomeHeroBanner extends StatefulWidget {
   final List<HomeBanner> banners;
-  const HomeHeroBanner({super.key, required this.banners});
+  final void Function(HomeBanner banner)? onBannerTap;
+  const HomeHeroBanner({super.key, required this.banners, this.onBannerTap});
 
   @override
   State<HomeHeroBanner> createState() => _HomeHeroBannerState();
@@ -36,49 +38,65 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
             itemCount: widget.banners.length,
             itemBuilder: (context, index) {
               final banner = widget.banners[index];
-              return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  image: DecorationImage(
-                    image: NetworkImage(banner.imageUrl),
-                    fit: BoxFit.cover,
-                  ),
-                ),
+              return GestureDetector(
+                onTap: () => widget.onBannerTap?.call(banner),
                 child: Container(
-                  decoration: BoxDecoration(
+                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                  child: ClipRRect(
                     borderRadius: BorderRadius.circular(20),
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.37),
-                        Colors.transparent,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // Background image with fallback
+                        AppNetworkImage(
+                          url: banner.imageUrl,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                        // Gradient overlay
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.37),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Text overlay
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          bottom: 20,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                banner.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (banner.subtitle != null && banner.subtitle!.isNotEmpty)
+                                Text(
+                                  banner.subtitle!,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
-                  ),
-                  padding: const EdgeInsets.all(20),
-                  alignment: Alignment.bottomLeft,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        banner.title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        banner.subtitle,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
                   ),
                 ),
               );

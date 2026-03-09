@@ -95,7 +95,7 @@ class HomeServiceGrid extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (cat.badge.isNotEmpty)
+                        if (cat.badge?.isNotEmpty == true)
                           Positioned(
                             top: 8,
                             right: 0,
@@ -114,7 +114,7 @@ class HomeServiceGrid extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                cat.badge,
+                                cat.badge ?? '',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,

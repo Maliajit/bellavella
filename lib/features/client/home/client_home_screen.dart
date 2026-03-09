@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:provider/Provider.dart';
 import 'package:confetti/confetti.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -9,6 +9,7 @@ import '../../../core/utils/permission_handler_util.dart';
 import '../../../core/utils/location_util.dart';
 
 import 'controllers/home_provider.dart';
+import 'models/home_models.dart';
 import 'models/story_model.dart';
 import 'widgets/home_header.dart';
 import 'widgets/home_hero_banner.dart';
@@ -17,6 +18,12 @@ import 'widgets/home_service_grid.dart';
 import 'widgets/home_service_carousel.dart';
 import 'widgets/home_image_banner.dart';
 import 'widgets/home_story_section.dart';
+import 'widgets/home_testimonials_section.dart';
+import 'widgets/home_trending_packages_section.dart';
+import 'widgets/home_download_app_section.dart';
+import 'widgets/home_testimonials_section.dart';
+import 'widgets/home_trending_packages_section.dart';
+import 'widgets/home_download_app_section.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -37,24 +44,23 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   }
 
   Future<void> _initializeApp() async {
-    // 1. Request all necessary permissions
     await PermissionHandlerUtil.requestAllPermissions(context);
-    
-    // 2. Initialize and trigger test notification
+
     final notificationService = NotificationService();
     await notificationService.init();
     await notificationService.showLoginSuccess();
 
-    // 3. Handle location
     final homeProvider = context.read<HomeProvider>();
     if (LocationUtil.hasLocation()) {
       homeProvider.setLocation(
-        LocationUtil.currentAddress!, 
-        LocationUtil.currentSubAddress!
+        LocationUtil.currentAddress!,
+        LocationUtil.currentSubAddress!,
       );
     } else {
       homeProvider.determinePosition();
     }
+
+    await homeProvider.fetchHomepageData();
   }
 
   @override
@@ -63,103 +69,191 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     super.dispose();
   }
 
+  /// Navigates based on the target_page route key returned from backend.
+  void _navigateToTarget(BuildContext context, String? targetPage) {
+    if (targetPage == null || targetPage == 'none' || targetPage.isEmpty) return;
+
+    final routes = {
+      'home':          '/home',
+      'services':      '/services',
+      'packages':      '/packages',
+      'about':         '/about',
+      'contact':       '/contact',
+      'professionals': '/professionals',
+      'offers':        '/offers',
+    };
+
+    final route = routes[targetPage];
+    if (route != null) {
+      Navigator.of(context).pushNamed(route);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final homeProvider = context.watch<HomeProvider>();
-
-    // Prepare stories (mock mapping for now as per current code)
-    final List<Story> stories = [
-      Story(
-        videoUrl: 'assets/videos/videoplayback.mp4',
-        thumbnail: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400',
-        title: 'Professional Service',
-        serviceCategory: 'Hair Styling',
-      ),
-      Story(
-        videoUrl: 'assets/videos/video2.mp4',
-        thumbnail: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=400',
-        title: 'Luxe Facial',
-        serviceCategory: 'Skincare',
-      ),
-      Story(
-        videoUrl: 'assets/videos/video3.mp4',
-        thumbnail: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=200',
-        title: 'Deep Relaxation',
-        serviceCategory: 'Massage',
-      ),
-      Story(
-        videoUrl: 'assets/videos/video4.mp4',
-        thumbnail: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200',
-        title: 'Bridal Glow',
-        serviceCategory: 'Makeup',
-      ),
-    ];
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
           SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  HomeHeader(
-                    locationAddress: homeProvider.locationAddress,
-                    locationSubAddress: homeProvider.locationSubAddress,
-                    onLocationTap: () => homeProvider.determinePosition(),
-                  ),
-                  const SizedBox(height: 20),
-                  HomeHeroBanner(banners: homeProvider.banners),
-                  const SizedBox(height: 25),
-                  const ActiveBookingBanner(),
-                  const SizedBox(height: 35),
-                  HomeServiceGrid(
-                    categories: homeProvider.categories,
-                    onViewAll: () {},
-                  ),
-                  const SizedBox(height: 40),
-                  HomeServiceCarousel(
-                    title: 'Salon for Women',
-                    subtitle: 'Pamper yourself at home',
-                    services: homeProvider.womenSalonServices,
-                  ),
-                  const SizedBox(height: 40),
-                  HomeStorySection(stories: stories),
-                  const SizedBox(height: 40),
-                  const HomeImageBanner(
-                    image: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=800',
-                    title: 'Hygiene Excellence',
-                    subtitle: '100% Sanitized kits & safe pros',
-                  ),
-                  const SizedBox(height: 40),
-                  HomeServiceCarousel(
-                    title: 'Luxe Massage Therapy',
-                    subtitle: 'Relaxation delivered to your doorstep',
-                    services: homeProvider.massageServices,
-                  ),
-                  const SizedBox(height: 40),
-                  const HomeImageBanner(
-                    image: 'https://img1.wsimg.com/isteam/ip/f7b4722a-c66d-44f3-a479-48c918429406/9A9193D1-219A-45AE-8D21-B2D0AFBF2EED.jpeg/:/cr=t:0%25,l:0%25,w:100%25,h:100%25/rs=w:814,cg:true',
-                    title: 'Platinum Insider',
-                    subtitle: 'Exclusive benefits for our elite members',
-                  ),
-                  const SizedBox(height: 40),
-                  HomeServiceCarousel(
-                    title: 'Advanced Skincare',
-                    subtitle: 'Clinical results, spa comfort',
-                    services: homeProvider.skincareServices,
-                  ),
-                  const SizedBox(height: 40),
-                  const HomeImageBanner(
-                    image: 'https://static.vecteezy.com/system/resources/previews/047/932/342/non_2x/minimalist-presentation-templates-corporate-booklet-use-in-flyer-and-leaflet-marketing-banner-advertising-brochure-annual-business-report-website-slider-white-blue-color-company-profile-vector.jpg',
-                    title: 'Invite & Earn ₹500',
-                    subtitle: 'Refer a friend and get luxe rewards',
-                  ),
-                  const SizedBox(height: 120),
-                ],
-              ),
-            ),
+            child: homeProvider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : homeProvider.errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              homeProvider.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => homeProvider.fetchHomepageData(),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            HomeHeader(
+                              locationAddress: homeProvider.locationAddress,
+                              locationSubAddress: homeProvider.locationSubAddress,
+                              onLocationTap: () => homeProvider.determinePosition(),
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Dynamic sections from backend
+                            ...homeProvider.sections.map((section) {
+                              Widget sectionWidget = const SizedBox.shrink();
+
+                              switch (section.type) {
+
+                                case 'hero_banner':
+                                  final banners = section.items
+                                      .map<HomeBanner>((i) => HomeBanner.fromJson(i as Map<String, dynamic>))
+                                      .where((b) => b.imageUrl.isNotEmpty)
+                                      .toList();
+                                  if (banners.isNotEmpty) {
+                                    sectionWidget = HomeHeroBanner(
+                                      banners: banners,
+                                      onBannerTap: (banner) =>
+                                          _navigateToTarget(context, banner.targetPage),
+                                    );
+                                  }
+                                  break;
+
+                                case 'category_carousel':
+                                  final categories = section.items
+                                      .map<HomeCategory>((i) => HomeCategory.fromJson(i as Map<String, dynamic>))
+                                      .toList();
+                                  if (categories.isNotEmpty) {
+                                    sectionWidget = HomeServiceGrid(
+                                      categories: categories,
+                                      onViewAll: () {},
+                                    );
+                                  }
+                                  break;
+
+                                case 'service_carousel':
+                                case 'service_grid':
+                                  final services = section.items
+                                      .map<HomeService>((i) => HomeService.fromJson(i as Map<String, dynamic>))
+                                      .toList();
+                                  if (services.isNotEmpty) {
+                                    sectionWidget = HomeServiceCarousel(
+                                      title: section.title,
+                                      subtitle: section.subtitle ?? '',
+                                      services: services,
+                                    );
+                                  }
+                                  break;
+
+                                case 'video_stories':
+                                  final stories = section.items.map((i) {
+                                    final map = i as Map<String, dynamic>;
+                                    return Story(
+                                      videoUrl:        map['url'] ?? '',
+                                      thumbnail:       map['thumbnail'] ?? '',
+                                      title:           map['title'] ?? '',
+                                      serviceCategory: map['subtitle'] ?? '',
+                                    );
+                                  }).where((s) => s.videoUrl.isNotEmpty).toList();
+                                  if (stories.isNotEmpty) {
+                                    sectionWidget = HomeStorySection(
+                                      stories: stories,
+                                      title: section.title,
+                                      subtitle: section.subtitle ?? 'Real lives, real impact',
+                                    );
+                                  }
+                                  break;
+
+                                case 'image_banner':
+                                  if (section.items.isNotEmpty) {
+                                    final img = section.items.first as Map<String, dynamic>;
+                                    final banner = HomeBanner.fromJson(img);
+                                    if (banner.imageUrl.isNotEmpty) {
+                                      sectionWidget = HomeImageBanner(
+                                        title: banner.title.isNotEmpty ? banner.title : section.title,
+                                        subtitle: banner.subtitle ?? section.subtitle ?? '',
+                                        image: banner.imageUrl,
+                                        onTap: () => _navigateToTarget(context, banner.targetPage),
+                                      );
+                                    }
+                                  }
+                                  break;
+
+                                case 'active_booking':
+                                  sectionWidget = const ActiveBookingBanner();
+                                  break;
+
+                                case 'testimonials':
+                                  sectionWidget = HomeTestimonialsSection(
+                                    title: section.title,
+                                    subtitle: section.subtitle,
+                                    items: section.items,
+                                  );
+                                  break;
+
+                                case 'trending_packages':
+                                  sectionWidget = HomeTrendingPackagesSection(
+                                    title: section.title,
+                                    subtitle: section.subtitle,
+                                    items: section.items,
+                                  );
+                                  break;
+
+                                case 'download_app':
+                                  sectionWidget = HomeDownloadAppSection(
+                                    title: section.title,
+                                    subtitle: section.subtitle,
+                                    items: section.items,
+                                    btnText: section.btnText,
+                                    btnLink: section.btnLink,
+                                  );
+                                  break;
+                              }
+
+                              if (sectionWidget is SizedBox && sectionWidget.height == null) {
+                                return const SizedBox.shrink();
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 40.0),
+                                child: sectionWidget,
+                              );
+                            }),
+
+                            const SizedBox(height: 80),
+                          ],
+                        ),
+                      ),
           ),
           Align(
             alignment: Alignment.topCenter,

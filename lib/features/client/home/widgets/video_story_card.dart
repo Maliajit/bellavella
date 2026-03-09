@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../models/story_model.dart';
 import '../../../../core/router/route_names.dart';
+import '../../../../core/widgets/app_network_image.dart';
 
 class VideoStoryCard extends StatefulWidget {
   final Story story;
@@ -127,15 +128,12 @@ class _VideoStoryCardState extends State<VideoStoryCard> {
                     ),
                   )
                 else if (widget.story.thumbnail != null)
-                  Image.network(
-                    widget.story.thumbnail!, 
+                  AppNetworkImage(
+                    url: widget.story.thumbnail,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Center(
-                      child: Icon(Icons.broken_image, color: Colors.white54),
-                    ),
                   )
                 else
-                  const Center(child: CircularProgressIndicator(color: Colors.white70)),
+                  const ColoredBox(color: Colors.black54),
                 
                 // Gradient Overlay
                 Container(
