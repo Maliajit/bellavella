@@ -1,4 +1,3 @@
-import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
@@ -58,6 +57,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           level: 'service_group',
           seedNode: widget.hierarchySeedNode,
         );
+        final node = sp.hierarchyNode(_hierarchyLookupKey);
+        if (node != null && node.level == 'service' && node.serviceId != null) {
+          sp.fetchServiceReviews(node.serviceId!);
+        }
         return;
       }
 
@@ -103,15 +106,19 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       }
 
       final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
+      final serviceVariantId = int.tryParse(
+        item['service_variant_id']?.toString() ?? '',
+      );
       final cartId = int.tryParse(item['id']?.toString() ?? '');
       final quantity = int.tryParse(item['quantity']?.toString() ?? '');
+      final quantityKey = serviceVariantId ?? serviceId;
 
-      if (serviceId == null || cartId == null || quantity == null) {
+      if (quantityKey == null || cartId == null || quantity == null) {
         continue;
       }
 
-      nextQuantities[serviceId] = quantity;
-      nextCartIds[serviceId] = cartId;
+      nextQuantities[quantityKey] = quantity;
+      nextCartIds[quantityKey] = cartId;
     }
 
     setState(() {
@@ -172,12 +179,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
       final cartId = _serviceCartIds[service.id];
       if (cartId == null) {
-        response = await ApiService.post('/client/cart', {
-          'item_type': 'service',
-          'item_id': service.id,
-          'service_id': service.id,
+        final payload = <String, dynamic>{
+          'item_type': service.serviceVariantId != null ? 'variant' : 'service',
+          'item_id': service.serviceVariantId ?? service.id,
+          'service_id': service.parentServiceId ?? service.id,
           'quantity': 1,
-        });
+        };
+        if (service.serviceVariantId != null) {
+          payload['service_variant_id'] = service.serviceVariantId;
+          payload['bookable_type'] = 'variant';
+        }
+
+        debugPrint('Cart payload: $payload');
+
+        response = await ApiService.post('/client/cart', payload);
 
         if (response['success'] == true &&
             response['data'] is Map<String, dynamic>) {
@@ -191,8 +206,21 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
             }
           });
         } else {
+          final fieldErrors = response['errors'] is Map<String, dynamic>
+              ? Map<String, dynamic>.from(response['errors'])
+              : null;
+          final serviceErrors = fieldErrors?['service_id'];
+          final variantErrors = fieldErrors?['service_variant_id'];
+          final detailedMessage =
+              (serviceErrors is List && serviceErrors.isNotEmpty)
+                  ? serviceErrors.first.toString()
+                  : (variantErrors is List && variantErrors.isNotEmpty)
+                  ? variantErrors.first.toString()
+                  : null;
           _showSnack(
-            response['message']?.toString() ?? 'Failed to add service.',
+            detailedMessage ??
+                response['message']?.toString() ??
+                'Failed to add service.',
           );
         }
         return;
@@ -247,9 +275,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       builder: (context) => _VariantOptionsSheet(
         service: service,
         node: node,
-        onSelectVariant: (variant) {
-          Navigator.pop(context);
-          context.push(AppRoutes.clientBooking, extra: variant.toRouteData());
+        onQuantityChange: _changeServiceQuantity,
+        currentQuantities: _serviceQuantities,
+        syncingStates: {
+          for (var id in _syncingServiceIds) id: true,
         },
       ),
     );
@@ -482,6 +511,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                         (type) => _buildHierarchyServiceSection(type, services),
                       )
                       .whereType<Widget>(),
+                if (node.level == 'service' && node.serviceId != null)
+                  _buildReviewsSection(node.serviceId!),
               ],
             ),
           ),
@@ -880,7 +911,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Add',
                 style: TextStyle(
                   color: AppTheme.primaryColor,
@@ -925,25 +956,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (isVariantService)
-                    InkWell(
-                      onTap: () => _openVariantSelector(service),
-                      child: Text(
-                        service.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    )
-                  else
-                    Text(
-                      service.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  Text(
+                    service.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
                     ),
+                  ),
                   if (reviewText != null) ...[
                     const SizedBox(height: 8),
                     Row(
@@ -988,17 +1007,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  GestureDetector(
-                    onTap: isVariantService
-                        ? () => _openVariantSelector(service)
-                        : () => _showServiceDetails(context, service),
-                    child: const Text(
-                      'View details',
-                      style: TextStyle(
-                        color: Color(0xFF6B4EFF),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  const Text(
+                    'View details',
+                    style: TextStyle(
+                      color: Color(0xFF6B4EFF),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ],
@@ -1010,15 +1024,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       ),
     );
 
-    if (isVariantService) {
-      return InkWell(
-        onTap: () => _openVariantSelector(service),
-        borderRadius: BorderRadius.circular(18),
-        child: cardChild,
-      );
-    }
-
-    return cardChild;
+    return InkWell(
+      onTap: isVariantService
+          ? () => _openVariantSelector(service)
+          : () => _showServiceDetails(context, service),
+      borderRadius: BorderRadius.circular(18),
+      child: cardChild,
+    );
   }
 
   Widget _buildViewCartButton(BuildContext context) {
@@ -1049,194 +1061,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          maxChildSize: 0.95,
-          minChildSize: 0.5,
-          builder: (context, scrollController) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Service Details',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: const Icon(Icons.close),
-                          style: IconButton.styleFrom(
-                            backgroundColor: Colors.grey.shade100,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (service.image != null)
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: Image.network(
-                                service.image!,
-                                width: double.infinity,
-                                height: 250,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          const SizedBox(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  service.name,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFFFFB6C1,
-                                  ).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                child: Text(
-                                  '₹${service.price.toStringAsFixed(0)}',
-                                  style: const TextStyle(
-                                    color: AppTheme.primaryColor,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.timer_outlined,
-                                color: Colors.grey,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                service.durationMinutes == null
-                                    ? 'Duration on request'
-                                    : '${service.durationMinutes} mins',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 32),
-                          const Text(
-                            'Service Description',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            (service.description ?? '').trim().isNotEmpty
-                                ? service.description!.trim()
-                                : 'Professional service using premium products and techniques. Our trained experts ensure you get the best experience with guaranteed results.',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 15,
-                              height: 1.6,
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _buildModalFooter(service),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildModalFooter(DetailedService service) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 55,
-        child: ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            if (service.hasVariants && !service.isBookable) {
-              _openVariantSelector(service);
-              return;
-            }
-            _changeServiceQuantity(
-              service,
-              (_serviceQuantities[service.id] ?? 0) + 1,
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15),
-            ),
-            elevation: 0,
-          ),
-          child: Text(
-            service.hasVariants && !service.isBookable
-                ? 'View Variants'
-                : 'Add to Cart',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-        ),
+      builder: (context) => _VariantOptionsSheet(
+        service: service,
+        node: service.toHierarchyNode(),
+        onQuantityChange: _changeServiceQuantity,
+        currentQuantities: _serviceQuantities,
+        syncingStates: {
+          for (var id in _syncingServiceIds) id: true,
+        },
       ),
     );
   }
@@ -1266,7 +1098,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                 width: 18,
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
-            : const Text(
+            : Text(
                 'Add',
                 style: TextStyle(
                   color: AppTheme.primaryColor,
@@ -1292,8 +1124,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         children: [
           InkWell(
             onTap: isSyncing ? null : onDecrement,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Icon(Icons.remove, size: 18, color: AppTheme.primaryColor),
             ),
           ),
@@ -1308,7 +1140,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     )
                   : Text(
                       '$quantity',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.primaryColor,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -1318,8 +1150,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
           ),
           InkWell(
             onTap: isSyncing ? null : onIncrement,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
             ),
           ),
@@ -1328,188 +1160,850 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
+  Widget _buildReviewsSection(int serviceId) {
+    return Consumer<ServiceProvider>(
+      builder: (context, sp, _) {
+        final reviews = sp.serviceReviews(serviceId);
+        final isLoading = sp.isReviewsLoading(serviceId);
+
+        if (isLoading && reviews.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(20),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (reviews.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+              child: Text(
+                'Customer Reviews',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: reviews.length,
+              separatorBuilder: (_, __) => const Divider(height: 32),
+              itemBuilder: (context, index) => _buildReviewCard(reviews[index]),
+            ),
+            const SizedBox(height: 40),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReviewCard(ReviewData review) {
+    final name = review.user?.name ?? 'Anonymous';
+    final dateStr =
+        '${review.createdAt.day} ${_getMonthName(review.createdAt.month)}, ${review.createdAt.year}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: Colors.grey.shade200,
+              backgroundImage: review.user?.avatar != null
+                  ? NetworkImage(review.user!.avatar!)
+                  : null,
+              child: review.user?.avatar == null
+                  ? Text(
+                      name[0].toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    dateStr,
+                    style: GoogleFonts.outfit(
+                      color: Colors.grey.shade500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B8A4D),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${review.rating}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.star, color: Colors.white, size: 10),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (review.comment != null && review.comment!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text(
+            review.comment!,
+            style: GoogleFonts.outfit(
+              color: Colors.grey.shade800,
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month];
+  }
+
   IconData _getIconForLabel(String name) {
     final normalized = name.toLowerCase();
     if (normalized.contains('wax')) return Icons.auto_fix_high;
     if (normalized.contains('facial')) return Icons.face_retouching_natural;
     if (normalized.contains('cleanup')) return Icons.clean_hands;
-    if (normalized.contains('mani') || normalized.contains('pedi'))
+    if (normalized.contains('mani') || normalized.contains('pedi')) {
       return Icons.spa;
+    }
     if (normalized.contains('thread')) return Icons.content_cut;
     if (normalized.contains('bleach')) return Icons.shutter_speed;
     if (normalized.contains('massage')) return Icons.spa_outlined;
     return Icons.star_outline;
   }
 }
-
-class _VariantOptionsSheet extends StatelessWidget {
+class _VariantOptionsSheet extends StatefulWidget {
   final DetailedService service;
   final ServiceHierarchyNode node;
-  final ValueChanged<ServiceHierarchyNode> onSelectVariant;
+  final Future<void> Function(DetailedService, int) onQuantityChange;
+  final Map<int, int> currentQuantities;
+  final Map<int, bool> syncingStates;
 
   const _VariantOptionsSheet({
     required this.service,
     required this.node,
-    required this.onSelectVariant,
+    required this.onQuantityChange,
+    required this.currentQuantities,
+    required this.syncingStates,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final variants = node.children
-        .where((child) => child.level == 'variant')
-        .toList();
-    final lowestPrice = variants.isEmpty
-        ? service.price
-        : variants
-              .map((variant) => variant.price ?? 0)
-              .reduce((value, element) => value < element ? value : element);
+  State<_VariantOptionsSheet> createState() => _VariantOptionsSheetState();
+}
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.78,
-      maxChildSize: 0.92,
-      minChildSize: 0.5,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
+  late final Set<int> _pendingIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _pendingIds = widget.syncingStates.keys.toSet();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final sp = context.read<ServiceProvider>();
+      final sid = int.tryParse(widget.service.id.toString());
+      if (sid != null) {
+        sp.fetchServiceReviews(sid);
+      }
+    });
+  }
+
+  List<DetailedService> get _sheetItems {
+    final variants = widget.node.children
+        .where((child) => child.level == 'variant')
+        .map(_serviceFromNode)
+        .toList();
+
+    if (variants.isNotEmpty) {
+      return variants;
+    }
+
+    return [widget.service];
+  }
+
+  bool get _hasVariantItems =>
+      widget.node.children.any((child) => child.level == 'variant');
+
+  DetailedService _serviceFromNode(ServiceHierarchyNode node) {
+    final normalizedNodeData = {
+      ...node.toRouteData(),
+      'id':
+          node.serviceVariantId ??
+          (node.level == 'variant' ? int.tryParse(node.id) : null) ??
+          int.tryParse(node.id) ??
+          widget.service.id,
+      'service_id': node.serviceId ?? widget.service.id,
+      'service_variant_id':
+          node.serviceVariantId ??
+          (node.level == 'variant' ? int.tryParse(node.id) : null),
+      'bookable_type':
+          node.bookableType ??
+          ((node.serviceVariantId != null || node.level == 'variant')
+              ? 'variant'
+              : 'service'),
+      'level': node.level,
+      'image': node.image,
+      'description': node.description,
+      'price': node.price,
+      'display_price': node.price,
+    };
+
+    return DetailedService.fromJson(normalizedNodeData);
+  }
+
+  Future<void> _handleQuantityChange(DetailedService item, int nextQuantity) async {
+    setState(() => _pendingIds.add(item.id));
+    try {
+      await widget.onQuantityChange(item, nextQuantity);
+    } finally {
+      if (mounted) {
+        setState(() => _pendingIds.remove(item.id));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _sheetItems;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+
+    var totalQuantity = 0;
+    var totalPrice = 0.0;
+
+    for (final item in items) {
+      final quantity = widget.currentQuantities[item.id] ?? 0;
+      totalQuantity += quantity;
+      totalPrice += quantity * item.price;
+    }
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.88,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      child: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              0,
+              0,
+              0,
+              totalQuantity > 0 ? 128 + safeBottom : 28,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 14, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.service.name,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            if ((widget.service.description ?? '').trim().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  widget.service.description!.trim(),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.grey.shade600,
+                                    fontSize: 13,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(),
+                ),
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    _hasVariantItems ? 'Choose a variant' : 'Service details',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_hasVariantItems)
+                  _buildVariantCarousel(items)
+                else
+                  ...items.map(_buildSelectionCard),
+                const SizedBox(height: 20),
+                _buildReviewsSection(widget.service.id),
+              ],
+            ),
           ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 12, 14),
+          if (totalQuantity > 0)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 18,
+                      offset: const Offset(0, -4),
+                    ),
+                  ],
+                ),
                 child: Row(
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            service.name,
-                            style: const TextStyle(
+                            '$totalQuantity item${totalQuantity == 1 ? '' : 's'} selected',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Rs ${totalPrice.toStringAsFixed(0)}',
+                            style: GoogleFonts.outfit(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Starts at Rs ${lowestPrice.toStringAsFixed(0)} • ${variants.length} options',
-                            style: TextStyle(color: Colors.grey.shade700),
-                          ),
                         ],
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
+                    SizedBox(
+                      height: 52,
+                      width: 132,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
+                        child: Text(
+                          'Done',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.separated(
-                  controller: scrollController,
-                  padding: const EdgeInsets.all(20),
-                  itemCount: variants.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final variant = variants[index];
-                    return InkWell(
-                      onTap: () => onSelectVariant(variant),
-                      borderRadius: BorderRadius.circular(18),
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: Container(
-                                height: 76,
-                                width: 76,
-                                color: const Color(0xFFFFF1F4),
-                                child:
-                                    variant.image == null ||
-                                        variant.image!.isEmpty
-                                    ? const Icon(
-                                        Icons.auto_awesome,
-                                        color: AppTheme.primaryColor,
-                                      )
-                                    : Image.network(
-                                        variant.image!,
-                                        fit: BoxFit.cover,
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    variant.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  if ((variant.description ?? '')
-                                      .isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      variant.description!,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Rs ${(variant.price ?? 0).toStringAsFixed(0)}${variant.durationMinutes == null ? '' : ' • ${variant.durationMinutes} mins'}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            OutlinedButton(
-                              onPressed: () => onSelectVariant(variant),
-                              style: OutlinedButton.styleFrom(
-                                side: BorderSide(
-                                  color: AppTheme.primaryColor.withValues(
-                                    alpha: 0.35,
-                                  ),
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: const Text(
-                                'Select',
-                                style: TextStyle(color: AppTheme.primaryColor),
-                              ),
-                            ),
-                          ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionCard(DetailedService item) {
+    final quantity = widget.currentQuantities[item.id] ?? 0;
+    final isSyncing = _pendingIds.contains(item.id);
+    final reviewText = item.reviewCount > 0
+        ? '${item.ratingAvg.toStringAsFixed(1)} (${item.reviewCount} reviews)'
+        : null;
+    final durationText = item.durationMinutes == null
+        ? null
+        : '${item.durationMinutes} mins';
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE8E8E8)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (reviewText != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.star, size: 14, color: Colors.black87),
+                      const SizedBox(width: 6),
+                      Text(
+                        reviewText,
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 13,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.grey.shade400,
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 10),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  children: [
+                    Text(
+                      'Rs ${item.price.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (durationText != null)
+                      Text(
+                        durationText,
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 14,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _buildVariantQuantityControl(
+            item: item,
+            quantity: quantity,
+            isSyncing: isSyncing,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVariantCarousel(List<DetailedService> items) {
+    return SizedBox(
+      height: 430,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: items.length,
+        itemBuilder: (context, index) => _buildVariantImageCard(items[index]),
+      ),
+    );
+  }
+
+  Widget _buildVariantImageCard(DetailedService item) {
+    final quantity = widget.currentQuantities[item.id] ?? 0;
+    final isSyncing = _pendingIds.contains(item.id);
+    final reviewText = item.reviewCount > 0
+        ? '${item.ratingAvg.toStringAsFixed(2)} (${item.reviewCount} reviews)'
+        : null;
+
+    return Container(
+      width: 224,
+      margin: const EdgeInsets.only(right: 14),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE5E5E5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: item.image != null && item.image!.isNotEmpty
+                ? Image.network(
+                    item.image!,
+                    height: 210,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
+                  )
+                : _buildImagePlaceholder(),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            item.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+          ),
+          if (reviewText != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.star, size: 14, color: Colors.black87),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    reviewText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 10),
+          Text(
+            'Rs ${item.price.toStringAsFixed(0)}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const Spacer(),
+          _buildVariantQuantityControl(
+            item: item,
+            quantity: quantity,
+            isSyncing: isSyncing,
+            fullWidth: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Container(
+      height: 210,
+      width: double.infinity,
+      color: const Color(0xFFF6F1FF),
+      alignment: Alignment.center,
+      child: Icon(Icons.spa_outlined, color: AppTheme.primaryColor, size: 40),
+    );
+  }
+
+  Widget _buildReviewsSection(int serviceId) {
+    return Consumer<ServiceProvider>(
+      builder: (context, sp, _) {
+        final reviews = sp.serviceReviews(serviceId);
+        final isLoading = sp.isReviewsLoading(serviceId);
+
+        if (isLoading && reviews.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(40),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+              child: Text(
+                'Customer Reviews',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
-          ),
+            ),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: reviews.isEmpty ? 1 : reviews.length,
+              separatorBuilder: (_, __) => const Padding(
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(),
+              ),
+              itemBuilder: (context, index) {
+                if (reviews.isEmpty) {
+                  return Text(
+                    'No reviews yet.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                  );
+                }
+                return _buildReviewCard(reviews[index]);
+              },
+            ),
+            const SizedBox(height: 20),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildReviewCard(ReviewData review) {
+    final name = review.user?.name ?? 'Anonymous';
+    final dateStr =
+        '${review.createdAt.day} ${_getMonthName(review.createdAt.month)}, ${review.createdAt.year}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.grey.shade200,
+              backgroundImage: review.user?.avatar != null
+                  ? NetworkImage(review.user!.avatar!)
+                  : null,
+              child: review.user?.avatar == null && name.isNotEmpty
+                  ? Text(
+                      name[0].toUpperCase(),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    dateStr,
+                    style: GoogleFonts.outfit(
+                      color: Colors.grey.shade500,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B8A4D),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    review.rating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 3),
+                  const Icon(Icons.star, color: Colors.white, size: 11),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (review.comment != null && review.comment!.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          Text(
+            review.comment!,
+            style: GoogleFonts.outfit(
+              color: Colors.grey.shade800,
+              fontSize: 15,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return months[month];
+  }
+
+  Widget _buildVariantQuantityControl({
+    required DetailedService item,
+    required int quantity,
+    required bool isSyncing,
+    bool fullWidth = false,
+  }) {
+    if (quantity <= 0) {
+      return SizedBox(
+        width: fullWidth ? double.infinity : 100,
+        height: 40,
+        child: OutlinedButton(
+          onPressed: isSyncing ? null : () => _handleQuantityChange(item, 1),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(
+              color: AppTheme.primaryColor.withValues(alpha: 0.35),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: EdgeInsets.zero,
+          ),
+          child: isSyncing
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  'Add',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 40,
+      width: fullWidth ? double.infinity : 100,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.primaryColor.withValues(alpha: 0.35),
+        ),
+        color: const Color(0xFFF8F3FF),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          InkWell(
+            onTap: isSyncing ? null : () => _handleQuantityChange(item, quantity - 1),
+            child: Icon(Icons.remove, size: 18, color: AppTheme.primaryColor),
+          ),
+          isSyncing
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  '$quantity',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+          InkWell(
+            onTap: isSyncing ? null : () => _handleQuantityChange(item, quantity + 1),
+            child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+          ),
+        ],
+      ),
     );
   }
 }

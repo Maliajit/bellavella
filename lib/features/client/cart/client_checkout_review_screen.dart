@@ -7,7 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
-import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 import 'controllers/cart_provider.dart';
 import '../services/client_api_service.dart';

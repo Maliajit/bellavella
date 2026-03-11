@@ -8,7 +8,7 @@ import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import 'package:bellavella/features/client/cart/models/cart_model.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
-import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});

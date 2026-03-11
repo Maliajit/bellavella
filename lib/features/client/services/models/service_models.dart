@@ -346,6 +346,8 @@ class DetailedService {
   final String? bookableType;
   final int? durationMinutes;
   final int? serviceTypeId;
+  final int? parentServiceId;
+  final int? serviceVariantId;
   final String level;
   final String? nextLevel;
   final bool hasChildren;
@@ -367,6 +369,8 @@ class DetailedService {
     this.bookableType,
     this.durationMinutes,
     this.serviceTypeId,
+    this.parentServiceId,
+    this.serviceVariantId,
     this.level = 'service',
     this.nextLevel,
     this.hasChildren = false,
@@ -374,7 +378,7 @@ class DetailedService {
 
   factory DetailedService.fromJson(Map<String, dynamic> json) {
     return DetailedService(
-      id: json['id'] ?? 0,
+      id: ServiceHierarchyNode._parseNullableInt(json['id']) ?? 0,
       name: json['name'] ?? '',
       slug: json['slug'] ?? '',
       image: _resolveImageUrl(json['image']?.toString()),
@@ -401,6 +405,20 @@ class DetailedService {
       ),
       serviceTypeId: ServiceHierarchyNode._parseNullableInt(
         json['service_type_id'],
+      ),
+      parentServiceId: ServiceHierarchyNode._parseNullableInt(
+        json['service_id'],
+      ),
+      serviceVariantId: ServiceHierarchyNode._parseNullableInt(
+        json['service_variant_id'] ??
+            ((json['bookable_type']?.toString() == 'variant' ||
+                    _normalizeLevel(
+                          json['level']?.toString(),
+                          fallback: 'service',
+                        ) ==
+                        'variant')
+                ? json['id']
+                : null),
       ),
       level: _normalizeLevel(json['level']?.toString(), fallback: 'service'),
       nextLevel: ServiceHierarchyNode._normalizeNullableLevel(
@@ -439,7 +457,8 @@ class DetailedService {
       isBookable: isBookable,
       bookableType: bookableType,
       durationMinutes: durationMinutes,
-      serviceId: id,
+      serviceId: parentServiceId ?? id,
+      serviceVariantId: serviceVariantId,
     );
   }
 }
@@ -679,6 +698,55 @@ class CategoryDetail {
       children: serviceGroups.map((group) => group.toHierarchyNode()).toList(),
       image: _resolveImageUrl(image),
       description: description,
+    );
+  }
+}
+
+class ReviewUser {
+  final int id;
+  final String name;
+  final String? avatar;
+
+  ReviewUser({
+    required this.id,
+    required this.name,
+    this.avatar,
+  });
+
+  factory ReviewUser.fromJson(Map<String, dynamic> json) {
+    return ReviewUser(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? 'User',
+      avatar: json['avatar'],
+    );
+  }
+}
+
+class ReviewData {
+  final int id;
+  final int rating;
+  final String? comment;
+  final DateTime createdAt;
+  final ReviewUser? user;
+
+  ReviewData({
+    required this.id,
+    required this.rating,
+    this.comment,
+    required this.createdAt,
+    this.user,
+  });
+
+  factory ReviewData.fromJson(Map<String, dynamic> json) {
+    return ReviewData(
+      id: json['id'] ?? 0,
+      rating: int.tryParse(json['rating']?.toString() ?? '') ?? 0,
+      comment: json['comment'],
+      createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
+      user:
+          json['customer'] != null
+              ? ReviewUser.fromJson(json['customer'])
+              : null,
     );
   }
 }

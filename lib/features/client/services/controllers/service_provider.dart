@@ -9,6 +9,8 @@ class ServiceProvider extends ChangeNotifier {
   final Map<String, ServiceHierarchyNode> _hierarchyNodes = {};
   final Map<String, bool> _hierarchyLoading = {};
   final Map<String, String?> _hierarchyErrors = {};
+  final Map<int, List<ReviewData>> _serviceReviews = {};
+  final Map<int, bool> _reviewsLoading = {};
   bool _isLoading = false;
   bool _isLoadingGroups = false;
   bool _isLoadingDetail = false;
@@ -20,6 +22,8 @@ class ServiceProvider extends ChangeNotifier {
   ServiceHierarchyNode? hierarchyNode(String key) => _hierarchyNodes[key];
   bool isHierarchyLoading(String key) => _hierarchyLoading[key] ?? false;
   String? hierarchyError(String key) => _hierarchyErrors[key];
+  List<ReviewData> serviceReviews(int serviceId) => _serviceReviews[serviceId] ?? [];
+  bool isReviewsLoading(int serviceId) => _reviewsLoading[serviceId] ?? false;
   bool get isLoading => _isLoading;
   bool get isLoadingGroups => _isLoadingGroups;
   bool get isLoadingDetail => _isLoadingDetail;
@@ -98,6 +102,23 @@ class ServiceProvider extends ChangeNotifier {
       _hierarchyErrors[nodeKey] = e.toString();
     } finally {
       _hierarchyLoading[nodeKey] = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> fetchServiceReviews(int serviceId) async {
+    if (_serviceReviews.containsKey(serviceId)) return;
+
+    _reviewsLoading[serviceId] = true;
+    notifyListeners();
+
+    try {
+      final reviews = await ClientApiService.getServiceReviews(serviceId);
+      _serviceReviews[serviceId] = reviews;
+    } catch (e) {
+      debugPrint('Error fetching reviews: $e');
+    } finally {
+      _reviewsLoading[serviceId] = false;
       notifyListeners();
     }
   }

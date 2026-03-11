@@ -342,7 +342,7 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                               ),
                               child: Text(
                                 child.tagLabel!,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: AppTheme.primaryColor,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -386,7 +386,7 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                               child.hasVariants && !child.isBookable
                                   ? 'From Rs ${child.price!.toStringAsFixed(0)}'
                                   : 'Rs ${child.price!.toStringAsFixed(0)}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.primaryColor,
                               ),
@@ -434,7 +434,7 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
         borderRadius: BorderRadius.circular(16),
         color: const Color(0xFFFFEEF2),
       ),
-      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
+      child: Icon(Icons.auto_awesome, color: AppTheme.primaryColor),
     );
 
     if (node.image == null || node.image!.isEmpty) {
@@ -478,7 +478,7 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                   children: [
                     Text(
                       'Rs ${node.price!.toStringAsFixed(0)}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,

@@ -96,4 +96,16 @@ class ClientApiService {
       'razorpay_signature': razorpaySignature,
     });
   }
+
+  // --- Reviews ---
+  static Future<List<ReviewData>> getServiceReviews(int serviceId) async {
+    final response = await ApiService.get('$_prefix/services/$serviceId/reviews');
+    if (response['success'] == true) {
+      final reviewsJson = response['data']?['data'] as List? ?? [];
+      return reviewsJson
+          .map((e) => ReviewData.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+    throw Exception(response['message'] ?? 'Failed to load service reviews');
+  }
 }
