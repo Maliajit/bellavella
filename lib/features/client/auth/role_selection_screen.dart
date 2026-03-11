@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/config/app_config.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class RoleSelectionScreen extends StatelessWidget {
   const RoleSelectionScreen({super.key});

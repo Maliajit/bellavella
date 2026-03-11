@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/services/token_manager.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import '../services/professional_api_service.dart';
 
 class VerificationStatusScreen extends StatefulWidget {

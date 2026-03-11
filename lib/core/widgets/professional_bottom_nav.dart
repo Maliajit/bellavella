@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import '../router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class ProfessionalBottomNav extends StatelessWidget {
   final int currentIndex;

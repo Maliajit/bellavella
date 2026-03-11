@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/professional_models.dart';
 import '../../services/professional_api_service.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitOrderHistoryScreen extends StatefulWidget {

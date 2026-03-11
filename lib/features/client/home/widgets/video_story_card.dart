@@ -3,7 +3,7 @@ import 'package:video_player/video_player.dart';
 import 'package:go_router/go_router.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../models/story_model.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import '../../../../core/widgets/app_network_image.dart';
 
 class VideoStoryCard extends StatefulWidget {

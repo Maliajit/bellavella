@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../router/route_names.dart';
+import '../routes/app_routes.dart';
 import '../widgets/professional_scaffold.dart';
 import '../../features/client/splash/splash_screen.dart';
 import '../../features/client/auth/onboarding_screen.dart';

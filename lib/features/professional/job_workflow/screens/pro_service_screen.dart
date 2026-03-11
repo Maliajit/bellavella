@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProServiceScreen extends StatefulWidget {

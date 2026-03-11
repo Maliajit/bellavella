@@ -4,11 +4,13 @@ import '../models/home_models.dart';
 class HomeServiceGrid extends StatelessWidget {
   final List<HomeCategory> categories;
   final VoidCallback? onViewAll;
+  final Function(HomeCategory)? onCategoryTap;
 
   const HomeServiceGrid({
     super.key,
     required this.categories,
     this.onViewAll,
+    this.onCategoryTap,
   });
 
   @override
@@ -55,78 +57,82 @@ class HomeServiceGrid extends StatelessWidget {
             ),
             itemBuilder: (context, index) {
               final cat = categories[index];
-              return Column(
-                children: [
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            image: DecorationImage(
-                              image: NetworkImage(cat.imageUrl),
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          child: Container(
+              return InkWell(
+                onTap: () => onCategoryTap?.call(cat),
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(20),
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  Colors.black.withValues(alpha: 0.6),
-                                  Colors.transparent,
-                                ],
+                              image: DecorationImage(
+                                image: NetworkImage(cat.imageUrl),
+                                fit: BoxFit.cover,
                               ),
                             ),
-                            padding: const EdgeInsets.all(8),
-                            alignment: Alignment.bottomCenter,
-                            child: Text(
-                              cat.name,
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (cat.badge?.isNotEmpty == true)
-                          Positioned(
-                            top: 8,
-                            right: 0,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
                               decoration: BoxDecoration(
-                                color: cat.badge == 'New'
-                                    ? const Color(0xFFE91E63)
-                                    : const Color(0xFFFF9800),
-                                borderRadius: const BorderRadius.only(
-                                  topLeft: Radius.circular(10),
-                                  bottomLeft: Radius.circular(10),
+                                borderRadius: BorderRadius.circular(20),
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    Colors.black.withValues(alpha: 0.6),
+                                    Colors.transparent,
+                                  ],
                                 ),
                               ),
+                              padding: const EdgeInsets.all(8),
+                              alignment: Alignment.bottomCenter,
                               child: Text(
-                                cat.badge ?? '',
+                                cat.name,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
                           ),
-                      ],
+                          if (cat.badge?.isNotEmpty == true)
+                            Positioned(
+                              top: 8,
+                              right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: cat.badge == 'New'
+                                      ? const Color(0xFFE91E63)
+                                      : const Color(0xFFFF9800),
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(10),
+                                    bottomLeft: Radius.circular(10),
+                                  ),
+                                ),
+                                child: Text(
+                                  cat.badge ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               );
             },
           ),

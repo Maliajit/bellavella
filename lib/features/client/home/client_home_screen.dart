@@ -2,12 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/Provider.dart';
 import 'package:confetti/confetti.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:flutter/foundation.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'widgets/video_story_card.dart';
+
+import '../../../core/theme/app_theme.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/utils/permission_handler_util.dart';
 import '../../../core/utils/location_util.dart';

@@ -82,12 +82,14 @@ class HomeBanner {
 class HomeCategory {
   final int id;
   final String name;
+  final String slug;
   final String imageUrl;
   final String? badge;
 
   HomeCategory({
     required this.id,
     required this.name,
+    required this.slug,
     required this.imageUrl,
     this.badge,
   });
@@ -96,6 +98,7 @@ class HomeCategory {
     return HomeCategory(
       id:       json['id'] ?? 0,
       name:     json['name'] ?? '',
+      slug:     json['slug'] ?? '',
       imageUrl: json['image'] ?? '',
       badge:    json['badge'],
     );

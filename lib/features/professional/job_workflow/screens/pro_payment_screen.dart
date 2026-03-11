@@ -7,7 +7,7 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:intl/intl.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
-import '../../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProPaymentScreen extends StatefulWidget {

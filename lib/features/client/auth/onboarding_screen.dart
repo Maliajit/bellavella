@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/services/token_manager.dart';
-import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});

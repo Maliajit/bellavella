@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
-import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class BookingRequestDialog extends StatelessWidget {
   final Map<String, dynamic> notification;

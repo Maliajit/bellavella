@@ -1,16 +1,19 @@
 class AppRoutes {
-  // Common Routes
+  // --- Common Routes ---
   static const String root = '/';
   static const String splash = '/';
   static const String roleSelection = '/role-selection';
   static const String onboarding = '/onboarding';
 
-  // Client Routes
+  // --- Client Paths ---
   static const String clientLogin = '/client/login';
   static const String clientVerifyOtp = '/client/verify-otp';
   static const String clientLocationPicker = '/client/location-picker';
   static const String clientHome = '/client/home';
-  static const String clientCategory = '/client/services/:category';
+  static const String clientServices = '/client/services';
+  static const String clientPackages = '/client/packages';
+  static const String clientCategory = '/client/services/:slug';
+  static const String clientServiceHierarchy = '/client/service-hierarchy/:nodeKey';
   static const String clientCategoryDetail = '/client/category-detail/:name';
   static const String clientServiceTypes = '/client/service-types/:category';
   static const String clientServiceDetail = '/client/service-detail/:id';
@@ -31,7 +34,7 @@ class AppRoutes {
   static const String clientCheckoutReview = '/client/checkout-review';
   static const String clientStoryViewer = '/client/stories';
 
-  // Professional Routes
+  // --- Professional Paths ---
   static const String proLogin = '/professional/login';
   static const String proVerifyOtp = '/professional/verify-otp';
   static const String proSignup = '/professional/signup';
@@ -67,7 +70,7 @@ class AppRoutes {
   static const String proWithdrawalRequest = '/professional/withdrawal-request';
   static const String proWithdrawalHistory = '/professional/withdrawal-history';
 
-  // Profile Edit Paths
+  // --- Professional Edit Paths ---
   static const String proEditPersonalInfo = '/professional/profile/edit-personal';
   static const String proEditServiceArea = '/professional/profile/edit-service-area';
   static const String proEditWorkingHours = '/professional/profile/edit-working-hours';
@@ -80,7 +83,7 @@ class AppRoutes {
   static const String proChangePassword = '/professional/profile/change-password';
   static const String proLanguageSettings = '/professional/profile/language';
 
-  // Route Names (for context.goNamed)
+  // --- Route Names (for context.goNamed) ---
   static const String rootName = 'root';
   static const String roleSelectionName = 'roleSelection';
   static const String onboardingName = 'onboarding';
@@ -89,7 +92,9 @@ class AppRoutes {
   static const String clientVerifyOtpName = 'clientVerifyOtp';
   static const String clientLocationPickerName = 'clientLocationPicker';
   static const String clientHomeName = 'clientHome';
+  static const String clientServicesName = 'clientServices';
   static const String clientCategoryName = 'clientCategory';
+  static const String clientServiceHierarchyName = 'clientServiceHierarchy';
   static const String clientCategoryDetailName = 'clientCategoryDetail';
   static const String clientServiceTypesName = 'clientServiceTypes';
   static const String clientServiceDetailName = 'clientServiceDetail';
@@ -109,6 +114,7 @@ class AppRoutes {
   static const String clientWalletName = 'clientWallet';
   static const String clientCheckoutReviewName = 'clientCheckoutReview';
   static const String clientStoryViewerName = 'storyViewer';
+  static const String clientPackagesName = 'client-packages';
 
   static const String proLoginName = 'proLogin';
   static const String proVerifyOtpName = 'proVerifyOtp';
@@ -145,7 +151,6 @@ class AppRoutes {
   static const String proWithdrawalRequestName = 'proWithdrawalRequest';
   static const String proWithdrawalHistoryName = 'proWithdrawalHistory';
 
-  // Profile Edit Routes
   static const String proEditPersonalInfoName = 'proEditPersonalInfo';
   static const String proEditServiceAreaName = 'proEditServiceArea';
   static const String proEditWorkingHoursName = 'proEditWorkingHours';

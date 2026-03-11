@@ -1,5 +1,5 @@
 import 'package:go_router/go_router.dart';
-import '../router/route_names.dart';
+import '../routes/app_routes.dart';
 import '../widgets/main_scaffold.dart';
 import '../../features/client/splash/splash_screen.dart';
 import '../../features/client/auth/client_login_screen.dart';
@@ -25,10 +25,12 @@ import '../../features/client/cart/client_checkout_review_screen.dart';
 import '../../features/client/services/service_review_screen.dart';
 import '../../features/client/booking/live_tracking_screen.dart';
 import '../../features/client/services/client_service_types_screen.dart';
+import '../../features/client/services/service_hierarchy_screen.dart';
 import '../../features/client/profile/client_wallet_screen.dart';
 import '../../features/client/auth/role_selection_screen.dart';
 import '../../features/client/home/models/story_model.dart';
 import '../../features/client/home/screens/story_viewer_screen.dart';
+import '../../features/client/services/models/service_models.dart';
 
 final clientRouter = GoRouter(
   initialLocation: AppRoutes.splash,
@@ -90,10 +92,16 @@ final _shellRoutes = [
     builder: (context, state) => const ClientHomeScreen(),
   ),
   GoRoute(
+    path: AppRoutes.clientServices,
+    name: AppRoutes.clientServicesName,
+    builder: (context, state) =>
+        const ClientCategoryScreen(categorySlug: 'salon-for-women'),
+  ),
+  GoRoute(
     path: AppRoutes.clientCategory,
     name: AppRoutes.clientCategoryName,
     builder: (context, state) => ClientCategoryScreen(
-      categoryName: state.pathParameters['category'] ?? 'Category',
+      categorySlug: state.pathParameters['slug'] ?? 'salon-for-women',
     ),
   ),
   GoRoute(
@@ -135,11 +143,54 @@ final _shellRoutes = [
 
 final _featureRoutes = [
   GoRoute(
+    path: AppRoutes.clientServiceHierarchy,
+    name: AppRoutes.clientServiceHierarchyName,
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>?;
+      final seedNodeRaw = extra?['seedNode'] as Map<String, dynamic>?;
+      final breadcrumbsRaw = extra?['breadcrumbs'] as List? ?? const [];
+
+      return ServiceHierarchyScreen(
+        nodeKey: state.pathParameters['nodeKey'] ?? '',
+        seedNode: seedNodeRaw == null
+            ? null
+            : ServiceHierarchyNode.fromJson(seedNodeRaw),
+        breadcrumbs: breadcrumbsRaw
+            .whereType<Map>()
+            .map(
+              (item) => ServiceHierarchyNode.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(),
+      );
+    },
+  ),
+  GoRoute(
     path: AppRoutes.clientCategoryDetail,
     name: AppRoutes.clientCategoryDetailName,
-    builder: (context, state) => CategoryDetailScreen(
-      categoryName: state.pathParameters['name'] ?? 'Detail',
-    ),
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>?;
+      final seedNodeRaw = extra?['seedNode'] as Map<String, dynamic>?;
+      final breadcrumbsRaw = extra?['breadcrumbs'] as List? ?? const [];
+
+      return CategoryDetailScreen(
+        categoryName: state.pathParameters['name'] ?? 'Detail',
+        targetGroupId: extra?['targetGroupId'] as int?,
+        hierarchyNodeKey: extra?['hierarchyNodeKey']?.toString(),
+        hierarchySeedNode: seedNodeRaw == null
+            ? null
+            : ServiceHierarchyNode.fromJson(seedNodeRaw),
+        hierarchyBreadcrumbs: breadcrumbsRaw
+            .whereType<Map>()
+            .map(
+              (item) => ServiceHierarchyNode.fromJson(
+                Map<String, dynamic>.from(item),
+              ),
+            )
+            .toList(),
+      );
+    },
   ),
   GoRoute(
     path: AppRoutes.clientServiceTypes,
@@ -170,9 +221,8 @@ final _featureRoutes = [
   GoRoute(
     path: AppRoutes.clientBookingStatus,
     name: AppRoutes.clientBookingStatusName,
-    builder: (context, state) => BookingStatusScreen(
-      bookingId: state.pathParameters['bookingId'] ?? '',
-    ),
+    builder: (context, state) =>
+        BookingStatusScreen(bookingId: state.pathParameters['bookingId'] ?? ''),
   ),
   GoRoute(
     path: AppRoutes.clientLiveTracking,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../router/route_names.dart';
+import '../routes/app_routes.dart';
 
 class MainScaffold extends StatelessWidget {
   final Widget child;
@@ -54,7 +54,7 @@ class _BottomNav extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildNavItem(context, Icons.home, 'Home', 0, AppRoutes.clientHomeName),
-          _buildNavItem(context, Icons.grid_view_rounded, 'Category', 1, AppRoutes.clientCategoryName, params: {'category': 'Category'}),
+          _buildNavItem(context, Icons.grid_view_rounded, 'Category', 1, AppRoutes.clientServicesName),
           _buildNavItem(context, Icons.receipt_long_outlined, 'Bookings', 2, AppRoutes.clientMyBookingsName),
           _buildNavItem(context, Icons.person_outline, 'Profile', 3, AppRoutes.clientProfileName),
         ],

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/services/api_service.dart';
-import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/models/data_models.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
@@ -228,7 +227,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.8),
+                color: Colors.black.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -363,7 +362,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.white.withOpacity(0.1),
+          color: isSelected ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(

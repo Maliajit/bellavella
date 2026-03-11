@@ -1,12 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/client/services/controllers/service_provider.dart';
+import 'package:bellavella/features/client/services/models/service_models.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class ClientCategoryScreen extends StatefulWidget {
-  final String categoryName;
-  const ClientCategoryScreen({super.key, required this.categoryName});
+  final String categorySlug;
+  const ClientCategoryScreen({super.key, required this.categorySlug});
 
   @override
   State<ClientCategoryScreen> createState() => _ClientCategoryScreenState();
@@ -15,22 +20,39 @@ class ClientCategoryScreen extends StatefulWidget {
 class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
   final PageController _bannerController = PageController();
   int _currentBannerPage = 0;
+  Timer? _sliderTimer;
 
-  final List<Map<String, String>> _banners = [
-    {
-      'title': 'Salon for Women',
-      'subtitle': 'Upto 50% Off on Hair Services',
-      'image': 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=800',
-    },
-    {
-      'title': 'Luxury Spa',
-      'subtitle': 'Relax and Rejuvenate',
-      'image': 'https://static.vecteezy.com/system/resources/previews/046/122/700/non_2x/elegant-spa-setting-with-lit-candles-flowers-towels-smooth-stones-calming-wellness-retreat-for-relaxation-concept-of-luxury-thai-spa-tranquility-self-care-indulgence-banner-space-for-text-photo.jpeg',
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _startAutoSlider();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ServiceProvider>().fetchCategoryScreenData(widget.categorySlug);
+    });
+  }
+
+  void _startAutoSlider() {
+    _sliderTimer?.cancel();
+    _sliderTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (_bannerController.hasClients) {
+        final sp = context.read<ServiceProvider>();
+        final bannersCount = sp.categoryPageData?.sliderBanners.length ?? 0;
+        if (bannersCount > 1) {
+          int nextPage = _bannerController.page!.toInt() + 1;
+          if (nextPage >= bannersCount) nextPage = 0;
+          _bannerController.animateToPage(
+            nextPage,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _sliderTimer?.cancel();
     _bannerController.dispose();
     super.dispose();
   }
@@ -46,50 +68,96 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => context.go('/client/home'),
         ),
-        title: Text(
-          widget.categoryName,
-          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+        title: const Text(
+          'Category',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildTagline(),
-            _buildBannerSlider(),
-            _buildLookingFor(),
-            _buildServiceTypesGrid(),
-            const SizedBox(height: 30),
-            _buildInstagramCategoryCard(context), // Option D
-            const SizedBox(height: 30),
-            _buildSectionHeader('Most Booked Services', 'Aesthetic and reliable'),
-            _buildMostBookedServices(_bookedServices),
-            const SizedBox(height: 30),
-            _buildSectionHeader('Salon for Women', 'Pamper yourself at home'),
-            _buildHorizontalScroll(_salonCategories),
-            const SizedBox(height: 20),
-            _buildSingleBanner(
-              'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400',
-              'Special Offer',
-              'Flat ₹200 off',
+      body: Consumer<ServiceProvider>(
+        builder: (context, sp, _) {
+          if (sp.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (sp.error != null) {
+            return Center(child: Text('Error: ${sp.error}'));
+          }
+          final data = sp.categoryPageData;
+          if (data == null) {
+            return const Center(child: Text('No data found'));
+          }
+
+          return RefreshIndicator(
+            onRefresh: () => sp.fetchCategoryScreenData(widget.categorySlug),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTagline(),
+                  if (data.sliderBanners.isNotEmpty) _buildBannerSlider(data.sliderBanners),
+                  
+                  // Dynamic Sections
+                  ...data.sections.map((section) => _buildSection(section)),
+                  
+                  const SizedBox(height: 100),
+                ],
+              ),
             ),
-            const SizedBox(height: 30),
-            _buildSectionHeader('Spa for Women', 'Stress and pain relief'),
-            _buildHorizontalScroll(_spaCategories),
-            const SizedBox(height: 20),
-            _buildSingleBanner(
-              'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400',
-              'Spa Bliss',
-              'Book now',
-            ),
-            const SizedBox(height: 30),
-            _buildSectionHeader('Hair Studio for Women', 'Trendiest styles'),
-            _buildHorizontalScroll(_hairCategories),
-            const SizedBox(height: 100),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  Widget _buildSection(CategorySection section) {
+    switch (section.type) {
+      case 'grid':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLookingFor(),
+            _buildServiceTypesGrid(section.items.cast<CategoryMinimal>()),
+            const SizedBox(height: 30),
+          ],
+        );
+      case 'instagram':
+        return Column(
+          children: [
+            _buildInstagramCategoryCard(context),
+            const SizedBox(height: 30),
+          ],
+        );
+      case 'carousel':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(section.title, section.subtitle ?? ''),
+            _buildMostBookedServices(section.items.cast<DetailedService>()),
+            const SizedBox(height: 30),
+          ],
+        );
+      case 'horizontal_list':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(section.title, section.subtitle ?? ''),
+            _buildHorizontalScroll(section.items.cast<DetailedService>()),
+            const SizedBox(height: 30),
+          ],
+        );
+      case 'banner':
+        if (section.items.isNotEmpty) {
+          return Column(
+            children: [
+              _buildSingleBanner(section.items.first as CategoryBanner),
+              const SizedBox(height: 30),
+            ],
+          );
+        }
+        return const SizedBox.shrink();
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildTagline() {
@@ -106,7 +174,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
     );
   }
 
-  Widget _buildBannerSlider() {
+  Widget _buildBannerSlider(List<CategoryBanner> banners) {
     return Column(
       children: [
         SizedBox(
@@ -114,15 +182,15 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           child: PageView.builder(
             controller: _bannerController,
             onPageChanged: (index) => setState(() => _currentBannerPage = index),
-            itemCount: _banners.length,
+            itemCount: banners.length,
             itemBuilder: (context, index) {
-              final banner = _banners[index];
+              final banner = banners[index];
               return Container(
                 margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
                   image: DecorationImage(
-                    image: NetworkImage(banner['image']!),
+                    image: NetworkImage(banner.imageUrl),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -142,13 +210,14 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        banner['title']!,
+                        banner.title,
                         style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                      Text(
-                        banner['subtitle']!,
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
-                      ),
+                      if (banner.subtitle != null)
+                        Text(
+                          banner.subtitle!,
+                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
                     ],
                   ),
                 ),
@@ -159,7 +228,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
-            _banners.length,
+            banners.length,
             (index) => Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
               width: 8,
@@ -185,14 +254,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
     );
   }
 
-  Widget _buildServiceTypesGrid() {
-    final types = [
-      {'name': 'Salon for\nwomen', 'icon': Icons.face_retouching_natural},
-      {'name': 'Spa for\nwomen', 'icon': Icons.spa},
-      {'name': 'Hair Studio\nfor women', 'icon': Icons.content_cut},
-      {'name': 'Bridle', 'icon': Icons.auto_awesome},
-    ];
-
+  Widget _buildServiceTypesGrid(List<CategoryMinimal> categories) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: GridView.builder(
@@ -204,18 +266,21 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           mainAxisSpacing: 15,
           childAspectRatio: 1.4,
         ),
-        itemCount: types.length,
+        itemCount: categories.length,
         itemBuilder: (context, index) {
-          final type = types[index];
-          final typeName = (type['name'] as String).replaceAll('\n', ' ');
+          final cat = categories[index];
           
           return InkWell(
             onTap: () {
-              if (typeName.toLowerCase().contains('hair')) {
-                context.push('/client/category-detail/$typeName');
-              } else {
-                context.push('/client/service-types/$typeName');
-              }
+              final node = cat.toHierarchyNode();
+              context.pushNamed(
+                AppRoutes.clientServiceHierarchyName,
+                pathParameters: {'nodeKey': node.routeKey},
+                extra: {
+                  'seedNode': node.toRouteData(),
+                  'breadcrumbs': const [],
+                },
+              );
             },
             child: Container(
               decoration: BoxDecoration(
@@ -226,10 +291,17 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(type['icon'] as IconData, color: AppTheme.primaryColor, size: 30),
+                  Icon(
+                    cat.slug.contains('salon') ? Icons.face_retouching_natural : 
+                    cat.slug.contains('spa') ? Icons.spa : 
+                    cat.slug.contains('hair') ? Icons.content_cut : 
+                    Icons.auto_awesome, 
+                    color: AppTheme.primaryColor, 
+                    size: 30
+                  ),
                   const SizedBox(height: 8),
                   Text(
-                    type['name'] as String,
+                    cat.name,
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, height: 1.2),
                   ),
@@ -255,7 +327,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
     );
   }
 
-  Widget _buildMostBookedServices(List<Map<String, String>> items) {
+  Widget _buildMostBookedServices(List<DetailedService> items) {
     return SizedBox(
       height: 310,
       child: ListView.builder(
@@ -264,8 +336,16 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
         itemCount: items.length,
         itemBuilder: (context, index) {
           final item = items[index];
+          final node = item.toHierarchyNode();
           return InkWell(
-            onTap: () => context.push('/client/category-detail/${item['title']}'),
+            onTap: () => context.pushNamed(
+              AppRoutes.clientServiceHierarchyName,
+              pathParameters: {'nodeKey': node.routeKey},
+              extra: {
+                'seedNode': node.toRouteData(),
+                'breadcrumbs': const [],
+              },
+            ),
             child: Container(
               width: 185,
               margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -274,16 +354,18 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    child: Image.network(
-                      item['image']!,
-                      height: 185,
-                      width: 185,
-                      fit: BoxFit.cover,
-                    ),
+                    child: item.image != null 
+                      ? Image.network(
+                          item.image!,
+                          height: 185,
+                          width: 185,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(height: 185, width: 185, color: Colors.grey.shade200),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    item['title']!,
+                    item.name,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -299,7 +381,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                       const Icon(Icons.star, color: Colors.black, size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        '${item['rating'] ?? '4.8'} (${item['reviews'] ?? '100'})',
+                        '${item.ratingAvg} (${item.reviewCount})',
                         style: TextStyle(
                           color: Colors.grey.shade700,
                           fontSize: 13,
@@ -309,7 +391,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '₹${item['price'] ?? '499'}',
+                    '₹${item.price.toStringAsFixed(0)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -325,7 +407,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
     );
   }
 
-  Widget _buildHorizontalScroll(List<Map<String, String>> items) {
+  Widget _buildHorizontalScroll(List<DetailedService> items) {
     return SizedBox(
       height: 220,
       child: ListView.builder(
@@ -334,8 +416,16 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
         itemCount: items.length,
         itemBuilder: (context, index) {
           final item = items[index];
+          final node = item.toHierarchyNode();
           return InkWell(
-            onTap: () => context.push('/client/category-detail/${item['title']}'),
+            onTap: () => context.pushNamed(
+              AppRoutes.clientServiceHierarchyName,
+              pathParameters: {'nodeKey': node.routeKey},
+              extra: {
+                'seedNode': node.toRouteData(),
+                'breadcrumbs': const [],
+              },
+            ),
             child: Container(
               width: 150,
               margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -356,17 +446,19 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                   Expanded(
                     child: ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
-                      child: Image.network(
-                        item['image']!,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
+                      child: item.image != null
+                        ? Image.network(
+                            item.image!,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(color: Colors.grey.shade200),
                     ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(12),
                     child: Text(
-                      item['title']!,
+                      item.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -384,14 +476,14 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
     );
   }
 
-  Widget _buildSingleBanner(String imageUrl, String title, String subtitle) {
+  Widget _buildSingleBanner(CategoryBanner banner) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 120,
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
-        image: DecorationImage(image: NetworkImage(imageUrl), fit: BoxFit.cover),
+        image: DecorationImage(image: NetworkImage(banner.imageUrl), fit: BoxFit.cover),
       ),
       child: Container(
         decoration: BoxDecoration(
@@ -408,42 +500,14 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            Text(subtitle, style: const TextStyle(color: Colors.white70, fontSize: 14)),
+            Text(banner.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            if (banner.subtitle != null)
+              Text(banner.subtitle!, style: const TextStyle(color: Colors.white70, fontSize: 14)),
           ],
         ),
       ),
     );
   }
-
-  // Mock data for internal screen
-  final List<Map<String, String>> _bookedServices = [
-    {'title': 'Classic Manicure', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400', 'price': '499'},
-    {'title': 'Hydra Facial', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400', 'price': '1299'},
-    {'title': 'Hair Spa', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400', 'price': '899'},
-    {'title': 'Waxing Combo', 'image': 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?q=80&w=400', 'price': '799'},
-    {'title': 'Pedicure Deluxe', 'image': 'https://images.unsplash.com/photo-1519415387722-a1c3bbef716c?q=80&w=400', 'price': '699'},
-  ];
-
-  final List<Map<String, String>> _salonCategories = [
-    {'title': 'Waxing', 'image': 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?q=80&w=400'},
-    {'title': 'Cleanup', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'},
-    {'title': 'Facial', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'},
-    {'title': 'Manicure', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'},
-    {'title': 'Pedicure', 'image': 'https://images.unsplash.com/photo-1519415387722-a1c3bbef716c?q=80&w=400'},
-    {'title': 'Threading', 'image': 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400'},
-    {'title': 'Bleach', 'image': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400'},
-  ];
-
-  final List<Map<String, String>> _spaCategories = [
-    {'title': 'Stress Relief', 'image': 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'},
-    {'title': 'Pain Relief', 'image': 'https://images.unsplash.com/photo-1600334089648-b0d9d3028eb2?q=80&w=400'},
-  ];
-
-  final List<Map<String, String>> _hairCategories = [
-    {'title': 'Haircut', 'image': 'https://images.unsplash.com/photo-1560066984-138dadb4c035?q=80&w=400'},
-    {'title': 'Hair Spa', 'image': 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400'},
-  ];
 
   Widget _buildInstagramCategoryCard(BuildContext context) {
     return Container(

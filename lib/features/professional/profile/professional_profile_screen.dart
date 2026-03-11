@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
-import '../../../core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import '../services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import '../controllers/professional_profile_controller.dart';

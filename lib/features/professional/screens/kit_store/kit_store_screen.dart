@@ -10,7 +10,7 @@ import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_help
 import 'widgets/kit_store_header.dart';
 import 'widgets/kit_store_banner.dart';
 import 'widgets/kit_product_card.dart';
-import 'package:bellavella/core/router/route_names.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 
 class KitStoreScreen extends StatefulWidget {
