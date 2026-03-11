@@ -171,17 +171,17 @@ class SecondaryButton extends StatelessWidget {
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(double.infinity, 50),
-          side: const BorderSide(color: AppTheme.primaryColor),
+          side: BorderSide(color: AppTheme.primaryColor),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
         onPressed: isLoading ? null : onPressed,
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 height: 20,
                 width: 20,
                 child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2),
               )
-            : Text(label, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+            : Text(label, style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
       ),
     );
   }

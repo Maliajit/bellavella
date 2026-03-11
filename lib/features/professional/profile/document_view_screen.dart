@@ -50,7 +50,7 @@ class DocumentViewScreen extends StatelessWidget {
       fit: BoxFit.contain,
       loadingBuilder: (context, child, loadingProgress) {
         if (loadingProgress == null) return child;
-        return const Center(
+        return Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor),
         );
       },

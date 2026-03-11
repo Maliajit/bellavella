@@ -1,29 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../services/theme_service.dart';
 
 class AppTheme {
-  // Brand Colors - Bella Villa Theme
-  static const Color primaryColor = Color(0xFFFF4D7D);
-  static const Color secondaryColor = Color(0xFFF8BBD0);
-  static const Color accentColor = Color(0xFF1F2937); // Primary Text
-  static const Color backgroundColor = Color(0xF6F7F9FF); // #F6F7F9
-  static const Color surfaceColor = Colors.white; // Card Background
-  static const Color errorColor = Color(0xFFEF4444);
-  static const Color successColor = Color(0xFF22C55E);
-  static const Color greyText = Color(0xFF6B7280); // Secondary Text
-  static const Color dividerColor = Color(0xFFE5E7EB);
+  // ──────────────────────────────────────────────────────────────────
+  // Dynamic brand colors — fetched from the admin panel via /api/theme
+  // Falls back to hardcoded defaults when offline.
+  // ──────────────────────────────────────────────────────────────────
+  static Color get primaryColor    => ThemeService.current.primary;
+  static Color get secondaryColor  => ThemeService.current.secondary;
+  static Color get backgroundColor => ThemeService.current.background;
 
+  // Static colours that never change (always hardcoded)
+  static const Color accentColor   = Color(0xFF1F2937); // Primary Text
+  static const Color surfaceColor  = Colors.white;
+  static const Color errorColor    = Color(0xFFEF4444);
+  static const Color successColor  = Color(0xFF22C55E);
+  static const Color greyText      = Color(0xFF6B7280);
+  static const Color dividerColor  = Color(0xFFE5E7EB);
+
+  /// Call this to build a fresh ThemeData with the current fetched colors.
   static ThemeData get lightTheme {
+    final primary    = primaryColor;
+    final secondary  = secondaryColor;
+    final background = backgroundColor;
+
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
-        primary: primaryColor,
-        secondary: secondaryColor,
+        seedColor: primary,
+        primary: primary,
+        secondary: secondary,
         surface: surfaceColor,
         error: errorColor,
       ),
-      scaffoldBackgroundColor: backgroundColor,
+      scaffoldBackgroundColor: background,
       textTheme: GoogleFonts.poppinsTextTheme().copyWith(
         displayLarge: GoogleFonts.poppins(
           fontWeight: FontWeight.bold,
@@ -41,7 +52,7 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor,
+          backgroundColor: primary,
           foregroundColor: Colors.white,
           disabledBackgroundColor: const Color(0xFFD9D9D9),
           disabledForegroundColor: const Color(0xFF9E9E9E),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/services/token_manager.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -12,6 +14,7 @@ class MyBookingsScreen extends StatefulWidget {
 
 class _MyBookingsScreenState extends State<MyBookingsScreen> {
   bool _isLoading = true;
+  bool _isLoggedIn = true;
   String? _errorMessage;
   List<dynamic> _upcoming = [];
   List<dynamic> _completed = [];
@@ -24,6 +27,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   Future<void> _fetchBookings() async {
+    if (!TokenManager.hasToken) {
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _isLoggedIn = true;
+      _upcoming = [];
+      _completed = [];
+      _cancelled = [];
+    });
+
     try {
       final response = await ApiService.get('/client/bookings');
 
@@ -88,7 +110,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             ),
           ),
           centerTitle: true,
-          bottom: const TabBar(
+          bottom: TabBar(
             indicatorColor: AppTheme.primaryColor,
             indicatorWeight: 3,
             labelColor: AppTheme.primaryColor,
@@ -109,11 +131,13 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             ],
           ),
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
-            : _errorMessage != null
-                ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.errorColor)))
-                : TabBarView(
+        body: !_isLoggedIn
+            ? _buildLoginGate()
+            : _isLoading
+                ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+                : _errorMessage != null
+                    ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.errorColor)))
+                    : TabBarView(
                     children: [
                       _buildList(_upcoming, 'upcoming'),
                       _buildList(_completed, 'completed'),
@@ -344,7 +368,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                     ),
                     Text(
                       '₹$total',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 18,
                         color: AppTheme.primaryColor,
@@ -364,7 +388,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                           label: const Text('Cancel Booking'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppTheme.primaryColor,
-                            side: const BorderSide(color: AppTheme.primaryColor),
+                            side: BorderSide(color: AppTheme.primaryColor),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
@@ -473,7 +497,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 ),
               ],
             ),
-            child: const Center(
+            child: Center(
               child: Icon(Icons.spa_outlined, color: AppTheme.primaryColor, size: 22),
             ),
           ),
@@ -493,7 +517,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '₹${service['price']!}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.primaryColor,
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
@@ -576,6 +600,98 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           ],
         );
       },
+    );
+  }
+  Widget _buildLoginGate() {
+    return Container(
+      color: const Color(0xFFF6F7F9),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Illustration circle
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryColor.withOpacity(0.12),
+                      AppTheme.primaryColor.withOpacity(0.04),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.calendar_month_outlined,
+                    size: 52,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // Headline
+              Text(
+                'Sign in to your account',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+
+              // Subtitle
+              Text(
+                'Access and track your service\nbookings in one place.',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 36),
+
+              // Sign In button
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await context.push('/client/login');
+                    // Re-check auth after returning from login
+                    _fetchBookings();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Sign In',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

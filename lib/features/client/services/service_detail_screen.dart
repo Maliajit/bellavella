@@ -86,7 +86,7 @@ class ServiceDetailScreen extends StatelessWidget {
         ),
         Text(
           '₹${service.price.toInt()}',
-          style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
+          style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: AppTheme.primaryColor),
         ),
       ],
     );
@@ -157,7 +157,7 @@ class ServiceDetailScreen extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(price, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+          Text(price, style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
         ],
       ),
     );

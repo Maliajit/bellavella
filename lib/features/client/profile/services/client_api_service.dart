@@ -1,5 +1,6 @@
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ClientApiService {
   static const String _prefix = '/client';
@@ -13,14 +14,22 @@ class ClientApiService {
     throw Exception(response['message'] ?? 'Failed to load profile');
   }
 
-  /// Update profile fields. Backend expects form-data when sending avatar, but
-  /// a simple JSON post works for text-only updates.
+  /// Update profile text fields only (name, email, date_of_birth).
   static Future<Map<String, dynamic>> updateProfile(
     Map<String, dynamic> data,
   ) async {
-    // route defined as POST /client/profile/update
     return await ApiService.post('$_prefix/profile/update', data);
   }
+
+  /// Upload a new avatar image. Sends multipart form-data with the image file.
+  static Future<Map<String, dynamic>> uploadAvatar(XFile imageFile) async {
+    return await ApiService.multipart(
+      '$_prefix/profile/update',
+      {},                                    // no extra text fields — text fields updated separately
+      {'avatar_file': imageFile},
+    );
+  }
+
 
   /// Fetch wallet data including balance and transactions.
   static Future<Map<String, dynamic>> getWallet() async {

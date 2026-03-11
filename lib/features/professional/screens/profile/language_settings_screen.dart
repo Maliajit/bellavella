@@ -46,7 +46,7 @@ class _LanguageSettingsScreenState extends State<LanguageSettingsScreen> {
               contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               title: Text(lang['name']!, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700)),
               subtitle: Text(lang['sub']!, style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade500)),
-              trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.primaryColor) : null,
+              trailing: isSelected ? Icon(Icons.check_circle, color: AppTheme.primaryColor) : null,
               onTap: () {
                 setState(() => _selectedLanguage = lang['name']!);
                 Future.delayed(const Duration(milliseconds: 300), () => Navigator.pop(context));

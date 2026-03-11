@@ -75,7 +75,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
             _buildSliverAppBar(),
             SliverToBoxAdapter(child: _buildInventoryHero()),
             if (_isLoading)
-              const SliverFillRemaining(
+              SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
               )
             else if (_errorMessage != null)

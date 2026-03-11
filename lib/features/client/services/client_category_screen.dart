@@ -161,7 +161,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
   }
 
   Widget _buildTagline() {
-    return const Padding(
+    return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: Text(
         'Beauty & Wellness at your Convenience',

@@ -60,7 +60,7 @@ class _KitOrderDetailsScreenState extends State<KitOrderDetailsScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _error != null
               ? _buildError()
               : _order == null

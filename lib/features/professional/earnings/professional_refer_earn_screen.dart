@@ -89,7 +89,7 @@ class _ProfessionalReferEarnScreenState extends State<ProfessionalReferEarnScree
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _errorMessage != null
               ? Center(child: Text('Error: $_errorMessage'))
               : _buildContent(),

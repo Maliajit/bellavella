@@ -208,7 +208,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
 
               // Loading state
               if (_isLoading)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   child: Center(
                     child: CircularProgressIndicator(color: AppTheme.primaryColor),
                   ),

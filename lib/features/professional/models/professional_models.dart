@@ -10,6 +10,9 @@ class ProfessionalBooking {
   final double totalPrice;
   final String address;
   final BookingStatus status;
+  final DateTime? serviceStartedAt;
+  final double? lat;
+  final double? lng;
 
   ProfessionalBooking({
     required this.id,
@@ -20,6 +23,9 @@ class ProfessionalBooking {
     required this.totalPrice,
     required this.address,
     required this.status,
+    this.serviceStartedAt,
+    this.lat,
+    this.lng,
   });
 
   factory ProfessionalBooking.empty() => ProfessionalBooking(
@@ -30,7 +36,10 @@ class ProfessionalBooking {
     date: '', 
     totalPrice: 0, 
     address: '', 
-    status: BookingStatus.requested
+    status: BookingStatus.requested,
+    serviceStartedAt: null,
+    lat: null,
+    lng: null,
   );
 
   factory ProfessionalBooking.fromJson(dynamic json) {
@@ -64,6 +73,11 @@ class ProfessionalBooking {
       totalPrice: ParserUtil.safeParseDouble(json['price'] ?? json['total_price']),
       address: (json['city'] ?? json['address'] ?? 'No address provided').toString(),
       status: status,
+      serviceStartedAt: json['service_started_at'] != null 
+          ? DateTime.tryParse(json['service_started_at'].toString()) 
+          : null,
+      lat: ParserUtil.safeParseDouble(json['lat']),
+      lng: ParserUtil.safeParseDouble(json['lng']),
     );
   }
 }

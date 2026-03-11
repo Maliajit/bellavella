@@ -91,7 +91,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+            colorScheme: ColorScheme.light(
               primary: AppTheme.primaryColor,
               onPrimary: Colors.white,
               onSurface: AppTheme.accentColor,
@@ -158,7 +158,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   content: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
+                      Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
                       const SizedBox(height: 16),
                       Text('Congratulations!', 
                         style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
@@ -551,7 +551,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         fillColor: const Color(0xFFF9FAFB),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         counterText: '',
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
@@ -576,7 +576,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         fillColor: const Color(0xFFF9FAFB),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );

@@ -76,7 +76,7 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _errorMessage != null
               ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.errorColor)))
               : SingleChildScrollView(

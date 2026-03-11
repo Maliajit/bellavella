@@ -163,7 +163,7 @@ class HomeTrendingPackagesSection extends StatelessWidget {
                       ),
                       child: Text(
                         badge,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.primaryColor,
@@ -218,7 +218,7 @@ class HomeTrendingPackagesSection extends StatelessWidget {
                       if (price > 0)
                         Text(
                           '\$${price.toStringAsFixed(2)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.primaryColor,

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:provider/Provider.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -8,7 +9,8 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/utils/permission_handler_util.dart';
 import '../../../core/utils/location_util.dart';
 
-import 'controllers/home_provider.dart';
+import 'package:bellavella/features/client/home/controllers/home_provider.dart';
+import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import 'models/home_models.dart';
 import 'models/story_model.dart';
 import 'widgets/home_header.dart';
@@ -171,6 +173,27 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                       title: section.title,
                                       subtitle: section.subtitle ?? '',
                                       services: services,
+                                      onAdd: (service) {
+                                        context.read<CartProvider>().addItem(
+                                          service,
+                                          categoryName: section.title,
+                                        );
+                                        ScaffoldMessenger.of(context).clearSnackBars();
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('${service.title} added to cart'),
+                                            behavior: SnackBarBehavior.floating,
+                                            duration: const Duration(seconds: 2),
+                                            action: SnackBarAction(
+                                              label: 'View Cart',
+                                              onPressed: () {
+                                                ScaffoldMessenger.of(context).clearSnackBars();
+                                                context.push('/client/cart');
+                                              },
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     );
                                   }
                                   break;
@@ -261,7 +284,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
               confettiController: _confettiController,
               blastDirectionality: BlastDirectionality.explosive,
               shouldLoop: false,
-              colors: const [
+              colors: [
                 Colors.green,
                 Colors.blue,
                 Colors.pink,

@@ -51,12 +51,32 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
     try {
       final res = await ProfessionalApiService.acceptBooking(id);
       if (res['success'] == true) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking accepted successfully!')),
         );
         _fetchRequests(); // Refresh list
       }
     } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
+  Future<void> _rejectBooking(String id) async {
+    try {
+      final res = await ProfessionalApiService.rejectBooking(id);
+      if (res['success'] == true) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking request declined.')),
+        );
+        _fetchRequests(); // Refresh list
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -66,7 +86,7 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
@@ -107,12 +127,7 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
                     time: booking.time,
                     price: '₹${booking.totalPrice}',
                     onAccept: () => _acceptBooking(booking.id),
-                    onDecline: () {
-                      // Implementation for declining could be added if API exists
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Declined locally')),
-                      );
-                    },
+                    onDecline: () => _rejectBooking(booking.id),
                   );
                 },
               ),
@@ -156,7 +171,7 @@ class _RequestCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 20,
                 backgroundColor: AppTheme.secondaryColor,
                 child: Icon(Icons.person, color: AppTheme.primaryColor),
@@ -182,7 +197,7 @@ class _RequestCard extends StatelessWidget {
               ),
               Text(
                 price,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w900,
                   color: AppTheme.primaryColor,
                 ),

@@ -129,7 +129,7 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }

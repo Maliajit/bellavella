@@ -1130,7 +1130,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                                   borderRadius: BorderRadius.circular(15),
                                 ),
                                 child: Text(
-                                  'Rs ${service.price.toStringAsFixed(0)}',
+                                  '₹${service.price.toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     color: AppTheme.primaryColor,
                                     fontSize: 18,

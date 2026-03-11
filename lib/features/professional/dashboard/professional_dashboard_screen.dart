@@ -195,7 +195,7 @@ class _ProfessionalDashboardScreenState
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
@@ -657,7 +657,7 @@ class _ProfessionalDashboardScreenState
               ),
             ),
             TextButton(
-              onPressed: () => context.go(AppRoutes.proOrders),
+              onPressed: () => context.pushNamed(AppRoutes.proScheduleName),
               child: Text(
                 'See All',
                 style: GoogleFonts.inter(
@@ -870,7 +870,7 @@ class _ProfessionalDashboardScreenState
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [Color(0xFFFF85A1), AppTheme.primaryColor],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,

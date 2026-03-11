@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProKitScanScreen extends StatefulWidget {
@@ -15,6 +16,35 @@ class ProKitScanScreen extends StatefulWidget {
 
 class _ProKitScanScreenState extends State<ProKitScanScreen> {
   bool _isScanned = false;
+  bool _isStarting = false;
+
+  Future<void> _startService() async {
+    setState(() => _isStarting = true);
+    try {
+      final res = await ProfessionalApiService.jobStartService(widget.booking.id);
+      if (mounted) {
+        if (res['success'] == true) {
+          // Fetch updated booking with serviceStartedAt
+          final updatedBooking = await ProfessionalApiService.getBookingDetail(widget.booking.id);
+          if (mounted) {
+            context.pushNamed(AppRoutes.proActiveJobName, extra: updatedBooking);
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(res['message'] ?? 'Failed to start service')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
+    }
+  }
 
   void _simulateScan() {
     setState(() => _isScanned = true);
@@ -166,7 +196,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.pushNamed(AppRoutes.proActiveJobName, extra: widget.booking),
+                  onPressed: _isStarting ? null : _startService,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -174,10 +204,12 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: Text(
-                    "Start Service",
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
+                  child: _isStarting 
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        "Start Service",
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                      ),
                 ),
               ),
             ),

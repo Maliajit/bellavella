@@ -36,7 +36,7 @@ class BookingRequestDialog extends StatelessWidget {
                 color: AppTheme.primaryColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.notifications_active_rounded,
                 color: AppTheme.primaryColor,
                 size: 32,

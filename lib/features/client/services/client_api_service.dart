@@ -69,4 +69,31 @@ class ClientApiService {
     }
     throw Exception(response['message'] ?? 'Failed to load referral stats');
   }
+
+  // --- Cart Checkout & Sync ---
+  static Future<Map<String, dynamic>> syncCart(List<Map<String, dynamic>> items) async {
+    return await ApiService.post('$_prefix/cart/sync', {'items': items});
+  }
+
+  static Future<Map<String, dynamic>> getSlotsFromCart() async {
+    return await ApiService.get('$_prefix/slots-from-cart');
+  }
+
+  static Future<Map<String, dynamic>> checkoutCart(Map<String, dynamic> data) async {
+    return await ApiService.post('$_prefix/cart/checkout', data);
+  }
+
+  static Future<Map<String, dynamic>> verifyCheckoutPayment({
+    required int orderId,
+    required String razorpayPaymentId,
+    required String razorpayOrderId,
+    required String razorpaySignature,
+  }) async {
+    return await ApiService.post('$_prefix/cart/checkout/verify', {
+      'order_id': orderId,
+      'razorpay_payment_id': razorpayPaymentId,
+      'razorpay_order_id': razorpayOrderId,
+      'razorpay_signature': razorpaySignature,
+    });
+  }
 }

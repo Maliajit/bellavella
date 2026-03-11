@@ -1,8 +1,14 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
+import 'package:bellavella/features/client/cart/models/cart_model.dart';
+import 'package:bellavella/core/services/promotion_service.dart';
+import 'package:bellavella/core/services/token_manager.dart';
+import 'package:bellavella/core/router/route_names.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -17,55 +23,24 @@ class _CartScreenState extends State<CartScreen> {
   static const Color pinkLight = Color(0xFFFFF0F5);
   static const Color greenSaving = Color(0xFF00897B);
 
-  int? _selectedTip;
-  
-  // Address State
-  String _currentAddress = "Fetching location...";
-  String _currentArea = "Panchvati";
-  bool _isHomeSelected = true;
-  final TextEditingController _houseController = TextEditingController(text: "202");
-  final TextEditingController _landmarkController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController(text: "Harsh");
-  final TextEditingController _otherLabelController = TextEditingController();
-
-  // Slot Selection State
-  final Map<String, String?> _selectedCategorySlots = {};
-  final List<String> _cartCategories = ['Salon Luxe', 'Spa for Women', 'Bridle'];
+  final TextEditingController _couponController = TextEditingController();
+  bool _isSyncing = false;
 
   @override
-  void initState() {
-    super.initState();
-    _fetchAddress();
-  }
-
-  Future<void> _fetchAddress() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      
-      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
-        Position position = await Geolocator.getCurrentPosition();
-        final List<Placemark> placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
-        if (placemarks.isNotEmpty) {
-          final placemark = placemarks.first;
-          setState(() {
-            _currentArea = placemark.subLocality ?? placemark.locality ?? "Unknown Area";
-            _currentAddress = "${placemark.street}, ${placemark.locality}, ${placemark.administrativeArea} ${placemark.postalCode}, ${placemark.country}";
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint("Error fetching address: $e");
-    }
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final cartProvider = context.watch<CartProvider>();
+    final groupedItems = <String, List<CartItem>>{};
+    for (var item in cartProvider.items) {
+      final cat = item.categoryName ?? 'Other';
+      groupedItems.putIfAbsent(cat, () => []).add(item);
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -84,61 +59,59 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSavingsBanner(),
-            _buildCartCategorySection('Salon Prime', [
-              _CartItem(
-                title: 'Mani-pedi delight',
-                price: 1359,
-                originalPrice: 1458,
-                quantity: 1,
-              ),
-            ]),
-            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-            _buildCartCategorySection('Salon Luxe', [
-              _CartItem(
-                title: 'Roll-on waxing (Full arms & legs, underarm)',
-                price: 1349,
-                quantity: 1,
-                subtitle: 'Full arms, full legs - Cirepil mojito ro...',
-              ),
-              _CartItem(
-                title: 'Threading',
-                quantity: 1,
-                isSubGroup: true,
-                subItems: [
-                  _SubItem(name: 'Threading - Forehead', price: 99),
-                  _SubItem(name: 'Threading - Eyebrows', price: 99),
+      body: cartProvider.items.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Your cart is empty',
+                    style: GoogleFonts.outfit(fontSize: 18, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => context.pop(),
+                    style: ElevatedButton.styleFrom(backgroundColor: pinkPrimary),
+                    child: const Text('Go Back', style: TextStyle(color: Colors.white)),
+                  ),
                 ],
               ),
-              _CartItem(
-                title: 'Rejuvenating crystal spa pedicure',
-                price: 1369,
-                quantity: 1,
-                subtitle: 'Rejuvenating crystal spa ...',
+            )
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSavingsBanner(),
+                  ...groupedItems.entries.map((entry) => Column(
+                        children: [
+                          _buildCartCategorySection(entry.key, entry.value),
+                          const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                        ],
+                      )),
+                  _buildFrequentlyAdded(),
+                  const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                  _buildCouponsSection(),
+                  const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                  _buildPaymentSummary(cartProvider),
+                  const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                  _buildTipSection(),
+                  const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                  _buildPolicySection(),
+                  const SizedBox(height: 100), // Spacer for sticky footer
+                ],
               ),
-            ]),
-            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-            _buildFrequentlyAdded(),
-            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-            _buildCouponsSection(),
-            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-            _buildTipSection(),
-            const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-            _buildPolicySection(),
-            const SizedBox(height: 100), // Spacer for sticky footer
-          ],
-        ),
-      ),
-      bottomNavigationBar: _buildStickyFooter(),
+            ),
+      bottomNavigationBar: cartProvider.items.isEmpty ? null : _buildStickyFooter(),
     );
   }
 
   Widget _buildSavingsBanner() {
+    final cartProvider = context.watch<CartProvider>();
+    final discount = cartProvider.discount;
+    if (discount <= 0) return const SizedBox.shrink();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       color: Colors.white,
@@ -147,10 +120,10 @@ class _CartScreenState extends State<CartScreen> {
           const Icon(Icons.sell, color: greenSaving, size: 20),
           const SizedBox(width: 12),
           Text(
-            'Saving ₹99 on this order',
+            'Saving ${_formatCurrency(discount)} on this order',
             style: GoogleFonts.outfit(
-              color: Colors.black87,
-              fontWeight: FontWeight.w500,
+              color: greenSaving,
+              fontWeight: FontWeight.w600,
               fontSize: 15,
             ),
           ),
@@ -159,7 +132,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildCartCategorySection(String category, List<_CartItem> items) {
+  Widget _buildCartCategorySection(String category, List<CartItem> items) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Column(
@@ -174,13 +147,14 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           const SizedBox(height: 15),
-          ...items.map((item) => _buildCartItem(item)),
+          ...items.map((item) => _buildCartItem(context, item)),
         ],
       ),
     );
   }
 
-  Widget _buildCartItem(_CartItem item) {
+  Widget _buildCartItem(BuildContext context, CartItem item) {
+    final cartProvider = context.read<CartProvider>();
     return Padding(
       padding: const EdgeInsets.only(bottom: 25),
       child: Column(
@@ -221,50 +195,20 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              if (!item.isSubGroup) _buildQuantitySelector(item.quantity),
-              if (!item.isSubGroup) ...[
-                const SizedBox(width: 15),
-                _buildPriceDisplay(item.price!, item.originalPrice),
-              ]
+              _buildQuantitySelector(item.quantity, 
+                onIncrement: () => cartProvider.incrementQuantity(item.id),
+                onDecrement: () => cartProvider.decrementQuantity(item.id),
+              ),
+              const SizedBox(width: 15),
+              _buildPriceDisplay(item.price, null),
             ],
           ),
-          if (item.isSubGroup) ...[
-            const SizedBox(height: 15),
-            ...item.subItems!.map((sub) => Padding(
-                  padding: const EdgeInsets.only(bottom: 15),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.only(left: 12),
-                          decoration: const BoxDecoration(
-                            border: Border(left: BorderSide(color: Color(0xFFE0E0E0), width: 2)),
-                          ),
-                          child: Text(
-                            sub.name,
-                            style: GoogleFonts.outfit(fontSize: 15, color: Colors.black87),
-                          ),
-                        ),
-                      ),
-                      _buildQuantitySelector(1),
-                      const SizedBox(width: 15),
-                      Text(
-                        '₹${sub.price}',
-                        style: GoogleFonts.outfit(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildQuantitySelector(int quantity) {
+  Widget _buildQuantitySelector(int quantity, {VoidCallback? onIncrement, VoidCallback? onDecrement}) {
     return Container(
       decoration: BoxDecoration(
         color: pinkLight,
@@ -278,7 +222,7 @@ class _CartScreenState extends State<CartScreen> {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.remove, size: 16, color: pinkPrimary),
-            onPressed: () {},
+            onPressed: onDecrement,
           ),
           Text(
             '$quantity',
@@ -292,19 +236,19 @@ class _CartScreenState extends State<CartScreen> {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.add, size: 16, color: pinkPrimary),
-            onPressed: () {},
+            onPressed: onIncrement,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildPriceDisplay(int price, int? originalPrice) {
+  Widget _buildPriceDisplay(double price, double? originalPrice) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(
-          '₹$price',
+          _formatCurrency(price),
           style: GoogleFonts.outfit(
             fontSize: 15,
             fontWeight: FontWeight.bold,
@@ -313,7 +257,7 @@ class _CartScreenState extends State<CartScreen> {
         ),
         if (originalPrice != null)
           Text(
-            '₹$originalPrice',
+            _formatCurrency(originalPrice),
             style: GoogleFonts.outfit(
               fontSize: 12,
               color: Colors.grey,
@@ -398,28 +342,69 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildCouponsSection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
-        children: [
-          const Icon(Icons.percent, color: greenSaving),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Coupons and offers', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Login/Sign up to view offers', style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey)),
-              ],
+    final cartProvider = context.watch<CartProvider>();
+    final hasPromo = cartProvider.appliedPromotion != null;
+
+    return InkWell(
+      onTap: () => _showCouponBottomSheet(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Row(
+          children: [
+            const Icon(Icons.percent, color: greenSaving),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasPromo ? 'Coupon Applied' : 'Coupons and offers',
+                    style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    hasPromo 
+                      ? '${cartProvider.appliedPromotion!['code']} applied successfully'
+                      : 'Login/Sign up to view offers',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13, 
+                      color: hasPromo ? greenSaving : Colors.grey,
+                      fontWeight: hasPromo ? FontWeight.w500 : FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-        ],
+            if (hasPromo)
+              TextButton(
+                onPressed: () => cartProvider.removePromotion(),
+                child: Text('Remove', style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold)),
+              )
+            else
+              const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPaymentSummary() {
+  String _formatCurrency(double? amount) {
+    if (amount == null || amount.isNaN || amount.isInfinite) return '₹0';
+    return '₹${amount.toInt()}';
+  }
+
+  Widget _buildPaymentSummary(CartProvider cartProvider) {
+    final groupedItems = <String, double>{};
+    for (var item in cartProvider.items) {
+      final cat = item.categoryName ?? 'Other';
+      final itemTotal = item.price * item.quantity;
+      if (!itemTotal.isNaN) {
+        groupedItems[cat] = (groupedItems[cat] ?? 0.0) + itemTotal;
+      }
+    }
+
+    final hasDiscount = cartProvider.discount > 0;
+    final hasTip = cartProvider.tip > 0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: Column(
@@ -430,18 +415,37 @@ class _CartScreenState extends State<CartScreen> {
             style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 20),
-          _summaryRow('Salon Luxe', '₹2,297'),
-          _summaryRow('Spa for Women', '₹1,733'),
+          ...groupedItems.entries.map((entry) => _summaryRow(entry.key, _formatCurrency(entry.value))),
           const Divider(height: 30),
-          _summaryRow('Total amount', '₹4,030', isBold: true),
-          const SizedBox(height: 15),
-          _summaryRow('Amount to pay', '₹4,030', isBold: true, largeText: true),
+          _summaryRow('Item total', _formatCurrency(cartProvider.subtotal), isBold: true),
+          if (hasDiscount) ...[
+            const SizedBox(height: 8),
+            _summaryRow(
+              'Coupon discount', 
+              '-${_formatCurrency(cartProvider.discount)}', 
+              textColor: greenSaving,
+              isBold: true,
+            ),
+          ],
+          const Divider(height: 30),
+          _summaryRow('Total amount', _formatCurrency(cartProvider.totalAfterDiscount), isBold: true),
+          if (hasTip) ...[
+            const SizedBox(height: 8),
+            _summaryRow(
+              'Professional tip', 
+              _formatCurrency(cartProvider.tip), 
+              isBold: true,
+            ),
+          ],
+          const Divider(height: 30),
+          _summaryRow('Amount to pay', _formatCurrency(cartProvider.totalAmount), isBold: true, largeText: true),
         ],
       ),
     );
   }
 
   Widget _buildTipSection() {
+    final cartProvider = context.watch<CartProvider>();
     final tips = [50, 75, 100];
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -457,7 +461,13 @@ class _CartScreenState extends State<CartScreen> {
             children: [
               ...tips.map((tip) => Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedTip = tip),
+                      onTap: () {
+                        if (cartProvider.tip == tip.toDouble()) {
+                          cartProvider.setTip(0);
+                        } else {
+                          cartProvider.setTip(tip.toDouble());
+                        }
+                      },
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -465,10 +475,10 @@ class _CartScreenState extends State<CartScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 4),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             decoration: BoxDecoration(
-                              color: _selectedTip == tip ? pinkPrimary.withOpacity(0.05) : Colors.white,
+                              color: cartProvider.tip == tip.toDouble() ? pinkPrimary.withOpacity(0.05) : Colors.white,
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: _selectedTip == tip ? pinkPrimary : Colors.grey.shade300,
+                                color: cartProvider.tip == tip.toDouble() ? pinkPrimary : Colors.grey.shade300,
                               ),
                             ),
                             alignment: Alignment.center,
@@ -477,7 +487,7 @@ class _CartScreenState extends State<CartScreen> {
                               style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
-                                color: _selectedTip == tip ? pinkPrimary : Colors.black87,
+                                color: cartProvider.tip == tip.toDouble() ? pinkPrimary : Colors.black87,
                               ),
                             ),
                           ),
@@ -509,17 +519,27 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   )),
               Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    'Custom',
-                    style: GoogleFonts.outfit(fontSize: 16, color: Colors.black87),
+                child: GestureDetector(
+                  onTap: () => _showCustomTipDialog(context),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: cartProvider.tip > 0 && !tips.contains(cartProvider.tip.toInt()) ? pinkPrimary.withOpacity(0.05) : Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: cartProvider.tip > 0 && !tips.contains(cartProvider.tip.toInt()) ? pinkPrimary : Colors.grey.shade300,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      cartProvider.tip > 0 && !tips.contains(cartProvider.tip.toInt()) ? '₹${cartProvider.tip.toInt()}' : 'Custom',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16, 
+                        fontWeight: cartProvider.tip > 0 && !tips.contains(cartProvider.tip.toInt()) ? FontWeight.w500 : FontWeight.normal,
+                        color: cartProvider.tip > 0 && !tips.contains(cartProvider.tip.toInt()) ? pinkPrimary : Colors.black87,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -529,6 +549,44 @@ class _CartScreenState extends State<CartScreen> {
           Text(
             'Tip will be split equally between the professionals.',
             style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCustomTipDialog(BuildContext context) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Custom Tip', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          style: GoogleFonts.outfit(),
+          decoration: InputDecoration(
+            hintText: 'Enter amount',
+            prefixText: '₹ ',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(controller.text);
+              if (val != null && val >= 0) {
+                context.read<CartProvider>().setTip(val);
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: pinkPrimary),
+            child: Text('Apply', style: GoogleFonts.outfit(color: Colors.white)),
           ),
         ],
       ),
@@ -565,7 +623,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool isBold = false, bool largeText = false}) {
+  Widget _summaryRow(String label, String value, {bool isBold = false, bool largeText = false, Color? textColor}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -576,7 +634,7 @@ class _CartScreenState extends State<CartScreen> {
             style: GoogleFonts.outfit(
               fontSize: largeText ? 18 : 15,
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: isBold ? Colors.black : Colors.black87,
+              color: textColor ?? (isBold ? Colors.black : Colors.black87),
             ),
           ),
           Text(
@@ -584,6 +642,7 @@ class _CartScreenState extends State<CartScreen> {
             style: GoogleFonts.outfit(
               fontSize: largeText ? 18 : 15,
               fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: textColor,
             ),
           ),
         ],
@@ -593,704 +652,238 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildStickyFooter() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-      ),
-      child: ElevatedButton(
-        onPressed: () => _showAddressPicker(context),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: pinkPrimary,
-          minimumSize: const Size(double.infinity, 55),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: Text(
-          'Add address and slot',
-          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-      ),
-    );
-  }
-
-  void _showAddressPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => DraggableScrollableSheet(
-          initialChildSize: 0.95,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (_, scrollController) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // Map Section
-                Expanded(
-                  flex: 3,
-                  child: Stack(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                          image: const DecorationImage(
-                            image: NetworkImage('https://images.unsplash.com/photo-1526778446212-04fa3e4f3a73?q=80&w=1000'),
-                            fit: BoxFit.cover,
-                            opacity: 0.3,
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(Icons.location_on, color: pinkPrimary, size: 50),
-                        ),
-                      ),
-                      Positioned(
-                        top: 20,
-                        right: 20,
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-                            ),
-                            child: const Icon(Icons.close, color: Colors.black),
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'Place the pin accurately on map',
-                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom: 20,
-                        right: 20,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-                          ),
-                          child: Icon(Icons.my_location, color: pinkPrimary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Details Section
-                Expanded(
-                  flex: 5,
-                  child: ListView(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(20),
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _currentArea,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _currentAddress,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {},
-                            child: Text(
-                              'Change',
-                              style: GoogleFonts.outfit(
-                                color: pinkPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 40),
-                      _buildTextField(_houseController, 'House/Flat Number*', isRequired: true),
-                      const SizedBox(height: 15),
-                      _buildTextField(_landmarkController, 'Landmark (Optional)'),
-                      const SizedBox(height: 15),
-                      _buildTextField(_nameController, 'Name'),
-                      const SizedBox(height: 25),
-                      Text(
-                        'Save as',
-                        style: GoogleFonts.outfit(
-                          fontSize: 15,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          _buildSaveAsChip('Home', _isHomeSelected, () => setModalState(() => _isHomeSelected = true)),
-                          const SizedBox(width: 12),
-                          _buildSaveAsChip('Other', !_isHomeSelected, () => setModalState(() => _isHomeSelected = false)),
-                        ],
-                      ),
-                      if (!_isHomeSelected) ...[
-                        const SizedBox(height: 15),
-                        _buildTextField(_otherLabelController, 'e.g. John\'s Home'),
-                      ],
-                      const SizedBox(height: 30),
-                      ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showSlotsPicker(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: pinkPrimary,
-                          minimumSize: const Size(double.infinity, 55),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                        child: Text(
-                          'Save and proceed to slots',
-                          style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showSlotsPicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSlotsState) => Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Select slots',
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
-                      ),
-                      child: const Icon(Icons.close, color: Colors.black, size: 20),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 30),
-              Expanded(
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: EdgeInsets.zero,
-                  children: [
-                    ..._cartCategories.map((category) {
-                      final isSelected = _selectedCategorySlots.containsKey(category);
-                      final slotInfo = _selectedCategorySlots[category];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 15),
-                        child: _buildSlotServiceCard(
-                          category,
-                          category == 'Salon Luxe' ? 'Service will take approx. 1 hr & 30 mins' : 'Service will take approx. 1 hr & 20 mins',
-                          isSelected: isSelected,
-                          selectedSlot: slotInfo,
-                          onSelect: () => _showDetailedSlotPicker(
-                            context,
-                            category,
-                            category == 'Salon Luxe' ? '1 hr & 30 mins' : '1 hr & 20 mins',
-                            onConfirm: () => setSlotsState(() {}),
-                          ),
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: _selectedCategorySlots.length == _cartCategories.length
-                    ? () {
-                        Navigator.pop(context);
-                        context.push('/client/checkout-review', extra: {
-                          'address': _isHomeSelected ? 'Home' : _otherLabelController.text,
-                          'fullAddress': _currentAddress,
-                          'houseNumber': _houseController.text,
-                          'landmark': _landmarkController.text,
-                          'slots': _selectedCategorySlots,
-                        });
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _selectedCategorySlots.length == _cartCategories.length ? pinkPrimary : const Color(0xFFEEEEEE),
-                  minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Confirm',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: _selectedCategorySlots.length == _cartCategories.length ? Colors.white : Colors.grey.shade600,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showDetailedSlotPicker(BuildContext context, String category, String duration, {VoidCallback? onConfirm}) {
-    int activeDateIndex = 0;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSlotState) {
-          final now = DateTime.now();
-          final dayRange = category == 'Bridle' ? 31 : 4;
-          final dates = List.generate(dayRange, (index) => now.add(Duration(days: index)));
-          
-          // Initial selection if not set
-          DateTime? selectedDate;
-          // Find if we already have a selection for this category to highlight it
-          // For simplicity in the modal, we'll use a local state for the date picker
-          // and if they confirmed before, we could pre-select. 
-          // Let's use index-based for the 4 days.
-
-          return DraggableScrollableSheet(
-            initialChildSize: 0.9,
-            minChildSize: 0.5,
-            maxChildSize: 0.9,
-            builder: (_, scrollController) => Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          category,
-                          style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold),
-                        ),
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.close, color: Colors.black),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        Text(
-                          'When should the professional arrive?',
-                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Service will take approx. $duration',
-                          style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade600),
-                        ),
-                        const SizedBox(height: 25),
-                        // Date picker
-                        SizedBox(
-                          height: 100,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: dates.length,
-                            itemBuilder: (ctx, idx) {
-                              final date = dates[idx];
-                              final isToday = idx == 0;
-                              final isSelected = activeDateIndex == idx;
-                              final dayName = isToday ? "Today" : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][date.weekday - 1];
-                              
-                              return GestureDetector(
-                                onTap: () => setSlotState(() => activeDateIndex = idx),
-                                child: Container(
-                                  width: 80,
-                                  margin: const EdgeInsets.only(right: 12),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? pinkLight : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: isSelected ? pinkPrimary : Colors.grey.shade200),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        dayName,
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 13,
-                                          color: isSelected ? pinkPrimary : Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${date.day}',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: isSelected ? pinkPrimary : Colors.black,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        Text(
-                          'Select start time of service',
-                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 20),
-                        // Time Grid
-                        _buildTimeGrid(dates[activeDateIndex], category, setSlotState),
-                        const SizedBox(height: 30),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: ElevatedButton(
-                      onPressed: _selectedCategorySlots[category] != null
-                          ? () {
-                              Navigator.pop(context);
-                              // Trigger a rebuild of the parent slots picker
-                              setState(() {}); 
-                              if (onConfirm != null) onConfirm!();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedCategorySlots[category] != null ? pinkPrimary : const Color(0xFFEEEEEE),
-                        minimumSize: const Size(double.infinity, 55),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Confirm',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _selectedCategorySlots[category] != null ? Colors.white : Colors.grey.shade400,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildTimeGrid(DateTime selectedDate, String category, StateSetter setModalState) {
-    final List<DateTime> slotTimes = [];
-    DateTime start = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 6, 0); // 6 AM
-    DateTime end = DateTime(selectedDate.year, selectedDate.month, selectedDate.day, 23, 0); // 11 PM
-    
-    while (start.isBefore(end) || start.isAtSameMomentAs(end)) {
-      // Filter out past slots for today
-      if (selectedDate.day == DateTime.now().day && start.isBefore(DateTime.now())) {
-        start = start.add(const Duration(minutes: 30));
-        continue;
-      }
-      slotTimes.add(start);
-      start = start.add(const Duration(minutes: 30));
-    }
-
-    if (slotTimes.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Text(
-            'No slots available for today',
-            style: GoogleFonts.outfit(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 2.2,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: slotTimes.length,
-      itemBuilder: (context, index) {
-        final time = slotTimes[index];
-        final timeLabel = "${time.hour % 12 == 0 ? 12 : time.hour % 12}:${time.minute.toString().padLeft(2, '0')} ${time.hour < 12 ? 'AM' : 'PM'}";
-        
-        // Rule: First 4 slots (6:00, 6:30, 7:00, 7:30) and Last 4 (6:30 PM, 7:00 PM, 7:30 PM, 8:00 PM) have extra charge
-        // Let's be precise: 
-        // Early: 06:00, 06:30, 07:00, 07:30
-        // Late: 18:30, 19:00, ... 23:00 (6:30 PM to 11:00 PM) have extra charge
-        bool isExtra = false;
-        if (time.hour < 8 || (time.hour == 21 && time.minute >= 30) || time.hour >= 22) {
-          isExtra = true;
-        }
-
-        final dayName = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][time.weekday - 1];
-        final monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][time.month - 1];
-        final selectionKey = "$dayName, $monthName ${selectedDate.day} at $timeLabel";
-        final isSelected = _selectedCategorySlots[category] == selectionKey;
-
-        return GestureDetector(
-          onTap: () {
-            setModalState(() {
-              _selectedCategorySlots[category] = selectionKey;
-            });
-            // Also notify parent if needed, but setState in setModalState is enough for modal
-          },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? pinkLight : Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: isSelected ? pinkPrimary : Colors.grey.shade200),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  timeLabel,
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: isSelected ? pinkPrimary : Colors.black87,
-                  ),
-                ),
-              ),
-              if (isExtra)
-                Positioned(
-                  top: -8,
-                  right: -5,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      '+ ₹100',
-                      style: GoogleFonts.outfit(
-                        fontSize: 8,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFFF9A825),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSlotServiceCard(String title, String duration, {bool isSelected = false, String? selectedSlot, VoidCallback? onSelect}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isSelected ? pinkPrimary : Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  duration,
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                if (isSelected && selectedSlot != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    selectedSlot,
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      color: pinkPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: onSelect,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? pinkLight : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: isSelected ? pinkPrimary : Colors.grey.shade300),
-              ),
-              child: Text(
-                isSelected ? 'Change' : 'Select',
-                style: GoogleFonts.outfit(
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? pinkPrimary : Colors.black,
-                ),
-              ),
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+            offset: const Offset(0, -3),
           ),
         ],
       ),
-    );
-  }
+      child: ElevatedButton(
+        onPressed: _isSyncing 
+            ? null 
+            : () async {
+                if (!TokenManager.hasToken) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please log in to proceed to checkout.')),
+                  );
+                  context.push(AppRoutes.clientLogin);
+                  return;
+                }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool isRequired = false}) {
-    return TextField(
-      controller: controller,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.outfit(color: Colors.grey.shade600, fontSize: 13),
-        floatingLabelStyle: GoogleFonts.outfit(color: pinkPrimary, fontSize: 13),
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.cancel, size: 20, color: Colors.grey),
-          onPressed: () => controller.clear(),
+                setState(() => _isSyncing = true);
+                
+                final cartProvider = context.read<CartProvider>();
+                final syncSuccess = await cartProvider.syncCartWithBackend();
+                
+                if (!mounted) return;
+                setState(() => _isSyncing = false);
+
+                if (syncSuccess) {
+                  context.push('/client/checkout-address');
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to sync cart. Please try again.')),
+                  );
+                }
+              },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: pinkPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 15),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: pinkPrimary),
-        ),
+        child: _isSyncing
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : Text(
+                'Proceed to Checkout',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }
-
-  Widget _buildSaveAsChip(String label, bool isSelected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isSelected ? Colors.black87 : Colors.grey.shade300,
-            width: isSelected ? 1.5 : 1,
-          ),
+  void _showCouponBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            color: isSelected ? Colors.black : Colors.grey.shade600,
-          ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Apply Coupon',
+                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _couponController,
+              style: GoogleFonts.outfit(),
+              decoration: InputDecoration(
+                hintText: 'Enter coupon code',
+                hintStyle: GoogleFonts.outfit(color: Colors.grey),
+                suffixIcon: TextButton(
+                  onPressed: () async {
+                    if (_couponController.text.trim().isEmpty) return;
+                    
+                    final error = await context.read<CartProvider>().applyPromotion(
+                      _couponController.text.trim(),
+                    );
+                    
+                    if (!mounted) return;
+                    
+                    if (error != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(error, style: GoogleFonts.outfit())),
+                      );
+                    } else {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Coupon applied successfully!', style: GoogleFonts.outfit()),
+                          backgroundColor: greenSaving,
+                        ),
+                      );
+                    }
+                  },
+                  child: Text(
+                    'Apply',
+                    style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: pinkPrimary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            Expanded(
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: PromotionService.getActivePromotions(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: pinkPrimary));
+                  }
+                  
+                  if (!snapshot.hasData || snapshot.data!['success'] == false) {
+                    return Center(
+                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
+                    );
+                  }
+                  
+                  final promotions = snapshot.data!['data'] as List;
+                  if (promotions.isEmpty) {
+                    return Center(
+                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: promotions.length,
+                    itemBuilder: (context, index) {
+                      final promo = promotions[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: pinkLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.percent, color: pinkPrimary, size: 20),
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    promo['code'],
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    promo['description'] ?? 'Discount on your order',
+                                    style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final error = await context.read<CartProvider>().applyPromotion(promo['code']);
+                                if (!mounted) return;
+                                
+                                if (error != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(error, style: GoogleFonts.outfit())),
+                                  );
+                                } else {
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Coupon applied successfully!', style: GoogleFonts.outfit()),
+                                      backgroundColor: greenSaving,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Text(
+                                'APPLY',
+                                style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
 // Helper models for mock data structures
 class _CartItem {
   final String title;

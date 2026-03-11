@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
@@ -17,6 +18,48 @@ class ProServiceScreen extends StatefulWidget {
 
 class _ProServiceScreenState extends State<ProServiceScreen> {
   bool _isProcessing = false;
+  Timer? _timer;
+  String _timeDisplay = "00:00:00";
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _timeDisplay = _calculateElapsedTime();
+        });
+      }
+    });
+    // Initial calculation
+    _timeDisplay = _calculateElapsedTime();
+  }
+
+  String _calculateElapsedTime() {
+    final startTime = widget.booking.serviceStartedAt;
+    if (startTime == null) return "00:00:00";
+
+    final now = DateTime.now();
+    final difference = now.difference(startTime);
+
+    if (difference.isNegative) return "00:00:00";
+
+    final hours = difference.inHours.toString().padLeft(2, '0');
+    final minutes = (difference.inMinutes % 60).toString().padLeft(2, '0');
+    final seconds = (difference.inSeconds % 60).toString().padLeft(2, '0');
+
+    return "$hours:$minutes:$seconds";
+  }
 
   Future<void> _proceedToPayment() async {
     setState(() => _isProcessing = true);
@@ -135,7 +178,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                     child: Column(
                       children: [
                         Text(
-                          '00:25:14',
+                          _timeDisplay,
                           style: GoogleFonts.inter(
                             fontSize: 48,
                             fontWeight: FontWeight.w900,

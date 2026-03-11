@@ -142,7 +142,7 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(16),
-                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
                       ),
                     ),
                     onChanged: (value) {

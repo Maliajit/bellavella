@@ -85,7 +85,7 @@ class _KitOrderHistoryScreenState extends State<KitOrderHistoryScreen> {
         onRefresh: _fetchOrders,
         color: AppTheme.primaryColor,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+            ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
             : _error != null
                 ? _buildError()
                 : _orders.isEmpty

@@ -360,7 +360,7 @@ class _ProfessionalTransactionHistoryScreenState
   }
 
   Widget _loadingView() {
-    return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+    return Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
   }
 
   Widget _emptyState({required IconData icon, required String message}) {

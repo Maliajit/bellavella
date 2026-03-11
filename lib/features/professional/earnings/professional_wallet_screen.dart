@@ -8,6 +8,8 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
+import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
+import 'package:provider/provider.dart';
 import 'package:bellavella/core/models/data_models.dart';
 
 enum WalletTab { earnings, deposit, coins, kits }
@@ -53,6 +55,9 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     });
     _initRazorpay();
     _fetchData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProfessionalProfileController>().fetchProfile();
+    });
   }
 
   void _initRazorpay() {
@@ -440,8 +445,19 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     final jobs    = _wallet?.totalJobs ?? _stats?.totalBookings ?? 0;
     final active  = _stats?.activeJobsCount ?? 0;
 
+    final profile = context.watch<ProfessionalProfileController>().profile;
+    final isKycVerified = profile?.verification == 'Verified';
+    final isBankAdded = profile?.payout.accountNumber.isNotEmpty ?? false;
+    final isBankVerified = (profile?.payout.verificationStatus ?? 'Pending') == 'Verified';
+    final needsVerification = !isKycVerified || !isBankAdded || !isBankVerified;
+
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
+
+      if (needsVerification) ...[
+        _buildVerificationBanner(isKycVerified, isBankAdded, isBankVerified),
+        const SizedBox(height: 16),
+      ],
 
       // Action buttons row
       Row(children: [
@@ -843,50 +859,127 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   }
 
   void _handleWithdrawClick({bool isEarnings = true}) {
-    if (isEarnings) {
-      final isVerified = _profile?.payout.verificationStatus == 'Verified';
-      if (!isVerified) {
-        _showVerificationPrompt();
-        return;
-      }
-      context.pushNamed(AppRoutes.proWithdrawalRequestName).then((_) => _fetchData());
-    } else {
-      showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-          builder: (_) => _WithdrawSheet(
-            maxAmount: _dep,
-            label: 'Deposit',
-            onWithdraw: (amount) {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested.'), backgroundColor: _primary));
-            },
-          ));
+    final profile = context.read<ProfessionalProfileController>().profile;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile loading...')));
+      return;
     }
+
+    final isKycVerified = profile.verification == 'Verified';
+    final isBankAdded = profile.payout.accountNumber.isNotEmpty;
+    final isBankVerified = profile.payout.verificationStatus == 'Verified';
+
+    if (!isKycVerified) {
+      _showVerificationDialog(
+        title: "KYC Verification Required",
+        desc: "Please complete your ID and professional document verification to enable withdrawals.",
+        btnLabel: "Complete KYC",
+        onPressed: () => context.push(AppRoutes.proKycDocuments),
+      );
+      return;
+    }
+
+    if (!isBankAdded) {
+      _showVerificationDialog(
+        title: "Bank Account Required",
+        desc: "Please add your bank account details to withdraw your earnings.",
+        btnLabel: "Add Bank Account",
+        onPressed: () => context.push(AppRoutes.proEditBankDetails),
+      );
+      return;
+    }
+
+    if (!isBankVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 12),
+              const Expanded(child: Text('Your bank account is under verification. Withdrawals will be available once approved.')),
+            ],
+          ),
+          backgroundColor: _amber,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _showWithdrawSheet(isEarnings: isEarnings);
   }
 
-  void _showVerificationPrompt() {
+  void _showVerificationDialog({required String title, required String desc, required String btnLabel, required VoidCallback onPressed}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('Verification Required', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-        content: Text('You need to complete your payout verification before you can withdraw funds.', style: GoogleFonts.outfit()),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        content: Text(desc, style: GoogleFonts.outfit(color: Colors.grey.shade600, height: 1.5)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.grey)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: Colors.grey.shade500))),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              context.pushNamed(AppRoutes.proEditBankDetailsName).then((_) => _fetchData());
+              onPressed();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: Text('Verify Now', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+            style: ElevatedButton.styleFrom(backgroundColor: _primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: Text(btnLabel, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildVerificationBanner(bool kyc, bool bankAdded, bool bankVerified) {
+    String msg = "Complete KYC to enable withdrawals.";
+    if (kyc && !bankAdded) msg = "Add bank account to withdraw money.";
+    if (kyc && bankAdded && !bankVerified) msg = "Bank verification pending.";
+
+    return GestureDetector(
+      onTap: () {
+        if (!kyc) context.push(AppRoutes.proKycDocuments);
+        else if (!bankAdded) context.push(AppRoutes.proEditBankDetails);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.red.shade50,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.red.shade100),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.lock_person_outlined, color: Colors.red.shade700, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Verification Required', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.red.shade900)),
+                  Text(msg, style: GoogleFonts.outfit(fontSize: 12, color: Colors.red.shade700)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: Colors.red.shade300),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showWithdrawSheet({bool isEarnings = true}) {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+        builder: (_) => _WithdrawSheet(
+          maxAmount: isEarnings ? _earn : _dep,
+          label: isEarnings ? 'Earnings' : 'Deposit',
+          onWithdraw: (amount) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested.'), backgroundColor: _primary));
+          },
+        ));
   }
 }
 
@@ -1006,7 +1099,7 @@ class _WithdrawSheetState extends State<_WithdrawSheet> {
               errorText: _amount != null && _amount! > widget.maxAmount ? 'Exceeds available balance' : null,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade200)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5))),
           ),
           const SizedBox(height: 12),
           // Presets

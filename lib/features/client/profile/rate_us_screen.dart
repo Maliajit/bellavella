@@ -109,7 +109,7 @@ class _RateUsScreenState extends State<RateUsScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppTheme.primaryColor),
+                  borderSide: BorderSide(color: AppTheme.primaryColor),
                 ),
               ),
             ),

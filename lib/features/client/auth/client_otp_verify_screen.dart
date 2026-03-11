@@ -63,7 +63,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
+                  Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
                   const SizedBox(height: 16),
                   Text('Congratulations!', 
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
@@ -176,7 +176,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
+                        borderSide: BorderSide(
                           color: AppTheme.primaryColor,
                           width: 2,
                         ),
@@ -234,7 +234,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                   ),
                   TextButton(
                     onPressed: _isLoading ? null : _resendOTP,
-                    child: const Text(
+                    child: Text(
                       'Resend',
                       style: TextStyle(
                         color: AppTheme.primaryColor,

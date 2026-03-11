@@ -265,7 +265,7 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryColor),
+          borderSide: BorderSide(color: AppTheme.primaryColor),
         ),
       ),
       validator: validator,
@@ -292,7 +292,7 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
         child: Row(
           children: [
             if (isSelected) ...[
-              const Icon(Icons.check, size: 16, color: AppTheme.primaryColor),
+              Icon(Icons.check, size: 16, color: AppTheme.primaryColor),
               const SizedBox(width: 8),
             ],
             Text(

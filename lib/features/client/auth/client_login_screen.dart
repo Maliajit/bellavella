@@ -104,7 +104,7 @@ class _ClientLoginScreenState extends State<ClientLoginScreen> {
                   counterText: '',
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.primaryColor),
+                    borderSide: BorderSide(color: AppTheme.primaryColor),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),

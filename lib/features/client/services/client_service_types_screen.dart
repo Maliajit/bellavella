@@ -190,7 +190,7 @@ class _ClientServiceTypesScreenState extends State<ClientServiceTypesScreen> {
                     ),
                     child: Text(
                       tag,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppTheme.primaryColor,
                         fontSize: 9,
                         fontWeight: FontWeight.bold,

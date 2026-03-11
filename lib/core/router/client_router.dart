@@ -21,6 +21,8 @@ import '../../features/client/profile/about_us_screen.dart';
 import '../../features/client/services/client_category_screen.dart';
 import '../../features/client/services/category_detail_screen.dart';
 import '../../features/client/cart/cart_screen.dart';
+import '../../features/client/cart/checkout_address_screen.dart';
+import '../../features/client/cart/checkout_slot_screen.dart';
 import '../../features/client/cart/client_checkout_review_screen.dart';
 import '../../features/client/services/service_review_screen.dart';
 import '../../features/client/booking/live_tracking_screen.dart';
@@ -209,6 +211,19 @@ final _featureRoutes = [
     path: AppRoutes.clientCart,
     name: AppRoutes.clientCartName,
     builder: (context, state) => const CartScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientCheckoutAddress,
+    name: AppRoutes.clientCheckoutAddressName,
+    builder: (context, state) => const CheckoutAddressScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientCheckoutSlots,
+    name: AppRoutes.clientCheckoutSlotsName,
+    builder: (context, state) {
+      final extra = state.extra as Map<String, dynamic>? ?? {};
+      return CheckoutSlotScreen(addressData: extra['addressData'] ?? {});
+    },
   ),
   GoRoute(
     path: AppRoutes.clientBooking,

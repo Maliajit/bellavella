@@ -91,7 +91,7 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
               ),
-              child: const Icon(Icons.qr_code_scanner, size: 80, color: AppTheme.primaryColor),
+              child: Icon(Icons.qr_code_scanner, size: 80, color: AppTheme.primaryColor),
             ),
             const SizedBox(height: 16),
             const Text('Verifying kit reliability...', style: TextStyle(fontSize: 12, color: Colors.grey)),
@@ -242,7 +242,7 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
           ),
         ),
         IconButton(onPressed: () {}, icon: const Icon(Icons.call_rounded, color: Colors.green)),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primaryColor)),
+        IconButton(onPressed: () {}, icon: Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primaryColor)),
       ],
     );
   }
@@ -264,7 +264,7 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(_booking!.serviceName, style: const TextStyle(fontWeight: FontWeight.w500)),
-              Text('₹${_booking!.totalPrice.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+              Text('₹${_booking!.totalPrice.toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
             ],
           ),
         ),
@@ -281,7 +281,7 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
+            Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
             const SizedBox(width: 12),
             Expanded(
               child: Text(_booking!.address, style: const TextStyle(height: 1.4)),

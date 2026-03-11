@@ -75,7 +75,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
             _buildHeader(),
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+                  ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
                   : _errorMessage != null
                       ? Center(
                           child: Column(
@@ -182,7 +182,7 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              Text(price, style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+              Text(price, style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 8),

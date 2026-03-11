@@ -112,7 +112,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
               ),
               const Spacer(),
               if (_isChecking)
-                const CircularProgressIndicator(color: AppTheme.primaryColor)
+                CircularProgressIndicator(color: AppTheme.primaryColor)
               else ...[
                 PrimaryButton(
                   label: 'Refresh Status',

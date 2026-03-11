@@ -364,7 +364,7 @@ class _LeaveApplyScreenState extends State<LeaveApplyScreen>
 
   Widget _buildHistory() {
     if (_loadingLeaves) {
-      return const Center(
+      return Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor));
     }
     if (_leaves.isEmpty) {

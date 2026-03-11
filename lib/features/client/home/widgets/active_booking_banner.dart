@@ -51,7 +51,7 @@ class ActiveBookingBanner extends StatelessWidget {
                     child: CircularProgressIndicator(
                       value: progress,
                       strokeWidth: 4,
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
                       backgroundColor: const Color(0xFFFCE4EC),
                     ),
                   ),
@@ -91,7 +91,7 @@ class ActiveBookingBanner extends StatelessWidget {
                 ),
                 child: Text(
                   eta,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.primaryColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,

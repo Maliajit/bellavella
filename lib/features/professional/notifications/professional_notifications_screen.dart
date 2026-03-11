@@ -95,7 +95,7 @@ class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificati
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _errorMessage != null
               ? Center(
                   child: Column(
@@ -211,7 +211,7 @@ class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificati
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppTheme.primaryColor,
                           shape: BoxShape.circle,
                         ),

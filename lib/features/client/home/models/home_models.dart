@@ -33,7 +33,7 @@ class HomeSection {
 
   factory HomeSection.fromJson(Map<String, dynamic> json) {
     return HomeSection(
-      id:          json['id'] ?? 0,
+      id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       type:        json['type'] ?? '',
       name:        json['name'],
       title:       json['title'] ?? '',
@@ -44,7 +44,7 @@ class HomeSection {
       description: json['description'],
       btnText:     json['btn_text'],
       btnLink:     json['btn_link'],
-      sortOrder:   json['sort_order'] ?? 0,
+      sortOrder:   int.tryParse(json['sort_order']?.toString() ?? '0') ?? 0,
       items:       json['items'] ?? [],
     );
   }
@@ -69,7 +69,7 @@ class HomeBanner {
 
   factory HomeBanner.fromJson(Map<String, dynamic> json) {
     return HomeBanner(
-      id:          json['id'] ?? 0,
+      id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title:       json['title'] ?? '',
       subtitle:    json['subtitle'],
       imageUrl:    json['url'] ?? json['image'] ?? '',
@@ -96,7 +96,7 @@ class HomeCategory {
 
   factory HomeCategory.fromJson(Map<String, dynamic> json) {
     return HomeCategory(
-      id:       json['id'] ?? 0,
+      id:       int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       name:     json['name'] ?? '',
       slug:     json['slug'] ?? '',
       imageUrl: json['image'] ?? '',
@@ -132,7 +132,7 @@ class HomeService {
 
   factory HomeService.fromJson(Map<String, dynamic> json) {
     return HomeService(
-      id:          json['id'] ?? 0,
+      id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title:       json['name'] ?? '',
       subtitle:    json['subtitle'],
       rating:      double.tryParse((json['average_rating'] ?? 0).toString()) ?? 0.0,
@@ -163,7 +163,7 @@ class HomeVideoStory {
 
   factory HomeVideoStory.fromJson(Map<String, dynamic> json) {
     return HomeVideoStory(
-      id:         json['id'] ?? 0,
+      id:         int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title:      json['title'] ?? '',
       subtitle:   json['subtitle'],
       url:        json['url'] ?? '',

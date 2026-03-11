@@ -285,7 +285,7 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
                   ),
                 ),
                 if (isLoading)
-                  const SizedBox(
+                  SizedBox(
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
@@ -402,7 +402,7 @@ class _DocumentViewModal extends StatelessWidget {
         fit: BoxFit.contain,
         loadingBuilder: (context, child, loadingProgress) {
           if (loadingProgress == null) return child;
-          return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+          return Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
         },
         errorBuilder: (context, error, stackTrace) => const Center(child: Icon(Icons.broken_image, size: 50, color: Colors.grey)),
       );

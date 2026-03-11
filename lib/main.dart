@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'features/professional/controllers/professional_profile_controller.dart';
 import 'features/client/home/controllers/home_provider.dart';
 import 'features/client/services/controllers/service_provider.dart';
+import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 
 void main({RouterConfig<Object>? router}) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,6 +36,7 @@ void main({RouterConfig<Object>? router}) async {
         ChangeNotifierProvider(create: (_) => ProfessionalProfileController()),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ServiceProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
         // Add other providers here as needed
       ],
       child: BellavellaApp(routerConfig: effectiveRouter),

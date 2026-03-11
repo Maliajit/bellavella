@@ -135,7 +135,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         final profile = controller.profile;
 
         if (controller.isLoading && profile == null) {
-          return const Scaffold(
+          return Scaffold(
             body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
           );
         }
@@ -161,7 +161,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
               ),
             );
           }
-          return const Scaffold(
+          return Scaffold(
             body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
           );
         }

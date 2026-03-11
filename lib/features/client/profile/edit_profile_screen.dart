@@ -1,4 +1,6 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/models/data_models.dart';
 import 'services/client_api_service.dart';
@@ -11,13 +13,20 @@ class EditProfileScreen extends StatefulWidget {
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _nameController  = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   String _dateOfBirth = 'Select Date';
 
-  bool _isLoading = true;
+  bool _isLoading  = true;
+  bool _isSaving   = false;
+  bool _isUploading = false;
   Customer? _profile;
+
+  // Locally picked image bytes — used for instant preview on web
+  Uint8List? _pickedImageBytes;
+  // URL returned by the server after a successful upload
+  String? _uploadedAvatarUrl;
 
   @override
   void initState() {
@@ -25,120 +34,222 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadProfile();
   }
 
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  // ─── Load ────────────────────────────────────────────────────────────────
+
   Future<void> _loadProfile() async {
     try {
       final profile = await ClientApiService.getProfile();
       if (mounted) {
         setState(() {
-          _profile = profile;
-          _nameController.text = profile.name;
+          _profile       = profile;
+          _nameController.text  = profile.name;
           _emailController.text = profile.email ?? '';
           _phoneController.text = profile.mobile;
-          _dateOfBirth = profile.dateOfBirth ?? 'Select Date';
-          _isLoading = false;
+          _dateOfBirth   = profile.dateOfBirth ?? 'Select Date';
+          _isLoading     = false;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load profile: $e')));
+      if (mounted) setState(() => _isLoading = false);
+      _showSnack('Failed to load profile: $e');
     }
   }
 
-  void _showImagePicker() {
+  // ─── Image Picker ─────────────────────────────────────────────────────────
+
+  void _showImageSourceSheet() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Update Profile Photo',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Update Profile Photo',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Icon(Icons.camera_alt_outlined, color: AppTheme.primaryColor),
+              title: const Text('Open Camera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library_outlined, color: AppTheme.primaryColor),
+              title: const Text('Pick from Gallery'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            if (_uploadedAvatarUrl != null || _profile?.avatar != null)
               ListTile(
-                leading: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: AppTheme.primaryColor,
-                ),
-                title: const Text('Open Camera'),
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('Remove Photo', style: TextStyle(color: Colors.red)),
                 onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Camera feature simulated')),
-                  );
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _pickedImageBytes  = null;
+                    _uploadedAvatarUrl = null;
+                  });
                 },
               ),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_outlined,
-                  color: AppTheme.primaryColor,
-                ),
-                title: const Text('Pick from Gallery'),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Gallery feature simulated')),
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
+  /// Picks an image, shows an instant local preview, then uploads to server.
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+
+      // Read bytes immediately for instant local preview (works on web too)
+      final bytes = await file.readAsBytes();
+      setState(() {
+        _pickedImageBytes = bytes;
+        _isUploading      = true;
+      });
+
+      final response = await ClientApiService.uploadAvatar(file);
+
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        final newUrl = response['data']?['avatar'] as String?;
+        setState(() {
+          _uploadedAvatarUrl = newUrl;
+          if (_profile != null && newUrl != null) {
+            _profile = Customer(
+              id:          _profile!.id,
+              name:        _profile!.name,
+              mobile:      _profile!.mobile,
+              email:       _profile!.email,
+              avatar:      newUrl,
+              dateOfBirth: _profile!.dateOfBirth,
+              status:      _profile!.status,
+              joined:      _profile!.joined,
+              referralCode: _profile!.referralCode,
+            );
+          }
+        });
+        _showSnack('Profile photo updated!', success: true);
+      } else {
+        // Revert preview on failure
+        setState(() => _pickedImageBytes = null);
+        _showSnack(response['message'] ?? 'Upload failed');
+      }
+    } catch (e) {
+      if (mounted) setState(() => _pickedImageBytes = null);
+      _showSnack('Image upload error: $e');
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  // ─── Date Picker ─────────────────────────────────────────────────────────
+
   Future<void> _selectDate() async {
+    DateTime initial = DateTime.now();
+    if (_dateOfBirth != 'Select Date') {
+      try { initial = DateTime.parse(_dateOfBirth); } catch (_) {}
+    }
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.primaryColor,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.primaryColor,
-              ),
-            ),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: AppTheme.primaryColor,
+            onPrimary: Colors.white,
+            onSurface: Colors.black,
           ),
-          child: child!,
-        );
-      },
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+          ),
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) {
       setState(() {
         _dateOfBirth =
-            "${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}";
+            '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
       });
     }
   }
 
+  // ─── Save ─────────────────────────────────────────────────────────────────
+
+  Future<void> _saveChanges() async {
+    setState(() => _isSaving = true);
+    try {
+      final data = <String, dynamic>{
+        'name':          _nameController.text.trim(),
+        if (_emailController.text.isNotEmpty) 'email': _emailController.text.trim(),
+        if (_dateOfBirth != 'Select Date') 'date_of_birth': _dateOfBirth,
+      };
+
+      final response = await ClientApiService.updateProfile(data);
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        _showSnack('Profile updated successfully!', success: true);
+        Navigator.pop(context);
+      } else {
+        _showSnack(response['message'] ?? 'Update failed');
+      }
+    } catch (e) {
+      _showSnack('Error: $e');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  void _showSnack(String msg, {bool success = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: success ? Colors.green.shade600 : null,
+    ));
+  }
+
+  String? get _serverAvatarUrl => _uploadedAvatarUrl ?? _profile?.avatar;
+
+  // ─── Build ────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: AppTheme.primaryColor),
-        ),
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
       );
     }
     return Scaffold(
@@ -181,37 +292,62 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _buildProfileImage() {
     return Stack(
       children: [
+        // Avatar circle
         Container(
           width: 120,
           height: 120,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: Colors.grey.shade100, width: 4),
-            image: DecorationImage(
-              image: NetworkImage(
-                _profile?.avatar ??
-                    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?q=80&w=200',
-              ),
-              fit: BoxFit.cover,
-            ),
+          ),
+          child: ClipOval(
+            child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Local bytes preview (instant, works on web)
+              if (_pickedImageBytes != null)
+                Image.memory(_pickedImageBytes!, fit: BoxFit.cover)
+              // Server URL (loaded after upload or on screen open)
+              else if (_serverAvatarUrl != null && _serverAvatarUrl!.isNotEmpty)
+                Image.network(
+                  _serverAvatarUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _avatarPlaceholder(),
+                )
+              // Fallback placeholder
+              else
+                _avatarPlaceholder(),
+
+              // Uploading overlay
+              if (_isUploading)
+                Container(
+                  color: Colors.black38,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           ),
         ),
+
+        // Edit button
         Positioned(
           bottom: 0,
           right: 0,
           child: GestureDetector(
-            onTap: _showImagePicker,
+            onTap: _isUploading ? null : _showImageSourceSheet,
             child: Container(
               padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFB6C1),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
               ),
-              child: const Icon(
-                Icons.edit_outlined,
-                color: Colors.white,
-                size: 20,
-              ),
+              child: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
             ),
           ),
         ),
@@ -223,24 +359,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-        ),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          decoration: const InputDecoration(
-            border: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey, width: 0.5),
-            ),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey, width: 0.5),
-            ),
-            focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: AppTheme.primaryColor),
-            ),
+          decoration: InputDecoration(
+            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey, width: 0.5)),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey, width: 0.5)),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor)),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -252,22 +379,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-        ),
+        Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
           enabled: false,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           decoration: const InputDecoration(
-            border: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey, width: 0.5),
-            ),
-            disabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.grey, width: 0.5),
-            ),
+            border: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey, width: 0.5)),
+            disabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey, width: 0.5)),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -279,34 +399,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Date of Birth',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-        ),
+        Text('Date of Birth', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
         const SizedBox(height: 8),
         InkWell(
           onTap: _selectDate,
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 0.5),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   _dateOfBirth,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                 ),
-                Icon(
-                  Icons.calendar_month_outlined,
-                  color: Colors.grey.shade400,
-                ),
+                Icon(Icons.calendar_month_outlined, color: Colors.grey.shade400),
               ],
             ),
           ),
@@ -320,55 +429,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       width: double.infinity,
       height: 55,
       child: ElevatedButton(
-        onPressed: _saveChanges,
+        onPressed: _isSaving ? null : _saveChanges,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFB6C1).withValues(alpha: 0.8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+          backgroundColor: AppTheme.primaryColor,
+          disabledBackgroundColor: AppTheme.primaryColor.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           elevation: 0,
         ),
-        child: const Text(
-          'Save changes',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        child: _isSaving
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
+            : const Text(
+                'Save Changes',
+                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              ),
       ),
     );
   }
 
-  Future<void> _saveChanges() async {
-    final data = <String, dynamic>{
-      'name': _nameController.text,
-      'email': _emailController.text.isNotEmpty ? _emailController.text : null,
-      'date_of_birth': _dateOfBirth != 'Select Date' ? _dateOfBirth : null,
-      // Add other fields as needed (e.g. address, city) when those
-      // controllers/inputs exist.
-    };
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Updating profile...')));
-
-    try {
-      final response = await ClientApiService.updateProfile(data);
-      if (response['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response['message'] ?? 'Update failed')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
-    }
+  Widget _avatarPlaceholder() {
+    return Container(
+      color: Colors.grey.shade200,
+      child: Icon(Icons.person, size: 50, color: Colors.grey.shade400),
+    );
   }
 }
+

@@ -80,7 +80,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
           : _errorMessage != null
               ? Center(child: Text('Error: $_errorMessage'))
               : RefreshIndicator(
@@ -111,7 +111,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(40, 40, 40, 60),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -202,7 +202,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.copy_rounded, size: 20, color: AppTheme.primaryColor),
+                  child: Icon(Icons.copy_rounded, size: 20, color: AppTheme.primaryColor),
                 ),
               ),
             ],

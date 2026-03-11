@@ -16,6 +16,7 @@ class ClientProfileScreen extends StatefulWidget {
 class _ClientProfileScreenState extends State<ClientProfileScreen> {
   Customer? _customer;
   bool _isLoading = true;
+  bool _isLoggedIn = true;
   String? _errorMessage;
   double _walletBalance = 0.0;
   int _addressCount = 0;
@@ -28,9 +29,11 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
 
   Future<void> _fetchProfile() async {
     if (!TokenManager.hasToken) {
-      // user is not authenticated, send back to login
       if (mounted) {
-        context.go('/client/login');
+        setState(() {
+          _isLoggedIn = false;
+          _isLoading = false;
+        });
       }
       return;
     }
@@ -75,10 +78,123 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     }
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Login gate — shown when user is not authenticated
+  // ─────────────────────────────────────────────────────────────────────────
+  Widget _buildLoginGate() {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        title: Text(
+          'Profile',
+          style: GoogleFonts.outfit(
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+            fontSize: 18,
+          ),
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Illustration circle
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryColor.withOpacity(0.12),
+                      AppTheme.primaryColor.withOpacity(0.04),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.person_outline_rounded,
+                    size: 52,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // Headline
+              Text(
+                'Sign in to your account',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black,
+                  height: 1.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+
+              // Subtitle
+              Text(
+                'Access your bookings, manage your\naddresses, wallet and more.',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  color: Colors.grey[500],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 36),
+
+              // Sign In button
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await context.push('/client/login');
+                    // Re-check auth after returning from login
+                    _fetchProfile();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: Text(
+                    'Sign In',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // ── Not logged in: show a premium login gate ─────────────────────
+    if (!_isLoggedIn) return _buildLoginGate();
+
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: CircularProgressIndicator(color: AppTheme.primaryColor),
         ),
@@ -208,21 +324,28 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
             height: 70,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.grey.shade100,
               border: Border.all(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                color: AppTheme.primaryColor.withValues(alpha: 0.2),
                 width: 2,
               ),
-              image: avatarUrl != null && avatarUrl.isNotEmpty
-                  ? DecorationImage(
-                      image: NetworkImage(avatarUrl),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
             ),
-            child: avatarUrl == null || avatarUrl.isEmpty
-                ? const Icon(Icons.person, size: 40, color: Colors.grey)
-                : null,
+            child: ClipOval(
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      width: 70,
+                      height: 70,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: Colors.grey.shade100,
+                        child: Icon(Icons.person, size: 38, color: Colors.grey.shade400),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey.shade100,
+                      child: Icon(Icons.person, size: 38, color: Colors.grey.shade400),
+                    ),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -260,7 +383,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                 color: AppTheme.primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.edit_outlined,
                 color: AppTheme.primaryColor,
                 size: 20,

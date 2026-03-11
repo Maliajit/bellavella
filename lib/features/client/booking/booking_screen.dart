@@ -88,7 +88,7 @@ class BookingScreen extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
+          Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
           const SizedBox(width: 16),
           const Expanded(
             child: Column(

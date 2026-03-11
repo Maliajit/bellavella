@@ -94,8 +94,8 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
                         _loadAddresses(); // Refresh the list
                       }
                     },
-                    icon: const Icon(Icons.add, color: AppTheme.primaryColor),
-                    label: const Text(
+                    icon: Icon(Icons.add, color: AppTheme.primaryColor),
+                    label: Text(
                       'Add another address',
                       style: TextStyle(
                         color: AppTheme.primaryColor,

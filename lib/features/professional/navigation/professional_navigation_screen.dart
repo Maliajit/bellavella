@@ -5,6 +5,7 @@ import 'package:bellavella/features/professional/models/professional_models.dart
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ProfessionalNavigationScreen extends StatefulWidget {
   final ProfessionalBooking booking;
@@ -38,6 +39,32 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _launchNavigation() async {
+    if (widget.booking.lat != null && widget.booking.lng != null) {
+      await _openGoogleMaps(widget.booking.lat!, widget.booking.lng!);
+    } else {
+      await _openAddressSearch(widget.booking.address);
+    }
+    // Also trigger the backend/state transition
+    await _startJourney();
+  }
+
+  Future<void> _openGoogleMaps(double lat, double lng) async {
+    final Uri url = Uri.parse(
+        "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _openAddressSearch(String address) async {
+    final Uri url = Uri.parse(
+        "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}");
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -222,7 +249,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _startJourney,
+                      onPressed: _isProcessing ? null : _launchNavigation,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,

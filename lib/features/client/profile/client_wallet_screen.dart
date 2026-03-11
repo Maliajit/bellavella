@@ -192,7 +192,7 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.chevron_right,
                       color: AppTheme.primaryColor,
                       size: 18,

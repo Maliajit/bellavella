@@ -216,7 +216,7 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                 const Spacer(),
                 
                 if (_isProcessing)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(bottom: 100),
                     child: CircularProgressIndicator(color: AppTheme.primaryColor),
                   )

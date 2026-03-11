@@ -150,7 +150,7 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
             _buildVideoReviewSection(),
             const SizedBox(height: 48),
             _isSubmitting 
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+              ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
               : PrimaryButton(label: 'Submit Review', onPressed: _submitReview),
             const SizedBox(height: 40),
           ],
@@ -176,7 +176,7 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.spa_outlined, color: AppTheme.primaryColor, size: 30),
+            child: Icon(Icons.spa_outlined, color: AppTheme.primaryColor, size: 30),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -289,7 +289,7 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
                 children: [
                   Icon(Icons.videocam_outlined, color: AppTheme.primaryColor.withValues(alpha: 0.5), size: 32),
                   const SizedBox(height: 8),
-                  const Text('Upload Video Review', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w500)),
+                  Text('Upload Video Review', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.w500)),
                 ],
               ),
             ),

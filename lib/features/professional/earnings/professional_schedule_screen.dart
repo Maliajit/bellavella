@@ -111,7 +111,7 @@ class _ProfessionalScheduleScreenState
             _buildCalendarStrip(),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+                  ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
                   : RefreshIndicator(
                       onRefresh: _loadSchedule,
                       color: AppTheme.primaryColor,
@@ -125,8 +125,6 @@ class _ProfessionalScheduleScreenState
                             const SizedBox(height: 20),
                             _buildScheduleSection(),
                             const SizedBox(height: 32),
-                            _buildAvailabilitySection(),
-                            const SizedBox(height: 40),
                           ],
                         ),
                       ),
@@ -159,7 +157,7 @@ class _ProfessionalScheduleScreenState
           ),
           const Spacer(),
           if (_slotsUpdating)
-            const SizedBox(
+            SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(
@@ -388,94 +386,6 @@ class _ProfessionalScheduleScreenState
                 ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAvailabilitySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Manage Availability',
-          style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w800),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Changes apply to your slot booking availability',
-          style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
-        ),
-        const SizedBox(height: 16),
-        _buildSlotToggle(
-          label: 'Morning Slots (9 AM – 12 PM)',
-          icon: Icons.wb_sunny_outlined,
-          color: Colors.orange,
-          isOn: _morningSlot,
-          onChanged: (v) => _toggleSlot('morning', v),
-        ),
-        _buildSlotToggle(
-          label: 'Afternoon Slots (12 PM – 4 PM)',
-          icon: Icons.wb_cloudy_outlined,
-          color: Colors.blue,
-          isOn: _afternoonSlot,
-          onChanged: (v) => _toggleSlot('afternoon', v),
-        ),
-        _buildSlotToggle(
-          label: 'Evening Slots (4 PM – 8 PM)',
-          icon: Icons.nights_stay_outlined,
-          color: Colors.indigo,
-          isOn: _eveningSlot,
-          onChanged: (v) => _toggleSlot('evening', v),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSlotToggle({
-    required String label,
-    required IconData icon,
-    required Color color,
-    required bool isOn,
-    required ValueChanged<bool> onChanged,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: isOn ? color.withValues(alpha: 0.06) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isOn ? color.withValues(alpha: 0.2) : Colors.grey.shade100,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: isOn ? color.withValues(alpha: 0.15) : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 18, color: isOn ? color : Colors.grey.shade400),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              label,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: isOn ? Colors.black : Colors.grey.shade500,
-              ),
-            ),
-          ),
-          Switch(
-            value: isOn,
-            onChanged: onChanged,
-            activeColor: AppTheme.primaryColor,
           ),
         ],
       ),
