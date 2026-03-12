@@ -1,20 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
 import '../models/cart_model.dart';
 import '../../home/models/home_models.dart';
-import '../../services/client_api_service.dart';
 
 class CartProvider extends ChangeNotifier {
   final Map<int, CartItem> _items = {};
+  final Set<int> _syncingItemIds = {};
   double _discount = 0.0;
   double _tip = 0.0;
   Map<String, dynamic>? _appliedPromotion;
+  bool _isLoading = false;
+  String? _error;
 
   List<CartItem> get items => _items.values.toList();
   int get itemCount => _items.length;
   double get discount => _discount;
   double get tip => _tip;
   Map<String, dynamic>? get appliedPromotion => _appliedPromotion;
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+  bool isItemSyncing(int itemId) => _syncingItemIds.contains(itemId);
 
   double get subtotal {
     var total = 0.0;
@@ -37,6 +43,67 @@ class CartProvider extends ChangeNotifier {
     return val.isNaN ? 0.0 : val;
   }
 
+  Future<void> fetchCart() async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.get('/client/cart');
+      if (response['success'] == true && response['data'] is Map<String, dynamic>) {
+        final data = Map<String, dynamic>.from(response['data']);
+        final rawItems = (data['items'] as List? ?? const []);
+        final nextItems = <int, CartItem>{};
+
+        for (final raw in rawItems.whereType<Map>()) {
+          final item = Map<String, dynamic>.from(raw);
+          final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
+          final variantId = int.tryParse(item['service_variant_id']?.toString() ?? '');
+          final itemId = int.tryParse(item['item_id']?.toString() ?? '');
+          final quantityKey = variantId ?? serviceId ?? itemId;
+          final cartId = int.tryParse(item['id']?.toString() ?? '');
+          if (quantityKey == null || cartId == null) {
+            continue;
+          }
+
+          final title =
+              item['variant_name']?.toString().isNotEmpty == true
+                  ? item['variant_name'].toString()
+                  : (item['display_name']?.toString() ?? item['name']?.toString() ?? 'Unknown');
+          final subtitle =
+              item['variant_name']?.toString().isNotEmpty == true
+                  ? item['service_name']?.toString()
+                  : null;
+
+          nextItems[quantityKey] = CartItem(
+            cartId: cartId,
+            id: quantityKey,
+            serviceId: serviceId,
+            serviceVariantId: variantId,
+            itemType: item['item_type']?.toString() ?? 'service',
+            title: title,
+            subtitle: subtitle,
+            price: double.tryParse(item['unit_price']?.toString() ?? '') ?? 0,
+            imageUrl: item['image']?.toString() ?? '',
+            categoryName: 'Services',
+            quantity: int.tryParse(item['quantity']?.toString() ?? '1') ?? 1,
+          );
+        }
+
+        _items
+          ..clear()
+          ..addAll(nextItems);
+      } else {
+        _error = response['message']?.toString() ?? 'Failed to load cart.';
+      }
+    } catch (e) {
+      _error = 'Failed to load cart.';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   void setTip(double amount) {
     _tip = amount;
     notifyListeners();
@@ -47,7 +114,11 @@ class CartProvider extends ChangeNotifier {
       _items.update(
         service.id,
         (existingCartItem) => CartItem(
+          cartId: existingCartItem.cartId,
           id: existingCartItem.id,
+          serviceId: existingCartItem.serviceId,
+          serviceVariantId: existingCartItem.serviceVariantId,
+          itemType: existingCartItem.itemType,
           title: existingCartItem.title,
           subtitle: existingCartItem.subtitle,
           price: existingCartItem.price,
@@ -60,6 +131,7 @@ class CartProvider extends ChangeNotifier {
       _items.putIfAbsent(
         service.id,
         () => CartItem(
+          cartId: 0,
           id: service.id,
           title: service.title,
           subtitle: service.subtitle,
@@ -78,21 +150,13 @@ class CartProvider extends ChangeNotifier {
   }
 
   void incrementQuantity(int serviceId) {
-    if (_items.containsKey(serviceId)) {
-      _items[serviceId]!.quantity++;
-      notifyListeners();
-    }
+    _updateQuantity(serviceId, (_items[serviceId]?.quantity ?? 0) + 1);
   }
 
   void decrementQuantity(int serviceId) {
-    if (_items.containsKey(serviceId)) {
-      if (_items[serviceId]!.quantity > 1) {
-        _items[serviceId]!.quantity--;
-      } else {
-        _items.remove(serviceId);
-      }
-      notifyListeners();
-    }
+    final item = _items[serviceId];
+    if (item == null) return;
+    _updateQuantity(serviceId, item.quantity - 1);
   }
 
   void clear() {
@@ -127,19 +191,38 @@ class CartProvider extends ChangeNotifier {
   }
 
   Future<bool> syncCartWithBackend() async {
+    await fetchCart();
+    return error == null;
+  }
+
+  Future<void> _updateQuantity(int itemId, int nextQuantity) async {
+    final item = _items[itemId];
+    if (item == null || _syncingItemIds.contains(itemId)) {
+      return;
+    }
+
+    _syncingItemIds.add(itemId);
+    notifyListeners();
+
     try {
-      final List<Map<String, dynamic>> syncItems = items.map((e) => {
-        'item_type': 'service', // Assuming only services are added for now, adjust if packages added
-        'item_id': e.id,
-        'quantity': e.quantity,
-      }).toList();
+      if (nextQuantity <= 0) {
+        final response = await ApiService.delete('/client/cart/${item.cartId}');
+        if (response['success'] == true) {
+          _items.remove(itemId);
+        }
+        return;
+      }
 
-      if (syncItems.isEmpty) return true; // Nothing to sync
+      final response = await ApiService.put('/client/cart/${item.cartId}', {
+        'quantity': nextQuantity,
+      });
 
-      final response = await ClientApiService.syncCart(syncItems);
-      return response['success'] == true;
-    } catch (e) {
-      return false;
+      if (response['success'] == true) {
+        _items[itemId]!.quantity = nextQuantity;
+      }
+    } finally {
+      _syncingItemIds.remove(itemId);
+      notifyListeners();
     }
   }
 }

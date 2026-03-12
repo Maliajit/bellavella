@@ -1,5 +1,9 @@
 class CartItem {
+  final int cartId;
   final int id;
+  final int? serviceId;
+  final int? serviceVariantId;
+  final String itemType;
   final String title;
   final String? subtitle;
   final double price;
@@ -8,7 +12,11 @@ class CartItem {
   int quantity;
 
   CartItem({
+    required this.cartId,
     required this.id,
+    this.serviceId,
+    this.serviceVariantId,
+    this.itemType = 'service',
     required this.title,
     this.subtitle,
     required this.price,

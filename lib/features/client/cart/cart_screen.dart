@@ -27,6 +27,14 @@ class _CartScreenState extends State<CartScreen> {
   bool _isSyncing = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CartProvider>().fetchCart();
+    });
+  }
+
+  @override
   void dispose() {
     _couponController.dispose();
     super.dispose();
@@ -59,7 +67,20 @@ class _CartScreenState extends State<CartScreen> {
           ),
         ),
       ),
-      body: cartProvider.items.isEmpty
+      body: cartProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : cartProvider.error != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      cartProvider.error!,
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey),
+                    ),
+                  ),
+                )
+              : cartProvider.items.isEmpty
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -195,7 +216,8 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              _buildQuantitySelector(item.quantity, 
+              _buildQuantitySelector(item.quantity,
+                isSyncing: cartProvider.isItemSyncing(item.id),
                 onIncrement: () => cartProvider.incrementQuantity(item.id),
                 onDecrement: () => cartProvider.decrementQuantity(item.id),
               ),
@@ -208,7 +230,12 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildQuantitySelector(int quantity, {VoidCallback? onIncrement, VoidCallback? onDecrement}) {
+  Widget _buildQuantitySelector(
+    int quantity, {
+    bool isSyncing = false,
+    VoidCallback? onIncrement,
+    VoidCallback? onDecrement,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: pinkLight,
@@ -222,21 +249,32 @@ class _CartScreenState extends State<CartScreen> {
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.remove, size: 16, color: pinkPrimary),
-            onPressed: onDecrement,
+            onPressed: isSyncing ? null : onDecrement,
           ),
-          Text(
-            '$quantity',
-            style: GoogleFonts.outfit(
-              color: pinkPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          SizedBox(
+            width: 24,
+            child: Center(
+              child: isSyncing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      '$quantity',
+                      style: GoogleFonts.outfit(
+                        color: pinkPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
             ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             icon: const Icon(Icons.add, size: 16, color: pinkPrimary),
-            onPressed: onIncrement,
+            onPressed: isSyncing ? null : onIncrement,
           ),
         ],
       ),
