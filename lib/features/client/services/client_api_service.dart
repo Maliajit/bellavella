@@ -98,13 +98,17 @@ class ClientApiService {
   }
 
   // --- Reviews ---
-  static Future<List<ReviewData>> getServiceReviews(int serviceId) async {
-    final response = await ApiService.get('$_prefix/services/$serviceId/reviews');
+  static Future<ReviewPageData> getServiceReviews(
+    int serviceId, {
+    int page = 1,
+  }) async {
+    final response = await ApiService.get(
+      '$_prefix/services/$serviceId/reviews?page=$page',
+    );
     if (response['success'] == true) {
-      final reviewsJson = response['data']?['data'] as List? ?? [];
-      return reviewsJson
-          .map((e) => ReviewData.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      return ReviewPageData.fromJson(
+        Map<String, dynamic>.from(response['data'] ?? const {}),
+      );
     }
     throw Exception(response['message'] ?? 'Failed to load service reviews');
   }

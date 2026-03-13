@@ -11,6 +11,8 @@ class ServiceProvider extends ChangeNotifier {
   final Map<String, String?> _hierarchyErrors = {};
   final Map<int, List<ReviewData>> _serviceReviews = {};
   final Map<int, bool> _reviewsLoading = {};
+  final Map<int, int> _reviewPages = {};
+  final Map<int, bool> _hasMoreReviews = {};
   bool _isLoading = false;
   bool _isLoadingGroups = false;
   bool _isLoadingDetail = false;
@@ -24,6 +26,7 @@ class ServiceProvider extends ChangeNotifier {
   String? hierarchyError(String key) => _hierarchyErrors[key];
   List<ReviewData> serviceReviews(int serviceId) => _serviceReviews[serviceId] ?? [];
   bool isReviewsLoading(int serviceId) => _reviewsLoading[serviceId] ?? false;
+  bool hasMoreReviews(int serviceId) => _hasMoreReviews[serviceId] ?? false;
   bool get isLoading => _isLoading;
   bool get isLoadingGroups => _isLoadingGroups;
   bool get isLoadingDetail => _isLoadingDetail;
@@ -106,15 +109,29 @@ class ServiceProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> fetchServiceReviews(int serviceId) async {
-    if (_serviceReviews.containsKey(serviceId)) return;
+  Future<void> fetchServiceReviews(
+    int serviceId, {
+    bool loadMore = false,
+  }) async {
+    if (!loadMore && _serviceReviews.containsKey(serviceId)) return;
+    if (_reviewsLoading[serviceId] == true) return;
+
+    final nextPage = loadMore ? (_reviewPages[serviceId] ?? 1) + 1 : 1;
+    if (loadMore && !(_hasMoreReviews[serviceId] ?? false)) return;
 
     _reviewsLoading[serviceId] = true;
     notifyListeners();
 
     try {
-      final reviews = await ClientApiService.getServiceReviews(serviceId);
-      _serviceReviews[serviceId] = reviews;
+      final page = await ClientApiService.getServiceReviews(
+        serviceId,
+        page: nextPage,
+      );
+      _serviceReviews[serviceId] = loadMore
+          ? [...(_serviceReviews[serviceId] ?? const []), ...page.reviews]
+          : page.reviews;
+      _reviewPages[serviceId] = page.currentPage;
+      _hasMoreReviews[serviceId] = page.hasMore;
     } catch (e) {
       debugPrint('Error fetching reviews: $e');
     } finally {
@@ -130,6 +147,10 @@ class ServiceProvider extends ChangeNotifier {
     _hierarchyNodes.clear();
     _hierarchyLoading.clear();
     _hierarchyErrors.clear();
+    _serviceReviews.clear();
+    _reviewsLoading.clear();
+    _reviewPages.clear();
+    _hasMoreReviews.clear();
     _error = null;
     notifyListeners();
   }

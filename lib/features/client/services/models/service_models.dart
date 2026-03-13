@@ -856,3 +856,29 @@ class ReviewData {
     );
   }
 }
+
+class ReviewPageData {
+  final List<ReviewData> reviews;
+  final int currentPage;
+  final int lastPage;
+
+  const ReviewPageData({
+    required this.reviews,
+    required this.currentPage,
+    required this.lastPage,
+  });
+
+  bool get hasMore => currentPage < lastPage;
+
+  factory ReviewPageData.fromJson(Map<String, dynamic> json) {
+    final reviewsJson = json['data'] as List? ?? const [];
+
+    return ReviewPageData(
+      reviews: reviewsJson
+          .map((e) => ReviewData.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      currentPage: int.tryParse(json['current_page']?.toString() ?? '') ?? 1,
+      lastPage: int.tryParse(json['last_page']?.toString() ?? '') ?? 1,
+    );
+  }
+}

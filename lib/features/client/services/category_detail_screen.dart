@@ -1210,6 +1210,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       builder: (context, sp, _) {
         final reviews = sp.serviceReviews(serviceId);
         final isLoading = sp.isReviewsLoading(serviceId);
+        final hasMore = sp.hasMoreReviews(serviceId);
 
         if (isLoading && reviews.isEmpty) {
           return const Padding(
@@ -1241,6 +1242,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               separatorBuilder: (_, __) => const Divider(height: 32),
               itemBuilder: (context, index) => _buildReviewCard(reviews[index]),
             ),
+            if (hasMore || (isLoading && reviews.isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () => sp.fetchServiceReviews(
+                              serviceId,
+                              loadMore: true,
+                            ),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load more'),
+                  ),
+                ),
+              ),
             const SizedBox(height: 40),
           ],
         );
@@ -1748,67 +1771,72 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
         ? '${item.ratingAvg.toStringAsFixed(2)} (${item.reviewCount} reviews)'
         : null;
 
-    return Container(
-      width: 224,
-      margin: const EdgeInsets.only(right: 14),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E5E5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: item.image != null && item.image!.isNotEmpty
-                ? Image.network(
-                    item.image!,
-                    height: 210,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
-                  )
-                : _buildImagePlaceholder(),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          if (reviewText != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.star, size: 14, color: Colors.black87),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    reviewText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Container(
+        width: 224,
+        margin: const EdgeInsets.only(right: 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5E5E5)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: item.image != null && item.image!.isNotEmpty
+                  ? Image.network(
+                      item.image!,
+                      height: 210,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _buildImagePlaceholder(),
+                    )
+                  : _buildImagePlaceholder(),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            if (reviewText != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.star, size: 14, color: Colors.black87),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      reviewText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            Text(
+              formatRupees(item.price),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 14),
+            _buildVariantQuantityControl(
+              item: item,
+              quantity: quantity,
+              isSyncing: isSyncing,
+              fullWidth: true,
             ),
           ],
-          const SizedBox(height: 10),
-          Text(
-            formatRupees(item.price),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const Spacer(),
-          _buildVariantQuantityControl(
-            item: item,
-            quantity: quantity,
-            isSyncing: isSyncing,
-            fullWidth: true,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1828,6 +1856,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
       builder: (context, sp, _) {
         final reviews = sp.serviceReviews(serviceId);
         final isLoading = sp.isReviewsLoading(serviceId);
+        final hasMore = sp.hasMoreReviews(serviceId);
 
         if (isLoading && reviews.isEmpty) {
           return const Padding(
@@ -1868,6 +1897,28 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
                 return _buildReviewCard(reviews[index]);
               },
             ),
+            if ((hasMore && reviews.isNotEmpty) || (isLoading && reviews.isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () => sp.fetchServiceReviews(
+                              serviceId,
+                              loadMore: true,
+                            ),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load more'),
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
           ],
         );

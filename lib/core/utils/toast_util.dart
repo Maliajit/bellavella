@@ -16,6 +16,11 @@ class ToastUtil {
         ),
       ),
     );
+    Future.delayed(const Duration(milliseconds: 5000), () {
+      if (context.mounted) {
+        messenger.hideCurrentSnackBar();
+      }
+    });
   }
 
   static void showSuccess(BuildContext context, String message) {
