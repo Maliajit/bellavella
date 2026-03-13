@@ -4,6 +4,7 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/services/token_manager.dart';
 import 'services/auth_api_service.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class ClientOTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
@@ -109,20 +110,10 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
 
       if (response['success'] == true) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'OTP resent successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ToastUtil.showSuccess(context, response['message'] ?? 'OTP resent successfully');
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(response['message'] ?? 'Failed to resend OTP'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ToastUtil.showError(context, response['message'] ?? 'Failed to resend OTP');
       }
     } finally {
       if (mounted) {

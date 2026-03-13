@@ -2,10 +2,13 @@ import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
+import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
+import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class CategoryDetailScreen extends StatefulWidget {
   final String categoryName;
@@ -205,6 +208,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               _serviceCartIds[service.id] = createdCartId;
             }
           });
+          if (mounted) {
+            ToastUtil.showAddToCartToast(context, service.name);
+          }
         } else {
           final fieldErrors = response['errors'] is Map<String, dynamic>
               ? Map<String, dynamic>.from(response['errors'])
@@ -286,9 +292,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   void _showSnack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ToastUtil.showError(context, message);
   }
 
   @override
@@ -489,12 +493,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   subtitle: node.description,
                   imageUrl: node.image,
                   eyebrow: breadcrumbTitle ?? 'Explore Our Services',
+                  banners: node.banners.pageHeader,
                 ),
                 const SizedBox(height: 20),
                 _buildServiceTypeGrid(serviceTypes),
                 const SizedBox(height: 30),
-                _buildOfferCard(node.name),
-                const SizedBox(height: 40),
+                _buildOfferCard(
+                  node.name,
+                  banners: node.banners.promoBanner,
+                ),
+                const SizedBox(height: 32),
                 if (services.isEmpty)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -532,7 +540,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     required String? subtitle,
     required String? imageUrl,
     required String eyebrow,
+    List<ContextBanner> banners = const [],
   }) {
+    if (banners.isNotEmpty) {
+      return ServiceFlowBannerCarousel(
+        banners: banners,
+        height: 200,
+        margin: const EdgeInsets.all(16),
+        borderRadius: BorderRadius.circular(20),
+      );
+    }
+
     final bannerImage =
         imageUrl ??
         'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=600';
@@ -729,7 +747,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
-  Widget _buildOfferCard(String title) {
+  Widget _buildOfferCard(String title, {List<ContextBanner> banners = const []}) {
+    if (banners.isNotEmpty) {
+      return ServiceFlowBannerCarousel(
+        banners: banners,
+        height: 148,
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        borderRadius: BorderRadius.circular(20),
+        compact: true,
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
@@ -986,8 +1014,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   const SizedBox(height: 10),
                   Text(
                     isVariantService
-                        ? 'Starts at Rs ${lowestVariantPrice.toStringAsFixed(0)}'
-                        : 'Rs ${service.price.toStringAsFixed(0)}${service.durationMinutes == null ? '' : '  •  ${service.durationMinutes} mins'}',
+                        ? formatRupees(lowestVariantPrice, from: true)
+                        : '${formatRupees(service.price)}${service.durationMinutes == null ? '' : '  •  ${service.durationMinutes} mins'}',
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -1057,20 +1085,37 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   void _showServiceDetails(BuildContext context, DetailedService service) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _VariantOptionsSheet(
-        service: service,
-        node: service.toHierarchyNode(),
-        onQuantityChange: _changeServiceQuantity,
-        currentQuantities: _serviceQuantities,
-        syncingStates: {
-          for (var id in _syncingServiceIds) id: true,
-        },
-      ),
-    );
+    final provider = context.read<ServiceProvider>();
+    provider
+        .fetchHierarchyNode(
+          nodeKey: service.slug,
+          level: 'service',
+          seedNode: service.toHierarchyNode(),
+          forceRefresh: provider.hierarchyNode(service.slug) == null,
+        )
+        .then((_) {
+          if (!context.mounted) {
+            return;
+          }
+
+          final resolvedNode =
+              provider.hierarchyNode(service.slug) ?? service.toHierarchyNode();
+
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) => _VariantOptionsSheet(
+              service: service,
+              node: resolvedNode,
+              onQuantityChange: _changeServiceQuantity,
+              currentQuantities: _serviceQuantities,
+              syncingStates: {
+                for (var id in _syncingServiceIds) id: true,
+              },
+            ),
+          );
+        });
   }
 
   Widget _buildQuantityControl({
@@ -1490,6 +1535,15 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
                     ],
                   ),
                 ),
+                if (widget.node.banners.hasPopupBanner) ...[
+                  ServiceFlowBannerCarousel(
+                    banners: widget.node.banners.popupBanner,
+                    height: 188,
+                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    borderRadius: BorderRadius.circular(22),
+                    compact: true,
+                  ),
+                ],
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Divider(),
@@ -1549,7 +1603,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Rs ${totalPrice.toStringAsFixed(0)}',
+                            formatRupees(totalPrice),
                             style: GoogleFonts.outfit(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
@@ -1645,7 +1699,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
                   spacing: 10,
                   children: [
                     Text(
-                      'Rs ${item.price.toStringAsFixed(0)}',
+                      formatRupees(item.price),
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -1744,7 +1798,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
           ],
           const SizedBox(height: 10),
           Text(
-            'Rs ${item.price.toStringAsFixed(0)}',
+            formatRupees(item.price),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
           ),
           const Spacer(),

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class CheckoutAddressScreen extends StatefulWidget {
   const CheckoutAddressScreen({super.key});
@@ -122,16 +123,12 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
 
   void _proceedToSlots() {
     if (_houseController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter House/Flat Number.')),
-      );
+      ToastUtil.showError(context, 'Please enter House/Flat Number.');
       return;
     }
 
     if (!_isHomeSelected && _otherLabelController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a label for "Other".')),
-      );
+      ToastUtil.showError(context, 'Please enter a label for "Other".');
       return;
     }
 

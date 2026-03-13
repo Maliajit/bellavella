@@ -41,6 +41,7 @@ class ServiceHierarchyNode {
   final int? serviceId;
   final int? serviceVariantId;
   final List<ServiceHierarchyNode> breadcrumbs;
+  final BannerPlacementCollection banners;
 
   const ServiceHierarchyNode({
     required this.id,
@@ -68,6 +69,7 @@ class ServiceHierarchyNode {
     this.serviceId,
     this.serviceVariantId,
     this.breadcrumbs = const [],
+    this.banners = const BannerPlacementCollection(),
   });
 
   bool get isLeaf => !hasChildren && children.isEmpty;
@@ -179,6 +181,9 @@ class ServiceHierarchyNode {
                 ServiceHierarchyNode.fromJson(Map<String, dynamic>.from(crumb)),
           )
           .toList(),
+      banners: BannerPlacementCollection.fromJson(
+        Map<String, dynamic>.from(json['banners'] ?? const {}),
+      ),
     );
   }
 
@@ -220,6 +225,7 @@ class ServiceHierarchyNode {
       'service_variant_id': item['service_variant_id'],
       'services': item['services'],
       'breadcrumbs': breadcrumbs.map((crumb) => crumb.toRouteData()).toList(),
+      'banners': json['banners'] ?? const {},
     });
   }
 
@@ -258,6 +264,7 @@ class ServiceHierarchyNode {
           .toList(),
       'children': children.map((child) => child.toRouteData()).toList(),
       'breadcrumbs': breadcrumbs.map((crumb) => crumb.toRouteData()).toList(),
+      'banners': banners.toJson(),
     };
   }
 
@@ -460,6 +467,105 @@ class DetailedService {
       serviceId: parentServiceId ?? id,
       serviceVariantId: serviceVariantId,
     );
+  }
+}
+
+class ContextBanner {
+  final int id;
+  final String title;
+  final String? subtitle;
+  final String placementType;
+  final String mediaType;
+  final String mediaUrl;
+  final String? thumbnailUrl;
+  final int sortOrder;
+  final String? actionLink;
+  final String? buttonText;
+
+  const ContextBanner({
+    required this.id,
+    required this.title,
+    this.subtitle,
+    required this.placementType,
+    required this.mediaType,
+    required this.mediaUrl,
+    this.thumbnailUrl,
+    required this.sortOrder,
+    this.actionLink,
+    this.buttonText,
+  });
+
+  bool get isVideo => mediaType == 'video';
+
+  factory ContextBanner.fromJson(Map<String, dynamic> json) {
+    return ContextBanner(
+      id: ServiceHierarchyNode._parseNullableInt(json['id']) ?? 0,
+      title: json['title']?.toString() ?? '',
+      subtitle: json['subtitle']?.toString(),
+      placementType: json['placement_type']?.toString() ?? 'page_header',
+      mediaType: json['media_type']?.toString() ?? 'image',
+      mediaUrl: _resolveImageUrl(
+        json['media_url']?.toString() ?? json['media_path']?.toString(),
+      ),
+      thumbnailUrl: _resolveImageUrl(json['thumbnail_url']?.toString()),
+      sortOrder: ServiceHierarchyNode._parseNullableInt(json['sort_order']) ?? 0,
+      actionLink: json['action_link']?.toString(),
+      buttonText: json['button_text']?.toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'subtitle': subtitle,
+      'placement_type': placementType,
+      'media_type': mediaType,
+      'media_url': mediaUrl,
+      'thumbnail_url': thumbnailUrl,
+      'sort_order': sortOrder,
+      'action_link': actionLink,
+      'button_text': buttonText,
+    };
+  }
+}
+
+class BannerPlacementCollection {
+  final List<ContextBanner> pageHeader;
+  final List<ContextBanner> promoBanner;
+  final List<ContextBanner> popupBanner;
+
+  const BannerPlacementCollection({
+    this.pageHeader = const [],
+    this.promoBanner = const [],
+    this.popupBanner = const [],
+  });
+
+  bool get hasPageHeader => pageHeader.isNotEmpty;
+  bool get hasPromoBanner => promoBanner.isNotEmpty;
+  bool get hasPopupBanner => popupBanner.isNotEmpty;
+
+  factory BannerPlacementCollection.fromJson(Map<String, dynamic> json) {
+    List<ContextBanner> parseList(String key) {
+      return (json[key] as List? ?? const [])
+          .whereType<Map>()
+          .map((item) => ContextBanner.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+
+    return BannerPlacementCollection(
+      pageHeader: parseList('page_header'),
+      promoBanner: parseList('promo_banner'),
+      popupBanner: parseList('popup_banner'),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'page_header': pageHeader.map((item) => item.toJson()).toList(),
+      'promo_banner': promoBanner.map((item) => item.toJson()).toList(),
+      'popup_banner': popupBanner.map((item) => item.toJson()).toList(),
+    };
   }
 }
 

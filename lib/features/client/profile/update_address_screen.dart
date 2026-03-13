@@ -1,8 +1,10 @@
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class UpdateAddressScreen extends StatefulWidget {
   final Address? address; // If null, it's for adding new address
@@ -80,22 +82,17 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.address != null
-                  ? 'Address updated successfully!'
-                  : 'Address added successfully!',
-            ),
-          ),
+        ToastUtil.showSuccess(
+          context,
+          widget.address != null
+              ? 'Address updated successfully!'
+              : 'Address added successfully!',
         );
         Navigator.pop(context, true); // Return true to indicate success
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to save address: $e')));
+        ToastUtil.showError(context, 'Failed to save address: $e');
       }
     } finally {
       if (mounted) {
@@ -179,7 +176,10 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
                   return 'Pincode must be 6 digits';
                 }
                 return null;
-              }, TextInputType.number),
+              }, TextInputType.number, [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(6),
+              ]),
               const SizedBox(height: 20),
               _buildTextField('Phone Number *', _phoneController, (value) {
                 if (value == null || value.isEmpty) {
@@ -189,7 +189,10 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
                   return 'Phone number must be 10 digits';
                 }
                 return null;
-              }, TextInputType.phone),
+              }, TextInputType.phone, [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(10),
+              ]),
               const SizedBox(height: 30),
               const Text(
                 'Save as',
@@ -244,10 +247,12 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
     TextEditingController controller, [
     String? Function(String?)? validator,
     TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
   ]) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.grey),

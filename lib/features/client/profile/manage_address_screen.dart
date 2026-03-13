@@ -2,6 +2,7 @@ import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/client/profile/services/client_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 import 'package:bellavella/core/theme/app_theme.dart';
 
@@ -235,17 +236,13 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
     try {
       final success = await ClientApiService.deleteAddress(address.id);
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Address deleted successfully')),
-        );
+        ToastUtil.showSuccess(context, 'Address deleted successfully');
         _loadAddresses(); // Refresh the list
       } else {
         throw Exception('Deletion failed');
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to delete address: $e')));
+      ToastUtil.showError(context, 'Failed to delete address: $e');
     }
   }
 }

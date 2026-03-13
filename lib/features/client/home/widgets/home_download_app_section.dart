@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class HomeDownloadAppSection extends StatelessWidget {
   final String title;
@@ -107,11 +108,7 @@ class HomeDownloadAppSection extends StatelessWidget {
                         label: 'App Store',
                         onTap: () {
                           // TODO: Implement app store link
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('App Store link would open here'),
-                            ),
-                          );
+                          ToastUtil.showSuccess(context, 'App Store link would open here');
                         },
                       ),
                     ),
@@ -123,11 +120,7 @@ class HomeDownloadAppSection extends StatelessWidget {
                         label: 'Play Store',
                         onTap: () {
                           // TODO: Implement play store link
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Play Store link would open here'),
-                            ),
-                          );
+                          ToastUtil.showSuccess(context, 'Play Store link would open here');
                         },
                       ),
                     ),

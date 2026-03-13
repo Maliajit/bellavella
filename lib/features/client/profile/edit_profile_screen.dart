@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/models/data_models.dart';
 import 'services/client_api_service.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -235,10 +236,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   void _showSnack(String msg, {bool success = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: success ? Colors.green.shade600 : null,
-    ));
+    if (success) {
+      ToastUtil.showSuccess(context, msg);
+    } else {
+      ToastUtil.showError(context, msg);
+    }
   }
 
   String? get _serverAvatarUrl => _uploadedAvatarUrl ?? _profile?.avatar;

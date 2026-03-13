@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/services/api_service.dart';
@@ -103,13 +104,9 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
               if (_paymentConfirmController.text == "1234") { // Mock check
                 Navigator.pop(context);
                 context.go('/client/home');
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Payment Confirmed! Service Completed.'), backgroundColor: Colors.green),
-                );
+                ToastUtil.showSuccess(context, 'Payment Confirmed! Service Completed.');
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid Code'), backgroundColor: AppTheme.errorColor),
-                );
+                ToastUtil.showError(context, 'Invalid Code');
               }
             },
             style: ElevatedButton.styleFrom(

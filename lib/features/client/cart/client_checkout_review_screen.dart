@@ -11,6 +11,7 @@ import 'package:bellavella/core/routes/app_routes.dart';
 
 import 'controllers/cart_provider.dart';
 import '../services/client_api_service.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class ClientCheckoutReviewScreen extends StatefulWidget {
   final Map<String, dynamic> checkoutData;
@@ -65,16 +66,12 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
       cartProvider.clear();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment Successful!')),
-        );
+        ToastUtil.showSuccess(context, 'Payment Successful!');
         context.go('/client/my-bookings');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment Verification Failed: $e')),
-        );
+        ToastUtil.showError(context, 'Payment Verification Failed: $e');
       }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
@@ -83,9 +80,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
 
   void _handlePaymentError(PaymentFailureResponse response) {
     setState(() => _isProcessing = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Payment Failed: ${response.message}')),
-    );
+    ToastUtil.showError(context, 'Payment Failed: ${response.message}');
   }
 
   void _handleExternalWallet(ExternalWalletResponse response) {
@@ -355,9 +350,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
           cartProvider.clear();
           
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order placed successfully!')),
-          );
+          ToastUtil.showSuccess(context, 'Order placed successfully!');
           context.go('/client/my-bookings');
           if (mounted) setState(() => _isProcessing = false);
         }
@@ -366,23 +359,17 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
         
         // Handle Laravel's default unauthenticated message
         if (response['message'] == 'Unauthenticated.') {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please log in to complete your booking.')),
-          );
+          ToastUtil.showError(context, 'Please log in to complete your booking.');
           context.push(AppRoutes.clientLogin);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response['message'] ?? 'Checkout failed')),
-          );
+          ToastUtil.showError(context, response['message'] ?? 'Checkout failed');
         }
         
         if (mounted) setState(() => _isProcessing = false);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred: $e')),
-      );
+      ToastUtil.showError(context, 'An error occurred: $e');
       if (mounted) setState(() => _isProcessing = false);
     }
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/features/client/services/client_api_service.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class CheckoutSlotScreen extends StatefulWidget {
   final Map<String, dynamic> addressData;
@@ -387,9 +388,7 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
 
   void _proceedToReview() {
     if (_selectedCategorySlots.length < _categoriesToBook.length) {
-       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select a slot for all categories.')),
-       );
+       ToastUtil.showError(context, 'Please select a slot for all categories.');
        return;
     }
 

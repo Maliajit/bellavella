@@ -8,7 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/utils/permission_handler_util.dart';
 import '../../../core/utils/location_util.dart';
-
+import '../../../core/utils/toast_util.dart';
 import 'package:bellavella/features/client/home/controllers/home_provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import 'models/home_models.dart';
@@ -178,21 +178,8 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                           service,
                                           categoryName: section.title,
                                         );
-                                        ScaffoldMessenger.of(context).clearSnackBars();
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('${service.title} added to cart'),
-                                            behavior: SnackBarBehavior.floating,
-                                            duration: const Duration(seconds: 2),
-                                            action: SnackBarAction(
-                                              label: 'View Cart',
-                                              onPressed: () {
-                                                ScaffoldMessenger.of(context).clearSnackBars();
-                                                context.push('/client/cart');
-                                              },
-                                            ),
-                                          ),
-                                        );
+                                        // Use global toast utility for Add to Cart message
+                                        ToastUtil.showAddToCartToast(context, service.title);
                                       },
                                     );
                                   }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -573,20 +574,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Row(
-                      children: [
-                        Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
-                        SizedBox(width: 8),
-                        Text('Order cancelled successfully', style: TextStyle(fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                    backgroundColor: AppTheme.successColor,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                );
+                ToastUtil.showSuccess(context, 'Order cancelled successfully');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,

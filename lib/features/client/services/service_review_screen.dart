@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class ServiceReviewScreen extends StatefulWidget {
   final String bookingId;
@@ -67,9 +68,7 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
 
   void _submitReview() async {
     if (_rating == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a rating'), backgroundColor: AppTheme.errorColor),
-      );
+      ToastUtil.showError(context, 'Please select a rating');
       return;
     }
 

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import 'services/auth_api_service.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class ClientLoginScreen extends StatefulWidget {
   const ClientLoginScreen({super.key});
@@ -138,13 +139,7 @@ class _ClientLoginScreenState extends State<ClientLoginScreen> {
                                 extra: _phoneController.text);
                           } else {
                             if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(response['message'] ??
-                                    'Failed to send OTP'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
+                            ToastUtil.showError(context, response['message'] ?? 'Failed to send OTP');
                           }
                         } finally {
                           if (mounted) {

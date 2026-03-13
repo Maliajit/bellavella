@@ -9,6 +9,7 @@ import 'package:bellavella/features/client/cart/models/cart_model.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -330,9 +331,9 @@ class _CartScreenState extends State<CartScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                _buildSuggestCard('Threading', '49', 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400'),
-                _buildSuggestCard('Casmara charcoal detox mask', '1,299', 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'),
-                _buildSuggestCard('RIC wax', '69', 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?q=80&w=400'),
+                _buildSuggestCard(context, 'Threading', '49', 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400'),
+                _buildSuggestCard(context, 'Casmara charcoal detox mask', '1,299', 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'),
+                _buildSuggestCard(context, 'RIC wax', '69', 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?q=80&w=400'),
               ],
             ),
           ),
@@ -341,7 +342,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _buildSuggestCard(String title, String price, String img) {
+  Widget _buildSuggestCard(BuildContext context, String title, String price, String img) {
     return Container(
       width: 170,
       margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -364,13 +365,18 @@ class _CartScreenState extends State<CartScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('₹$price', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
+              GestureDetector(
+                onTap: () {
+                  ToastUtil.showAddToCartToast(context, title);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Text('Add', style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold)),
                 ),
-                child: Text('Add', style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -425,9 +431,158 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  String _formatCurrency(double? amount) {
-    if (amount == null || amount.isNaN || amount.isInfinite) return '₹0';
-    return '₹${amount.toInt()}';
+  void _showCouponBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Apply Coupon',
+                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _couponController,
+              style: GoogleFonts.outfit(),
+              decoration: InputDecoration(
+                hintText: 'Enter coupon code',
+                hintStyle: GoogleFonts.outfit(color: Colors.grey),
+                suffixIcon: TextButton(
+                  onPressed: () async {
+                    if (_couponController.text.trim().isEmpty) return;
+                    
+                    final error = await context.read<CartProvider>().applyPromotion(
+                      _couponController.text.trim(),
+                    );
+                    
+                    if (!mounted) return;
+                    
+                    if (error != null) {
+                      ToastUtil.showError(context, error);
+                    } else {
+                      Navigator.pop(context);
+                      ToastUtil.showSuccess(context, 'Coupon applied successfully!');
+                    }
+                  },
+                  child: Text(
+                    'Apply',
+                    style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: pinkPrimary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+            Expanded(
+              child: FutureBuilder<Map<String, dynamic>>(
+                future: PromotionService.getActivePromotions(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator(color: pinkPrimary));
+                  }
+                  
+                  if (!snapshot.hasData || snapshot.data!['success'] == false) {
+                    return Center(
+                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
+                    );
+                  }
+                  
+                  final promotions = snapshot.data!['data'] as List;
+                  if (promotions.isEmpty) {
+                    return Center(
+                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
+                    );
+                  }
+
+                  return ListView.builder(
+                    itemCount: promotions.length,
+                    itemBuilder: (context, index) {
+                      final promo = promotions[index];
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade200),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: pinkLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.percent, color: pinkPrimary, size: 20),
+                            ),
+                            const SizedBox(width: 15),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    promo['code'],
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    promo['description'] ?? 'Discount on your order',
+                                    style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                final error = await context.read<CartProvider>().applyPromotion(promo['code']);
+                                if (!mounted) return;
+                                
+                                if (error != null) {
+                                  ToastUtil.showError(context, error);
+                                } else {
+                                  Navigator.pop(context);
+                                  ToastUtil.showSuccess(context, 'Coupon applied successfully!');
+                                }
+                              },
+                              child: Text(
+                                'APPLY',
+                                style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildPaymentSummary(CartProvider cartProvider) {
@@ -477,6 +632,33 @@ class _CartScreenState extends State<CartScreen> {
           ],
           const Divider(height: 30),
           _summaryRow('Amount to pay', _formatCurrency(cartProvider.totalAmount), isBold: true, largeText: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {bool isBold = false, bool largeText = false, Color? textColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: largeText ? 18 : 15,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: textColor ?? (isBold ? Colors.black : Colors.black87),
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: largeText ? 18 : 15,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              color: textColor,
+            ),
+          ),
         ],
       ),
     );
@@ -661,31 +843,9 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _summaryRow(String label, String value, {bool isBold = false, bool largeText = false, Color? textColor}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.outfit(
-              fontSize: largeText ? 18 : 15,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: textColor ?? (isBold ? Colors.black : Colors.black87),
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.outfit(
-              fontSize: largeText ? 18 : 15,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: textColor,
-            ),
-          ),
-        ],
-      ),
-    );
+  String _formatCurrency(double? amount) {
+    if (amount == null || amount.isNaN || amount.isInfinite) return '₹0';
+    return '₹${amount.toInt()}';
   }
 
   Widget _buildStickyFooter() {
@@ -707,9 +867,7 @@ class _CartScreenState extends State<CartScreen> {
             ? null 
             : () async {
                 if (!TokenManager.hasToken) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please log in to proceed to checkout.')),
-                  );
+                  ToastUtil.showError(context, 'Please log in to proceed to checkout.');
                   context.push(AppRoutes.clientLogin);
                   return;
                 }
@@ -725,9 +883,7 @@ class _CartScreenState extends State<CartScreen> {
                 if (syncSuccess) {
                   context.push('/client/checkout-address');
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Failed to sync cart. Please try again.')),
-                  );
+                  ToastUtil.showError(context, 'Failed to sync cart. Please try again.');
                 }
               },
         style: ElevatedButton.styleFrom(
@@ -751,173 +907,6 @@ class _CartScreenState extends State<CartScreen> {
                   color: Colors.white,
                 ),
               ),
-      ),
-    );
-  }
-  void _showCouponBottomSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Apply Coupon',
-                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _couponController,
-              style: GoogleFonts.outfit(),
-              decoration: InputDecoration(
-                hintText: 'Enter coupon code',
-                hintStyle: GoogleFonts.outfit(color: Colors.grey),
-                suffixIcon: TextButton(
-                  onPressed: () async {
-                    if (_couponController.text.trim().isEmpty) return;
-                    
-                    final error = await context.read<CartProvider>().applyPromotion(
-                      _couponController.text.trim(),
-                    );
-                    
-                    if (!mounted) return;
-                    
-                    if (error != null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(error, style: GoogleFonts.outfit())),
-                      );
-                    } else {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Coupon applied successfully!', style: GoogleFonts.outfit()),
-                          backgroundColor: greenSaving,
-                        ),
-                      );
-                    }
-                  },
-                  child: Text(
-                    'Apply',
-                    style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: pinkPrimary),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            Expanded(
-              child: FutureBuilder<Map<String, dynamic>>(
-                future: PromotionService.getActivePromotions(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: pinkPrimary));
-                  }
-                  
-                  if (!snapshot.hasData || snapshot.data!['success'] == false) {
-                    return Center(
-                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
-                    );
-                  }
-                  
-                  final promotions = snapshot.data!['data'] as List;
-                  if (promotions.isEmpty) {
-                    return Center(
-                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
-                    );
-                  }
-
-                  return ListView.builder(
-                    itemCount: promotions.length,
-                    itemBuilder: (context, index) {
-                      final promo = promotions[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade200),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: pinkLight,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.percent, color: pinkPrimary, size: 20),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    promo['code'],
-                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    promo['description'] ?? 'Discount on your order',
-                                    style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () async {
-                                final error = await context.read<CartProvider>().applyPromotion(promo['code']);
-                                if (!mounted) return;
-                                
-                                if (error != null) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(error, style: GoogleFonts.outfit())),
-                                  );
-                                } else {
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Coupon applied successfully!', style: GoogleFonts.outfit()),
-                                      backgroundColor: greenSaving,
-                                    ),
-                                  );
-                                }
-                              },
-                              child: Text(
-                                'APPLY',
-                                style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

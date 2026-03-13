@@ -2,6 +2,8 @@ import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
+import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
+import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -137,6 +139,15 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 _buildHero(node),
+                if (node.banners.hasPromoBanner) ...[
+                  const SizedBox(height: 20),
+                  ServiceFlowBannerCarousel(
+                    banners: node.banners.promoBanner,
+                    height: 156,
+                    borderRadius: BorderRadius.circular(22),
+                    compact: true,
+                  ),
+                ],
                 if (breadcrumbs.length > 1) ...[
                   const SizedBox(height: 16),
                   _buildBreadcrumbs(breadcrumbs),
@@ -160,6 +171,14 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
   }
 
   Widget _buildHero(ServiceHierarchyNode node) {
+    if (node.banners.hasPageHeader) {
+      return ServiceFlowBannerCarousel(
+        banners: node.banners.pageHeader,
+        height: 180,
+        borderRadius: BorderRadius.circular(24),
+      );
+    }
+
     return Container(
       height: 180,
       decoration: BoxDecoration(
@@ -383,9 +402,10 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                         children: [
                           if (child.price != null)
                             Text(
-                              child.hasVariants && !child.isBookable
-                                  ? 'From Rs ${child.price!.toStringAsFixed(0)}'
-                                  : 'Rs ${child.price!.toStringAsFixed(0)}',
+                              formatRupees(
+                                child.price!,
+                                from: child.hasVariants && !child.isBookable,
+                              ),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.primaryColor,
@@ -477,7 +497,7 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Rs ${node.price!.toStringAsFixed(0)}',
+                      formatRupees(node.price!),
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -488,7 +508,7 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                         node.originalPrice != null &&
                         node.originalPrice! > node.price!)
                       Text(
-                        'Rs ${node.originalPrice!.toStringAsFixed(0)}',
+                        formatRupees(node.originalPrice!),
                         style: TextStyle(
                           color: Colors.grey.shade500,
                           decoration: TextDecoration.lineThrough,

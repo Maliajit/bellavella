@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 import '../services/client_api_service.dart';
 
 class ReferEarnScreen extends StatefulWidget {
@@ -58,9 +59,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
   void _copyCode() {
     if (_stats == null) return;
     Clipboard.setData(ClipboardData(text: _stats!['referral_code']));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Referral code copied to clipboard')),
-    );
+    ToastUtil.showSuccess(context, 'Referral code copied to clipboard');
   }
 
   @override

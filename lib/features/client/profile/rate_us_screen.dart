@@ -2,6 +2,7 @@ import 'package:bellavella/features/client/profile/services/client_api_service.d
 import 'package:flutter/material.dart';
 
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class RateUsScreen extends StatefulWidget {
   const RateUsScreen({super.key});
@@ -17,9 +18,7 @@ class _RateUsScreenState extends State<RateUsScreen> {
 
   Future<void> _submitRating() async {
     if (_rating == 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select a rating')));
+      ToastUtil.showError(context, 'Please select a rating');
       return;
     }
 
@@ -27,14 +26,10 @@ class _RateUsScreenState extends State<RateUsScreen> {
 
     try {
       await ClientApiService.submitAppFeedback(_rating, _feedbackController.text);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Thank you for your feedback!')),
-      );
+      ToastUtil.showSuccess(context, 'Thank you for your feedback!');
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to submit rating: $e')));
+      ToastUtil.showError(context, 'Failed to submit rating: $e');
     } finally {
       setState(() => _isSubmitting = false);
     }
