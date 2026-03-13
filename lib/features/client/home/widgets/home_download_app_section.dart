@@ -108,7 +108,10 @@ class HomeDownloadAppSection extends StatelessWidget {
                         label: 'App Store',
                         onTap: () {
                           // TODO: Implement app store link
-                          ToastUtil.showSuccess(context, 'App Store link would open here');
+                          ToastUtil.showSuccess(
+                            context,
+                            'App Store link would open here',
+                          );
                         },
                       ),
                     ),
@@ -120,7 +123,10 @@ class HomeDownloadAppSection extends StatelessWidget {
                         label: 'Play Store',
                         onTap: () {
                           // TODO: Implement play store link
-                          ToastUtil.showSuccess(context, 'Play Store link would open here');
+                          ToastUtil.showSuccess(
+                            context,
+                            'Play Store link would open here',
+                          );
                         },
                       ),
                     ),
@@ -146,10 +152,7 @@ class HomeDownloadAppSection extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.2),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.4),
-            width: 1,
-          ),
+          border: Border.all(color: Colors.white.withOpacity(0.4), width: 1),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,

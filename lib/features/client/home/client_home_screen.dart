@@ -40,7 +40,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 3),
+    );
     _confettiController.play();
     _initializeApp();
   }
@@ -73,16 +75,17 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
 
   /// Navigates based on the target_page route key returned from backend.
   void _navigateToTarget(BuildContext context, String? targetPage) {
-    if (targetPage == null || targetPage == 'none' || targetPage.isEmpty) return;
+    if (targetPage == null || targetPage == 'none' || targetPage.isEmpty)
+      return;
 
     final routes = {
-      'home':          '/home',
-      'services':      '/services',
-      'packages':      '/packages',
-      'about':         '/about',
-      'contact':       '/contact',
+      'home': '/home',
+      'services': '/services',
+      'packages': '/packages',
+      'about': '/about',
+      'contact': '/contact',
       'professionals': '/professionals',
-      'offers':        '/offers',
+      'offers': '/offers',
     };
 
     final route = routes[targetPage];
@@ -103,167 +106,198 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
             child: homeProvider.isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : homeProvider.errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              homeProvider.errorMessage!,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(color: Colors.red),
-                            ),
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () => homeProvider.fetchHomepageData(),
-                              child: const Text('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          homeProvider.errorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red),
                         ),
-                      )
-                    : SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            HomeHeader(
-                              locationAddress: homeProvider.locationAddress,
-                              locationSubAddress: homeProvider.locationSubAddress,
-                              onLocationTap: () => homeProvider.determinePosition(),
-                            ),
-                            const SizedBox(height: 20),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => homeProvider.fetchHomepageData(),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        HomeHeader(
+                          locationAddress: homeProvider.locationAddress,
+                          locationSubAddress: homeProvider.locationSubAddress,
+                          onLocationTap: () => homeProvider.determinePosition(),
+                        ),
+                        const SizedBox(height: 20),
 
-                            // Dynamic sections from backend
-                            ...homeProvider.sections.map((section) {
-                              Widget sectionWidget = const SizedBox.shrink();
+                        // Dynamic sections from backend
+                        ...homeProvider.sections.map((section) {
+                          Widget sectionWidget = const SizedBox.shrink();
 
-                              switch (section.type) {
+                          switch (section.type) {
+                            case 'hero_banner':
+                              final banners = section.items
+                                  .map<HomeBanner>(
+                                    (i) => HomeBanner.fromJson(
+                                      i as Map<String, dynamic>,
+                                    ),
+                                  )
+                                  .where((b) => b.imageUrl.isNotEmpty)
+                                  .toList();
+                              if (banners.isNotEmpty) {
+                                sectionWidget = HomeHeroBanner(
+                                  banners: banners,
+                                  onBannerTap: (banner) => _navigateToTarget(
+                                    context,
+                                    banner.targetPage,
+                                  ),
+                                );
+                              }
+                              break;
 
-                                case 'hero_banner':
-                                  final banners = section.items
-                                      .map<HomeBanner>((i) => HomeBanner.fromJson(i as Map<String, dynamic>))
-                                      .where((b) => b.imageUrl.isNotEmpty)
-                                      .toList();
-                                  if (banners.isNotEmpty) {
-                                    sectionWidget = HomeHeroBanner(
-                                      banners: banners,
-                                      onBannerTap: (banner) =>
-                                          _navigateToTarget(context, banner.targetPage),
+                            case 'category_carousel':
+                              final categories = section.items
+                                  .map<HomeCategory>(
+                                    (i) => HomeCategory.fromJson(
+                                      i as Map<String, dynamic>,
+                                    ),
+                                  )
+                                  .toList();
+                              if (categories.isNotEmpty) {
+                                sectionWidget = HomeServiceGrid(
+                                  categories: categories,
+                                  onViewAll: () {},
+                                );
+                              }
+                              break;
+
+                            case 'service_carousel':
+                            case 'service_grid':
+                              final services = section.items
+                                  .map<HomeService>(
+                                    (i) => HomeService.fromJson(
+                                      i as Map<String, dynamic>,
+                                    ),
+                                  )
+                                  .toList();
+                              if (services.isNotEmpty) {
+                                sectionWidget = HomeServiceCarousel(
+                                  title: section.title,
+                                  subtitle: section.subtitle ?? '',
+                                  services: services,
+                                  onAdd: (service) {
+                                    context.read<CartProvider>().addItem(
+                                      service,
+                                      categoryName: section.title,
                                     );
-                                  }
-                                  break;
-
-                                case 'category_carousel':
-                                  final categories = section.items
-                                      .map<HomeCategory>((i) => HomeCategory.fromJson(i as Map<String, dynamic>))
-                                      .toList();
-                                  if (categories.isNotEmpty) {
-                                    sectionWidget = HomeServiceGrid(
-                                      categories: categories,
-                                      onViewAll: () {},
+                                    // Use global toast utility for Add to Cart message
+                                    ToastUtil.showAddToCartToast(
+                                      context,
+                                      service.title,
                                     );
-                                  }
-                                  break;
+                                  },
+                                );
+                              }
+                              break;
 
-                                case 'service_carousel':
-                                case 'service_grid':
-                                  final services = section.items
-                                      .map<HomeService>((i) => HomeService.fromJson(i as Map<String, dynamic>))
-                                      .toList();
-                                  if (services.isNotEmpty) {
-                                    sectionWidget = HomeServiceCarousel(
-                                      title: section.title,
-                                      subtitle: section.subtitle ?? '',
-                                      services: services,
-                                      onAdd: (service) {
-                                        context.read<CartProvider>().addItem(
-                                          service,
-                                          categoryName: section.title,
-                                        );
-                                        // Use global toast utility for Add to Cart message
-                                        ToastUtil.showAddToCartToast(context, service.title);
-                                      },
-                                    );
-                                  }
-                                  break;
-
-                                case 'video_stories':
-                                  final stories = section.items.map((i) {
+                            case 'video_stories':
+                              final stories = section.items
+                                  .map((i) {
                                     final map = i as Map<String, dynamic>;
                                     return Story(
-                                      videoUrl:        map['url'] ?? '',
-                                      thumbnail:       map['thumbnail'] ?? '',
-                                      title:           map['title'] ?? '',
+                                      videoUrl: map['url'] ?? '',
+                                      thumbnail: map['thumbnail'] ?? '',
+                                      title: map['title'] ?? '',
                                       serviceCategory: map['subtitle'] ?? '',
                                     );
-                                  }).where((s) => s.videoUrl.isNotEmpty).toList();
-                                  if (stories.isNotEmpty) {
-                                    sectionWidget = HomeStorySection(
-                                      stories: stories,
-                                      title: section.title,
-                                      subtitle: section.subtitle ?? 'Real lives, real impact',
-                                    );
-                                  }
-                                  break;
-
-                                case 'image_banner':
-                                  if (section.items.isNotEmpty) {
-                                    final img = section.items.first as Map<String, dynamic>;
-                                    final banner = HomeBanner.fromJson(img);
-                                    if (banner.imageUrl.isNotEmpty) {
-                                      sectionWidget = HomeImageBanner(
-                                        title: banner.title.isNotEmpty ? banner.title : section.title,
-                                        subtitle: banner.subtitle ?? section.subtitle ?? '',
-                                        image: banner.imageUrl,
-                                        onTap: () => _navigateToTarget(context, banner.targetPage),
-                                      );
-                                    }
-                                  }
-                                  break;
-
-                                case 'active_booking':
-                                  sectionWidget = const ActiveBookingBanner();
-                                  break;
-
-                                case 'testimonials':
-                                  sectionWidget = HomeTestimonialsSection(
-                                    title: section.title,
-                                    subtitle: section.subtitle,
-                                    items: section.items,
-                                  );
-                                  break;
-
-                                case 'trending_packages':
-                                  sectionWidget = HomeTrendingPackagesSection(
-                                    title: section.title,
-                                    subtitle: section.subtitle,
-                                    items: section.items,
-                                  );
-                                  break;
-
-                                case 'download_app':
-                                  sectionWidget = HomeDownloadAppSection(
-                                    title: section.title,
-                                    subtitle: section.subtitle,
-                                    items: section.items,
-                                    btnText: section.btnText,
-                                    btnLink: section.btnLink,
-                                  );
-                                  break;
+                                  })
+                                  .where((s) => s.videoUrl.isNotEmpty)
+                                  .toList();
+                              if (stories.isNotEmpty) {
+                                sectionWidget = HomeStorySection(
+                                  stories: stories,
+                                  title: section.title,
+                                  subtitle:
+                                      section.subtitle ??
+                                      'Real lives, real impact',
+                                );
                               }
+                              break;
 
-                              if (sectionWidget is SizedBox && sectionWidget.height == null) {
-                                return const SizedBox.shrink();
+                            case 'image_banner':
+                              if (section.items.isNotEmpty) {
+                                final img =
+                                    section.items.first as Map<String, dynamic>;
+                                final banner = HomeBanner.fromJson(img);
+                                if (banner.imageUrl.isNotEmpty) {
+                                  sectionWidget = HomeImageBanner(
+                                    title: banner.title.isNotEmpty
+                                        ? banner.title
+                                        : section.title,
+                                    subtitle:
+                                        banner.subtitle ??
+                                        section.subtitle ??
+                                        '',
+                                    image: banner.imageUrl,
+                                    onTap: () => _navigateToTarget(
+                                      context,
+                                      banner.targetPage,
+                                    ),
+                                  );
+                                }
                               }
+                              break;
 
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 40.0),
-                                child: sectionWidget,
+                            case 'active_booking':
+                              sectionWidget = const ActiveBookingBanner();
+                              break;
+
+                            case 'testimonials':
+                              sectionWidget = HomeTestimonialsSection(
+                                title: section.title,
+                                subtitle: section.subtitle,
+                                items: section.items,
                               );
-                            }),
+                              break;
 
-                            const SizedBox(height: 80),
-                          ],
-                        ),
-                      ),
+                            case 'trending_packages':
+                              sectionWidget = HomeTrendingPackagesSection(
+                                title: section.title,
+                                subtitle: section.subtitle,
+                                items: section.items,
+                              );
+                              break;
+
+                            case 'download_app':
+                              sectionWidget = HomeDownloadAppSection(
+                                title: section.title,
+                                subtitle: section.subtitle,
+                                items: section.items,
+                                btnText: section.btnText,
+                                btnLink: section.btnLink,
+                              );
+                              break;
+                          }
+
+                          if (sectionWidget is SizedBox &&
+                              sectionWidget.height == null) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 40.0),
+                            child: sectionWidget,
+                          );
+                        }),
+
+                        const SizedBox(height: 80),
+                      ],
+                    ),
+                  ),
           ),
           Align(
             alignment: Alignment.topCenter,
@@ -300,10 +334,14 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     path.moveTo(size.width, halfWidth);
 
     for (double step = 0; step < fullAngle; step += degreesPerStep) {
-      path.lineTo(halfWidth + externalRadius * math.cos(step),
-          halfWidth + externalRadius * math.sin(step));
-      path.lineTo(halfWidth + internalRadius * math.cos(step + halfDegreesPerStep),
-          halfWidth + internalRadius * math.sin(step + halfDegreesPerStep));
+      path.lineTo(
+        halfWidth + externalRadius * math.cos(step),
+        halfWidth + externalRadius * math.sin(step),
+      );
+      path.lineTo(
+        halfWidth + internalRadius * math.cos(step + halfDegreesPerStep),
+        halfWidth + internalRadius * math.sin(step + halfDegreesPerStep),
+      );
     }
     path.close();
     return path;
