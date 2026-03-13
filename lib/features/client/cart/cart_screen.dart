@@ -191,6 +191,8 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     Text(
                       item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
@@ -206,6 +208,8 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                         child: Text(
                           item.subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
                             fontSize: 14,
                             color: Colors.grey.shade600,
@@ -238,6 +242,7 @@ class _CartScreenState extends State<CartScreen> {
     VoidCallback? onDecrement,
   }) {
     return Container(
+      height: 40,
       decoration: BoxDecoration(
         color: pinkLight,
         borderRadius: BorderRadius.circular(10),
@@ -246,11 +251,17 @@ class _CartScreenState extends State<CartScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.remove, size: 16, color: pinkPrimary),
-            onPressed: isSyncing ? null : onDecrement,
+          SizedBox(
+            width: 34,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: isSyncing ? null : onDecrement,
+                child: const Icon(Icons.remove, size: 16, color: pinkPrimary),
+              ),
+            ),
           ),
           SizedBox(
             width: 24,
@@ -271,11 +282,17 @@ class _CartScreenState extends State<CartScreen> {
                     ),
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.add, size: 16, color: pinkPrimary),
-            onPressed: isSyncing ? null : onIncrement,
+          SizedBox(
+            width: 34,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: isSyncing ? null : onIncrement,
+                child: const Icon(Icons.add, size: 16, color: pinkPrimary),
+              ),
+            ),
           ),
         ],
       ),

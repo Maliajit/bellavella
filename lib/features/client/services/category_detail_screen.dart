@@ -104,7 +104,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
     for (final rawItem in items.whereType<Map>()) {
       final item = Map<String, dynamic>.from(rawItem);
-      if (item['item_type']?.toString() != 'service') {
+      final itemType = item['item_type']?.toString();
+      if (itemType != 'service' && itemType != 'variant') {
         continue;
       }
 
@@ -1156,7 +1157,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
     return Container(
       height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
@@ -1167,11 +1167,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            onTap: isSyncing ? null : onDecrement,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(Icons.remove, size: 18, color: AppTheme.primaryColor),
+          SizedBox(
+            width: 36,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: isSyncing ? null : onDecrement,
+                child: Icon(
+                  Icons.remove,
+                  size: 18,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
             ),
           ),
           SizedBox(
@@ -1193,11 +1202,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     ),
             ),
           ),
-          InkWell(
-            onTap: isSyncing ? null : onIncrement,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+          SizedBox(
+            width: 36,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: isSyncing ? null : onIncrement,
+                child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+              ),
             ),
           ),
         ],
@@ -2074,7 +2088,6 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
     return Container(
       height: 40,
       width: fullWidth ? double.infinity : 100,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
@@ -2083,29 +2096,56 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
         color: const Color(0xFFF8F3FF),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          InkWell(
-            onTap: isSyncing ? null : () => _handleQuantityChange(item, quantity - 1),
-            child: Icon(Icons.remove, size: 18, color: AppTheme.primaryColor),
-          ),
-          isSyncing
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(
-                  '$quantity',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+          SizedBox(
+            width: 32,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: isSyncing
+                    ? null
+                    : () => _handleQuantityChange(item, quantity - 1),
+                child: Icon(
+                  Icons.remove,
+                  size: 18,
+                  color: AppTheme.primaryColor,
                 ),
-          InkWell(
-            onTap: isSyncing ? null : () => _handleQuantityChange(item, quantity + 1),
-            child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: isSyncing
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      '$quantity',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ),
+          SizedBox(
+            width: 32,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: isSyncing
+                    ? null
+                    : () => _handleQuantityChange(item, quantity + 1),
+                child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+              ),
+            ),
           ),
         ],
       ),
