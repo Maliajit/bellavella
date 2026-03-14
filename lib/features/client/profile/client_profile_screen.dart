@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../core/models/data_models.dart';
 import '../../../core/services/token_manager.dart';
@@ -64,7 +65,8 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     } catch (e) {
       if (mounted) {
         final message = e.toString();
-        if (message.toLowerCase().contains('unauthenticated')) {
+        if (message.toLowerCase().contains('unauthenticated') ||
+            message.contains(ApiService.sessionExpiredMessage)) {
           // token might be invalid/expired
           TokenManager.clearToken();
           context.go('/client/login');

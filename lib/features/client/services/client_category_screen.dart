@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:bellavella/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -78,8 +77,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
       ),
       body: Consumer<ServiceProvider>(
         builder: (context, sp, _) {
-          if (AppConfig.debugForceCategorySkeleton ||
-              (sp.isLoading && sp.categoryPageData == null)) {
+          if (sp.isLoading && sp.categoryPageData == null) {
             return const CategoryScreenSkeleton(
               categoryCount: 4,
               carouselCount: 2,

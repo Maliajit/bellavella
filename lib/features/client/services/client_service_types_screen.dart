@@ -1,4 +1,3 @@
-import 'package:bellavella/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
@@ -49,8 +48,7 @@ class _ClientServiceTypesScreenState extends State<ClientServiceTypesScreen> {
       ),
       body: Consumer<ServiceProvider>(
         builder: (context, sp, _) {
-          if (AppConfig.debugForceServiceListSkeleton ||
-              (sp.isLoadingGroups && sp.serviceGroups.isEmpty)) {
+          if (sp.isLoadingGroups && sp.serviceGroups.isEmpty) {
             return const ServiceGroupScreenSkeleton(
               itemCount: 2,
             );

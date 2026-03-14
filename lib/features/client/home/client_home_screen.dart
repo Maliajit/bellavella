@@ -1,5 +1,4 @@
 import 'dart:math' as math;
-import 'package:bellavella/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -98,7 +97,6 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   Widget build(BuildContext context) {
     final homeProvider = context.watch<HomeProvider>();
     final showInitialSkeleton =
-        AppConfig.debugForceHomeSkeleton ||
         homeProvider.isLoading && homeProvider.sections.isEmpty;
     final shouldShowLoadedContent =
         !showInitialSkeleton && homeProvider.errorMessage == null;

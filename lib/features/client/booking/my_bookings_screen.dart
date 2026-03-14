@@ -71,8 +71,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
         if (mounted) {
           setState(() {
             _errorMessage = response['message'] ?? 'Failed to load bookings';
-            if (response['message'] == 'Unauthenticated.') {
-              _errorMessage = 'Please sign in to view your bookings.';
+            if (response['message'] == 'Unauthenticated.' ||
+                response['_auth_expired'] == true) {
+              _errorMessage = ApiService.sessionExpiredMessage;
             }
             _isLoading = false;
           });

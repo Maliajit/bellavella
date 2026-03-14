@@ -1,4 +1,3 @@
-import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
@@ -6,6 +5,7 @@ import 'package:bellavella/features/client/services/controllers/service_provider
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
 import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
+import 'package:bellavella/features/client/services/widgets/service_group_detail_skeleton.dart';
 import 'package:bellavella/features/client/services/widgets/service_list_skeleton.dart';
 import 'package:bellavella/features/client/services/widgets/service_popup_skeleton.dart';
 import 'package:flutter/material.dart';
@@ -41,6 +41,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   final Map<int, int> _serviceCartIds = {};
   final Set<int> _syncingServiceIds = {};
   String? _preloadedGroupKey;
+  bool _hasAttemptedInitialHierarchyFetch = false;
 
   bool get _isHierarchyGroupMode =>
       widget.hierarchySeedNode?.level == 'service_group' ||
@@ -59,14 +60,24 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       await _loadCartState();
 
       if (_isHierarchyGroupMode) {
-        await sp.fetchHierarchyNode(
-          nodeKey: _hierarchyLookupKey,
-          level: 'service_group',
-          seedNode: widget.hierarchySeedNode,
-        );
-        final node = sp.hierarchyNode(_hierarchyLookupKey);
-        if (node != null && node.level == 'service' && node.serviceId != null) {
-          sp.fetchServiceReviews(node.serviceId!);
+        try {
+          await sp.fetchHierarchyNode(
+            nodeKey: _hierarchyLookupKey,
+            level: 'service_group',
+            seedNode: widget.hierarchySeedNode,
+          );
+          final node = sp.hierarchyNode(_hierarchyLookupKey);
+          if (node != null &&
+              node.level == 'service' &&
+              node.serviceId != null) {
+            sp.fetchServiceReviews(node.serviceId!);
+          }
+        } finally {
+          if (mounted) {
+            setState(() {
+              _hasAttemptedInitialHierarchyFetch = true;
+            });
+          }
         }
         return;
       }
@@ -308,8 +319,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Widget _buildLegacyCategoryMode(BuildContext context, ServiceProvider sp) {
-    if (AppConfig.debugForceServiceListSkeleton ||
-        (sp.isLoadingDetail && sp.categoryDetail == null)) {
+    if (sp.isLoadingDetail && sp.categoryDetail == null) {
       return const Scaffold(
         backgroundColor: Color(0xFFFAFAFA),
         body: SafeArea(
@@ -422,17 +432,22 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Widget _buildHierarchyGroupMode(BuildContext context, ServiceProvider sp) {
-    final node =
-        sp.hierarchyNode(_hierarchyLookupKey) ?? widget.hierarchySeedNode;
+    final resolvedNode = sp.hierarchyNode(_hierarchyLookupKey);
+    final node = resolvedNode ?? widget.hierarchySeedNode;
     final isLoading = sp.isHierarchyLoading(_hierarchyLookupKey);
     final error = sp.hierarchyError(_hierarchyLookupKey);
+    final serviceTypeCount = _normalizedServiceTypeCount(node);
+    final hasOnlySeedNode = resolvedNode != null &&
+        widget.hierarchySeedNode != null &&
+        identical(resolvedNode, widget.hierarchySeedNode);
+    final hasResolvedNode = resolvedNode != null && !hasOnlySeedNode;
+    final showInitialSkeleton =
+        !hasResolvedNode &&
+        (!_hasAttemptedInitialHierarchyFetch || isLoading);
 
-    if (AppConfig.debugForceServiceListSkeleton || (node == null && isLoading)) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFAFAFA),
-        body: SafeArea(
-          child: ServiceListSkeleton(itemCount: 4),
-        ),
+    if (showInitialSkeleton) {
+      return ServiceGroupDetailSkeleton(
+        serviceTypeCount: serviceTypeCount,
       );
     }
 
@@ -441,6 +456,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         backgroundColor: const Color(0xFFFAFAFA),
         appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
         body: Center(child: Text(error ?? 'Unable to load services.')),
+      );
+    }
+
+    if (!hasResolvedNode && error != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFAFAFA),
+        appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
+        body: Center(child: Text(error)),
       );
     }
 
@@ -615,6 +638,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         ],
       ),
     );
+  }
+
+  int _normalizedServiceTypeCount(ServiceHierarchyNode? node) {
+    final rawCount = node?.children
+            .where((child) => child.level == 'service_type')
+            .length ??
+        widget.hierarchySeedNode?.children
+            .where((child) => child.level == 'service_type')
+            .length ??
+        5;
+    if (rawCount < 1) {
+      return 5;
+    }
+    return rawCount;
   }
 
   Widget _buildLegacyGroupGrid(List<ServiceGroup> groups) {
@@ -1502,9 +1539,8 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
         final resolvedNode =
             provider.hierarchyNode(widget.nodeKey) ?? widget.initialNode;
         final isInitialLoading =
-            AppConfig.debugForceServicePopupSkeleton ||
-            (provider.isHierarchyLoading(widget.nodeKey) &&
-                provider.hierarchyNode(widget.nodeKey) == null);
+            provider.isHierarchyLoading(widget.nodeKey) &&
+                provider.hierarchyNode(widget.nodeKey) == null;
 
         if (isInitialLoading) {
           return ServicePopupSkeleton(

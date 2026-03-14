@@ -1,4 +1,3 @@
-import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
@@ -6,6 +5,7 @@ import 'package:bellavella/features/client/services/controllers/service_provider
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
 import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
+import 'package:bellavella/features/client/services/widgets/service_group_screen_skeleton.dart';
 import 'package:bellavella/features/client/services/widgets/service_list_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -47,12 +47,19 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
         final node = provider.hierarchyNode(widget.nodeKey) ?? widget.seedNode;
         final isLoading = provider.isHierarchyLoading(widget.nodeKey);
         final error = provider.hierarchyError(widget.nodeKey);
+        final currentLevel = (node?.level ?? widget.seedNode?.level ?? '')
+            .trim()
+            .toLowerCase();
+        final showServiceGroupSkeleton = currentLevel == 'category';
 
         // If we have an error and no real children yet, show error explicitly
         final hasRealData =
             provider.hierarchyNode(widget.nodeKey) != null &&
             (provider.hierarchyNode(widget.nodeKey)?.children.isNotEmpty ??
                 false);
+        final showFullSkeleton =
+            (showServiceGroupSkeleton && isLoading && !hasRealData) ||
+            (node == null && isLoading);
 
         if (error != null && !hasRealData && !isLoading) {
           return Scaffold(
@@ -97,12 +104,13 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
           );
         }
 
-        if (AppConfig.debugForceServiceListSkeleton ||
-            (node == null && isLoading)) {
-          return const Scaffold(
+        if (showFullSkeleton) {
+          return Scaffold(
             backgroundColor: Color(0xFFFAFAFA),
             body: SafeArea(
-              child: ServiceListSkeleton(itemCount: 3),
+              child: showServiceGroupSkeleton
+                  ? const ServiceGroupScreenSkeleton(itemCount: 2)
+                  : const ServiceListSkeleton(itemCount: 3),
             ),
           );
         }
@@ -160,12 +168,13 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                   _buildBreadcrumbs(breadcrumbs),
                 ],
                 const SizedBox(height: 24),
-                if (AppConfig.debugForceServiceListSkeleton ||
-                    (isLoading && node.children.isEmpty))
-                  const ServiceListSkeleton(
-                    showOfferCard: false,
-                    itemCount: 3,
-                  )
+                if (isLoading && node.children.isEmpty)
+                  showServiceGroupSkeleton
+                      ? const ServiceGroupScreenSkeleton(itemCount: 2)
+                      : const ServiceListSkeleton(
+                          showOfferCard: false,
+                          itemCount: 3,
+                        )
                 else if (node.hasChildren || node.children.isNotEmpty)
                   ..._buildChildren(context, node, breadcrumbs)
                 else

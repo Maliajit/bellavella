@@ -101,25 +101,26 @@ class _VariantCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SizedBox(
       width: 224,
+      height: 356,
       child: SkeletonBox(
         borderRadius: BorderRadius.all(Radius.circular(18)),
-        padding: EdgeInsets.fromLTRB(12, 12, 12, 14),
+        padding: EdgeInsets.fromLTRB(12, 12, 12, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SkeletonBox(
-              height: 210,
+              height: 192,
               borderRadius: BorderRadius.all(Radius.circular(14)),
             ),
-            SizedBox(height: 14),
+            SizedBox(height: 12),
             SkeletonBox(height: 18, width: 124),
-            SizedBox(height: 10),
+            SizedBox(height: 8),
             SkeletonBox(height: 13, width: 92),
-            SizedBox(height: 10),
+            SizedBox(height: 8),
             SkeletonBox(height: 18, width: 64),
-            SizedBox(height: 14),
+            SizedBox(height: 12),
             SkeletonBox(
-              height: 40,
+              height: 36,
               width: double.infinity,
               borderRadius: BorderRadius.all(Radius.circular(12)),
             ),
