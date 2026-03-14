@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/core/services/auth_flow_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/services/token_manager.dart';
 import 'services/auth_api_service.dart';
@@ -83,8 +86,13 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
           );
         }
         if (!mounted) return;
-        // Success - Navigate to location picker (clearing auth stack)
-        context.go('/client/location-picker');
+        await context.read<CartProvider>().fetchCart();
+        if (!mounted) return;
+        if (TokenManager.hasLocation) {
+          await AuthFlowService.continueAfterClientAuth(context);
+        } else {
+          context.go('/client/location-picker');
+        }
       } else {
         setState(() {
           _errorText =

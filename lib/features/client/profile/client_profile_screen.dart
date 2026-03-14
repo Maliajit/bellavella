@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 import '../../../core/models/data_models.dart';
 import '../../../core/services/token_manager.dart';
 import 'services/client_api_service.dart';
@@ -28,10 +29,30 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     _fetchProfile();
   }
 
+  Future<void> _logout() async {
+    try {
+      if (TokenManager.hasToken) {
+        await ApiService.post('/client/auth/logout', {});
+      }
+    } catch (_) {
+      // Ignore backend logout failures; local logout must still complete.
+    } finally {
+      await TokenManager.clearToken();
+      if (!mounted) {
+        return;
+      }
+      context.go('/client/home');
+      ToastUtil.showSuccess(context, 'You have been logged out successfully');
+    }
+  }
+
   Future<void> _fetchProfile() async {
     if (!TokenManager.hasToken) {
       if (mounted) {
         setState(() {
+          _customer = null;
+          _walletBalance = 0;
+          _addressCount = 0;
           _isLoggedIn = false;
           _isLoading = false;
         });
@@ -289,7 +310,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                   icon: Icons.logout_rounded,
                   title: 'Logout',
                   color: Colors.red.shade400,
-                  onTap: () => context.go('/client/login'),
+                  onTap: _logout,
                 ),
               ],
             ),

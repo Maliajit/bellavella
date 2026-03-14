@@ -1,6 +1,9 @@
 import 'package:bellavella/core/services/api_service.dart';
+import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
+import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
+import 'package:bellavella/features/client/cart/models/cart_model.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
@@ -106,38 +109,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Future<void> _loadCartState() async {
-    final response = await ApiService.get('/client/cart');
-    if (!mounted ||
-        response['success'] != true ||
-        response['data'] is! Map<String, dynamic>) {
+    final cartProvider = context.read<CartProvider>();
+    await cartProvider.fetchCart();
+    if (!mounted) {
       return;
     }
 
-    final items = (response['data']['items'] as List? ?? const []);
     final nextQuantities = <int, int>{};
     final nextCartIds = <int, int>{};
 
-    for (final rawItem in items.whereType<Map>()) {
-      final item = Map<String, dynamic>.from(rawItem);
-      final itemType = item['item_type']?.toString();
-      if (itemType != 'service' && itemType != 'variant') {
-        continue;
+    for (final item in cartProvider.items) {
+      nextQuantities[item.quantityKey] = item.quantity;
+      if (item.cartId > 0) {
+        nextCartIds[item.quantityKey] = item.cartId;
       }
-
-      final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
-      final serviceVariantId = int.tryParse(
-        item['service_variant_id']?.toString() ?? '',
-      );
-      final cartId = int.tryParse(item['id']?.toString() ?? '');
-      final quantity = int.tryParse(item['quantity']?.toString() ?? '');
-      final quantityKey = serviceVariantId ?? serviceId;
-
-      if (quantityKey == null || cartId == null || quantity == null) {
-        continue;
-      }
-
-      nextQuantities[quantityKey] = quantity;
-      nextCartIds[quantityKey] = cartId;
     }
 
     setState(() {
@@ -177,6 +162,49 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     setState(() => _syncingServiceIds.add(service.id));
 
     try {
+      if (!TokenManager.hasToken) {
+        final currentQuantity = _serviceQuantities[service.id] ?? 0;
+        if (currentQuantity == nextQuantity) {
+          return;
+        }
+
+        final cartItem = CartItem(
+          cartId: 0,
+          id: service.id,
+          serviceId: service.parentServiceId ?? service.id,
+          serviceVariantId: service.serviceVariantId,
+          itemType: service.serviceVariantId != null ? 'variant' : 'service',
+          title: service.name,
+          subtitle: service.description,
+          price: service.price,
+          imageUrl: service.image ?? '',
+          categoryName: widget.categoryName,
+          quantity: nextQuantity <= 0 ? 1 : nextQuantity,
+        );
+
+        await context.read<CartProvider>().addOrUpdateLocalOrRemoteItem(
+          cartItem,
+          nextQuantityDelta: nextQuantity - currentQuantity,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          if (nextQuantity <= 0) {
+            _serviceQuantities.remove(service.id);
+          } else {
+            _serviceQuantities[service.id] = nextQuantity;
+          }
+        });
+
+        if (nextQuantity > currentQuantity) {
+          ToastUtil.showAddToCartToast(context, service.name);
+        }
+        return;
+      }
+
       Map<String, dynamic> response;
 
       if (nextQuantity <= 0) {
@@ -270,6 +298,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       }
     }
   }
+
 
   Future<void> _openVariantSelector(DetailedService service) async {
     final provider = context.read<ServiceProvider>();

@@ -442,6 +442,34 @@ class DetailedService {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'slug': slug,
+      'image': image,
+      'description': description,
+      'short_description': description,
+      'price': price,
+      'display_price': price,
+      'sale_price': salePrice,
+      'original_price': originalPrice,
+      'bookings': bookings,
+      'rating_avg': ratingAvg,
+      'review_count': reviewCount,
+      'has_variants': hasVariants,
+      'is_bookable': isBookable,
+      'bookable_type': bookableType,
+      'duration_minutes': durationMinutes,
+      'service_type_id': serviceTypeId,
+      'service_id': parentServiceId,
+      'service_variant_id': serviceVariantId,
+      'level': level,
+      'next_level': nextLevel,
+      'has_children': hasChildren,
+    };
+  }
+
   ServiceHierarchyNode toHierarchyNode() {
     return ServiceHierarchyNode(
       id: id.toString(),

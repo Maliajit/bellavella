@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/utils/permission_handler_util.dart';
@@ -24,6 +25,7 @@ import 'widgets/home_testimonials_section.dart';
 import 'widgets/home_trending_packages_section.dart';
 import 'widgets/home_download_app_section.dart';
 import 'widgets/home_screen_skeleton.dart';
+import '../services/models/service_models.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -91,6 +93,51 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     if (route != null) {
       Navigator.of(context).pushNamed(route);
     }
+  }
+
+  void _openServiceGroupPage(BuildContext context, HomeCategory category) {
+    final seedNode = ServiceHierarchyNode(
+      id: category.id.toString(),
+      name: category.name,
+      slug: category.slug,
+      level: 'category',
+      nextLevel: 'service_group',
+      hasChildren: true,
+      children: const [],
+      image: category.imageUrl.isEmpty ? null : category.imageUrl,
+    );
+
+    context.pushNamed(
+      AppRoutes.clientServiceHierarchyName,
+      pathParameters: {'nodeKey': seedNode.routeKey},
+      extra: {
+        'seedNode': seedNode.toRouteData(),
+        'breadcrumbs': <Map<String, dynamic>>[],
+      },
+    );
+  }
+
+  void _handleHomeServiceAdd(
+    BuildContext context,
+    HomeService service,
+    String sectionTitle,
+  ) async {
+    await context.read<CartProvider>().addItem(
+      service,
+      categoryName: sectionTitle,
+    );
+    ToastUtil.showAddToCartToast(context, service.title);
+  }
+
+  void _openCategoryPage(BuildContext context, HomeCategory category) {
+    if (category.slug.isEmpty) {
+      return;
+    }
+
+    context.pushNamed(
+      AppRoutes.clientCategoryName,
+      pathParameters: {'slug': category.slug},
+    );
   }
 
   @override
@@ -203,7 +250,16 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                               if (categories.isNotEmpty) {
                                 sectionWidget = HomeServiceGrid(
                                   categories: categories,
-                                  onViewAll: () {},
+                                  onViewAll: () =>
+                                      _openCategoryPage(
+                                        context,
+                                        categories.first,
+                                      ),
+                                  onCategoryTap: (category) =>
+                                      _openServiceGroupPage(
+                                        context,
+                                        category,
+                                      ),
                                 );
                               }
                               break;
@@ -223,14 +279,10 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                   subtitle: section.subtitle ?? '',
                                   services: services,
                                   onAdd: (service) {
-                                    context.read<CartProvider>().addItem(
-                                      service,
-                                      categoryName: section.title,
-                                    );
-                                    // Use global toast utility for Add to Cart message
-                                    ToastUtil.showAddToCartToast(
+                                    _handleHomeServiceAdd(
                                       context,
-                                      service.title,
+                                      service,
+                                      section.title,
                                     );
                                   },
                                 );

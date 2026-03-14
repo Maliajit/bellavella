@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
+import 'package:bellavella/core/services/token_manager.dart';
 import '../models/cart_model.dart';
+import '../services/guest_cart_storage.dart';
 import '../../home/models/home_models.dart';
 
 class CartProvider extends ChangeNotifier {
   final Map<int, CartItem> _items = {};
   final Set<int> _syncingItemIds = {};
+  final GuestCartStorage _guestCartStorage = GuestCartStorage();
   double _discount = 0.0;
   double _tip = 0.0;
   Map<String, dynamic>? _appliedPromotion;
   bool _isLoading = false;
   String? _error;
+  bool _isInitialized = false;
+
+  CartProvider() {
+    _initialize();
+  }
 
   List<CartItem> get items => _items.values.toList();
   int get itemCount => _items.length;
@@ -21,6 +29,7 @@ class CartProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool isItemSyncing(int itemId) => _syncingItemIds.contains(itemId);
+  bool get isGuestCart => !TokenManager.hasToken;
 
   double get subtotal {
     var total = 0.0;
@@ -43,12 +52,94 @@ class CartProvider extends ChangeNotifier {
     return val.isNaN ? 0.0 : val;
   }
 
+  Future<void> _initialize() async {
+    await _loadGuestCartIntoMemory();
+    _isInitialized = true;
+    notifyListeners();
+  }
+
+  Future<void> _ensureInitialized() async {
+    if (_isInitialized) {
+      return;
+    }
+    await _initialize();
+  }
+
+  Future<void> _loadGuestCartIntoMemory() async {
+    final localItems = await _guestCartStorage.loadItems();
+    _items
+      ..clear()
+      ..addEntries(localItems.map((item) => MapEntry(item.quantityKey, item)));
+  }
+
+  Future<void> _persistGuestCart() async {
+    await _guestCartStorage.saveItems(_items.values.toList());
+  }
+
+  CartItem? _cartItemFromBackend(Map<String, dynamic> item) {
+    final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
+    final variantId = int.tryParse(item['service_variant_id']?.toString() ?? '');
+    final itemId = int.tryParse(item['item_id']?.toString() ?? '');
+    final quantityKey = variantId ?? serviceId ?? itemId;
+    final cartId = int.tryParse(item['id']?.toString() ?? '');
+    if (quantityKey == null || cartId == null) {
+      return null;
+    }
+
+    final title =
+        item['variant_name']?.toString().isNotEmpty == true
+            ? item['variant_name'].toString()
+            : (item['display_name']?.toString() ??
+                item['name']?.toString() ??
+                'Unknown');
+    final subtitle =
+        item['variant_name']?.toString().isNotEmpty == true
+            ? item['service_name']?.toString()
+            : null;
+
+    return CartItem(
+      cartId: cartId,
+      id: quantityKey,
+      serviceId: serviceId,
+      serviceVariantId: variantId,
+      itemType: item['item_type']?.toString() ?? 'service',
+      title: title,
+      subtitle: subtitle,
+      price: double.tryParse(item['unit_price']?.toString() ?? '') ?? 0,
+      imageUrl: item['image']?.toString() ?? '',
+      categoryName: 'Services',
+      quantity: int.tryParse(item['quantity']?.toString() ?? '1') ?? 1,
+    );
+  }
+
+  Map<String, dynamic> _buildCreatePayload(CartItem item, {int? quantity}) {
+    final payload = <String, dynamic>{
+      'item_type': item.serviceVariantId != null ? 'variant' : item.itemType,
+      'item_id': item.serviceVariantId ?? item.serviceId ?? item.id,
+      'service_id': item.serviceId ?? item.id,
+      'quantity': quantity ?? item.quantity,
+    };
+    if (item.serviceVariantId != null) {
+      payload['service_variant_id'] = item.serviceVariantId;
+      payload['bookable_type'] = 'variant';
+    }
+    return payload;
+  }
+
   Future<void> fetchCart() async {
+    await _ensureInitialized();
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
+      if (!TokenManager.hasToken) {
+        await _loadGuestCartIntoMemory();
+        return;
+      }
+
+      await syncGuestCartToBackend();
+
       final response = await ApiService.get('/client/cart');
       if (response['success'] == true && response['data'] is Map<String, dynamic>) {
         final data = Map<String, dynamic>.from(response['data']);
@@ -57,37 +148,9 @@ class CartProvider extends ChangeNotifier {
 
         for (final raw in rawItems.whereType<Map>()) {
           final item = Map<String, dynamic>.from(raw);
-          final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
-          final variantId = int.tryParse(item['service_variant_id']?.toString() ?? '');
-          final itemId = int.tryParse(item['item_id']?.toString() ?? '');
-          final quantityKey = variantId ?? serviceId ?? itemId;
-          final cartId = int.tryParse(item['id']?.toString() ?? '');
-          if (quantityKey == null || cartId == null) {
-            continue;
-          }
-
-          final title =
-              item['variant_name']?.toString().isNotEmpty == true
-                  ? item['variant_name'].toString()
-                  : (item['display_name']?.toString() ?? item['name']?.toString() ?? 'Unknown');
-          final subtitle =
-              item['variant_name']?.toString().isNotEmpty == true
-                  ? item['service_name']?.toString()
-                  : null;
-
-          nextItems[quantityKey] = CartItem(
-            cartId: cartId,
-            id: quantityKey,
-            serviceId: serviceId,
-            serviceVariantId: variantId,
-            itemType: item['item_type']?.toString() ?? 'service',
-            title: title,
-            subtitle: subtitle,
-            price: double.tryParse(item['unit_price']?.toString() ?? '') ?? 0,
-            imageUrl: item['image']?.toString() ?? '',
-            categoryName: 'Services',
-            quantity: int.tryParse(item['quantity']?.toString() ?? '1') ?? 1,
-          );
+          final cartItem = _cartItemFromBackend(item);
+          if (cartItem == null) continue;
+          nextItems[cartItem.quantityKey] = cartItem;
         }
 
         _items
@@ -109,60 +172,117 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addItem(HomeService service, {String? categoryName}) {
-    if (_items.containsKey(service.id)) {
-      _items.update(
-        service.id,
-        (existingCartItem) => CartItem(
-          cartId: existingCartItem.cartId,
-          id: existingCartItem.id,
-          serviceId: existingCartItem.serviceId,
-          serviceVariantId: existingCartItem.serviceVariantId,
-          itemType: existingCartItem.itemType,
-          title: existingCartItem.title,
-          subtitle: existingCartItem.subtitle,
-          price: existingCartItem.price,
-          imageUrl: existingCartItem.imageUrl,
-          categoryName: existingCartItem.categoryName,
-          quantity: existingCartItem.quantity + 1,
-        ),
-      );
-    } else {
-      _items.putIfAbsent(
-        service.id,
-        () => CartItem(
+  Future<void> addItem(HomeService service, {String? categoryName}) async {
+    final item = CartItem(
+      cartId: 0,
+      id: service.id,
+      serviceId: service.id,
+      itemType: 'service',
+      title: service.title,
+      subtitle: service.subtitle,
+      price: service.price,
+      imageUrl: service.imageUrl,
+      categoryName: categoryName ?? 'Service',
+      quantity: 1,
+    );
+    await addOrUpdateLocalOrRemoteItem(item, nextQuantityDelta: 1);
+  }
+
+  Future<void> addOrUpdateLocalOrRemoteItem(
+    CartItem item, {
+    int nextQuantityDelta = 1,
+  }) async {
+    await _ensureInitialized();
+
+    final itemKey = item.quantityKey;
+    final existingItem = _items[itemKey];
+    final nextQuantity = (existingItem?.quantity ?? 0) + nextQuantityDelta;
+
+    if (!TokenManager.hasToken) {
+      if (nextQuantity <= 0) {
+        _items.remove(itemKey);
+      } else {
+        _items[itemKey] = (existingItem ?? item).copyWith(
+          quantity: nextQuantity,
           cartId: 0,
-          id: service.id,
-          title: service.title,
-          subtitle: service.subtitle,
-          price: service.price,
-          imageUrl: service.imageUrl,
-          categoryName: categoryName ?? 'Service',
-        ),
-      );
+        );
+      }
+      await _persistGuestCart();
+      notifyListeners();
+      return;
     }
+
+    _syncingItemIds.add(itemKey);
     notifyListeners();
+    try {
+      if (existingItem != null && existingItem.cartId > 0) {
+        if (nextQuantity <= 0) {
+          final response = await ApiService.delete(
+            '/client/cart/${existingItem.cartId}',
+          );
+          if (response['success'] == true) {
+            _items.remove(itemKey);
+          }
+        } else {
+          final response = await ApiService.put(
+            '/client/cart/${existingItem.cartId}',
+            {'quantity': nextQuantity},
+          );
+          if (response['success'] == true) {
+            _items[itemKey] = existingItem.copyWith(quantity: nextQuantity);
+          }
+        }
+      } else if (nextQuantity > 0) {
+        final response = await ApiService.post(
+          '/client/cart',
+          _buildCreatePayload(item, quantity: nextQuantity),
+        );
+        if (response['success'] == true && response['data'] is Map<String, dynamic>) {
+          final data = Map<String, dynamic>.from(response['data']);
+          final createdItem = CartItem(
+            cartId: int.tryParse(data['id']?.toString() ?? '') ?? 0,
+            id: item.id,
+            serviceId: item.serviceId,
+            serviceVariantId: item.serviceVariantId,
+            itemType: item.itemType,
+            title: item.title,
+            subtitle: item.subtitle,
+            price: item.price,
+            imageUrl: item.imageUrl,
+            categoryName: item.categoryName,
+            quantity: int.tryParse(data['quantity']?.toString() ?? '') ??
+                nextQuantity,
+          );
+          _items[itemKey] = createdItem;
+        }
+      }
+    } finally {
+      _syncingItemIds.remove(itemKey);
+      notifyListeners();
+    }
   }
 
-  void removeItem(int serviceId) {
-    _items.remove(serviceId);
-    notifyListeners();
+  Future<void> removeItem(int serviceId) async {
+    await _updateQuantity(serviceId, 0);
   }
 
-  void incrementQuantity(int serviceId) {
-    _updateQuantity(serviceId, (_items[serviceId]?.quantity ?? 0) + 1);
+  Future<void> incrementQuantity(int serviceId) async {
+    await _updateQuantity(serviceId, (_items[serviceId]?.quantity ?? 0) + 1);
   }
 
-  void decrementQuantity(int serviceId) {
+  Future<void> decrementQuantity(int serviceId) async {
     final item = _items[serviceId];
     if (item == null) return;
-    _updateQuantity(serviceId, item.quantity - 1);
+    await _updateQuantity(serviceId, item.quantity - 1);
   }
 
-  void clear() {
+  Future<void> clear() async {
     _items.clear();
     _discount = 0.0;
     _appliedPromotion = null;
+    if (!TokenManager.hasToken) {
+      await _guestCartStorage.clear();
+    }
     notifyListeners();
   }
 
@@ -191,13 +311,75 @@ class CartProvider extends ChangeNotifier {
   }
 
   Future<bool> syncCartWithBackend() async {
+    await _ensureInitialized();
+    if (!TokenManager.hasToken) {
+      await _persistGuestCart();
+      return true;
+    }
+
+    await syncGuestCartToBackend();
     await fetchCart();
     return error == null;
   }
 
+  Future<bool> syncGuestCartToBackend() async {
+    await _ensureInitialized();
+    if (!TokenManager.hasToken) {
+      return false;
+    }
+
+    final guestItems = await _guestCartStorage.loadItems();
+    if (guestItems.isEmpty) {
+      return true;
+    }
+
+    final response = await ApiService.get('/client/cart');
+    if (response['success'] != true || response['data'] is! Map<String, dynamic>) {
+      return false;
+    }
+
+    final data = Map<String, dynamic>.from(response['data']);
+    final rawItems = (data['items'] as List? ?? const []);
+    final remoteItems = <int, CartItem>{};
+    for (final raw in rawItems.whereType<Map>()) {
+      final item = _cartItemFromBackend(Map<String, dynamic>.from(raw));
+      if (item == null) continue;
+      remoteItems[item.quantityKey] = item;
+    }
+
+    for (final guestItem in guestItems) {
+      final remoteItem = remoteItems[guestItem.quantityKey];
+      if (remoteItem != null && remoteItem.cartId > 0) {
+        await ApiService.put('/client/cart/${remoteItem.cartId}', {
+          'quantity': remoteItem.quantity + guestItem.quantity,
+        });
+      } else {
+        await ApiService.post(
+          '/client/cart',
+          _buildCreatePayload(guestItem),
+        );
+      }
+    }
+
+    await _guestCartStorage.clear();
+    return true;
+  }
+
   Future<void> _updateQuantity(int itemId, int nextQuantity) async {
+    await _ensureInitialized();
     final item = _items[itemId];
     if (item == null || _syncingItemIds.contains(itemId)) {
+      return;
+    }
+
+    if (!TokenManager.hasToken) {
+      if (nextQuantity <= 0) {
+        _items.remove(itemId);
+      } else {
+        _items[itemId] = item.copyWith(quantity: nextQuantity, cartId: 0);
+      }
+      await _persistGuestCart();
+      notifyListeners();
       return;
     }
 
