@@ -1,10 +1,13 @@
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/widgets/app_network_image.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bellavella/features/client/services/widgets/service_group_screen_skeleton.dart';
 
 class ClientServiceTypesScreen extends StatefulWidget {
   final String category; // This is the slug
@@ -46,8 +49,11 @@ class _ClientServiceTypesScreenState extends State<ClientServiceTypesScreen> {
       ),
       body: Consumer<ServiceProvider>(
         builder: (context, sp, _) {
-          if (sp.isLoadingGroups) {
-            return const Center(child: CircularProgressIndicator());
+          if (AppConfig.debugForceServiceListSkeleton ||
+              (sp.isLoadingGroups && sp.serviceGroups.isEmpty)) {
+            return const ServiceGroupScreenSkeleton(
+              itemCount: 2,
+            );
           }
 
           if (sp.error != null) {
@@ -164,17 +170,11 @@ class _ClientServiceTypesScreenState extends State<ClientServiceTypesScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(15),
-              child: Image.network(
-                imageUrl,
+              child: AppNetworkImage(
+                url: imageUrl,
                 height: 80,
                 width: 80,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  height: 80,
-                  width: 80,
-                  color: Colors.grey.shade200,
-                  child: const Icon(Icons.image_not_supported),
-                ),
               ),
             ),
             const SizedBox(width: 20),

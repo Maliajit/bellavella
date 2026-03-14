@@ -1,9 +1,12 @@
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/widgets/app_network_image.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
 import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
+import 'package:bellavella/features/client/services/widgets/service_list_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -94,9 +97,13 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
           );
         }
 
-        if (node == null && isLoading) {
+        if (AppConfig.debugForceServiceListSkeleton ||
+            (node == null && isLoading)) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            backgroundColor: Color(0xFFFAFAFA),
+            body: SafeArea(
+              child: ServiceListSkeleton(itemCount: 3),
+            ),
           );
         }
 
@@ -153,10 +160,11 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                   _buildBreadcrumbs(breadcrumbs),
                 ],
                 const SizedBox(height: 24),
-                if (isLoading && node.children.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(child: CircularProgressIndicator()),
+                if (AppConfig.debugForceServiceListSkeleton ||
+                    (isLoading && node.children.isEmpty))
+                  const ServiceListSkeleton(
+                    showOfferCard: false,
+                    itemCount: 3,
                   )
                 else if (node.hasChildren || node.children.isNotEmpty)
                   ..._buildChildren(context, node, breadcrumbs)
@@ -183,12 +191,6 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
       height: 180,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        image: node.image != null
-            ? DecorationImage(
-                image: NetworkImage(node.image!),
-                fit: BoxFit.cover,
-              )
-            : null,
         gradient: node.image == null
             ? const LinearGradient(
                 colors: [Color(0xFFFFD6DE), Color(0xFFFFEEF2)],
@@ -197,55 +199,68 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
               )
             : null,
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [
-              Colors.black.withValues(alpha: node.image != null ? 0.65 : 0.05),
-              Colors.transparent,
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.all(20),
-        alignment: Alignment.bottomLeft,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              _displayLevel(node.level),
-              style: TextStyle(
-                color: node.image != null
-                    ? Colors.white70
-                    : AppTheme.primaryColor,
-                fontWeight: FontWeight.w600,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (node.image != null && node.image!.isNotEmpty)
+            AppNetworkImage(
+              url: node.image,
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(24),
+            ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(
+                    alpha: node.image != null ? 0.65 : 0.05,
+                  ),
+                  Colors.transparent,
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              node.name,
-              style: TextStyle(
-                color: node.image != null ? Colors.white : Colors.black,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            if (node.description != null && node.description!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                node.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: node.image != null ? Colors.white70 : Colors.black54,
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.bottomLeft,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _displayLevel(node.level),
+                  style: TextStyle(
+                    color: node.image != null
+                        ? Colors.white70
+                        : AppTheme.primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
-          ],
-        ),
+                const SizedBox(height: 6),
+                Text(
+                  node.name,
+                  style: TextStyle(
+                    color: node.image != null ? Colors.white : Colors.black,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (node.description != null && node.description!.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    node.description!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: node.image != null ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -463,12 +478,11 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: Image.network(
-        node.image!,
+      child: AppNetworkImage(
+        url: node.image,
         height: 72,
         width: 72,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => placeholder,
       ),
     );
   }

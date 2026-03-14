@@ -1,9 +1,13 @@
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/widgets/app_network_image.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
 import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
+import 'package:bellavella/features/client/services/widgets/service_list_skeleton.dart';
+import 'package:bellavella/features/client/services/widgets/service_popup_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -258,7 +262,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   Future<void> _openVariantSelector(DetailedService service) async {
     final provider = context.read<ServiceProvider>();
-    await provider.fetchHierarchyNode(
+    provider.fetchHierarchyNode(
       nodeKey: service.slug,
       level: 'service',
       seedNode: service.toHierarchyNode(),
@@ -269,19 +273,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       return;
     }
 
-    final node = provider.hierarchyNode(service.slug);
-    if (node == null) {
-      _showSnack('Unable to load options.');
-      return;
-    }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _VariantOptionsSheet(
         service: service,
-        node: node,
+        nodeKey: service.slug,
+        initialNode: provider.hierarchyNode(service.slug) ?? service.toHierarchyNode(),
         onQuantityChange: _changeServiceQuantity,
         currentQuantities: _serviceQuantities,
         syncingStates: {
@@ -309,10 +308,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Widget _buildLegacyCategoryMode(BuildContext context, ServiceProvider sp) {
-    if (sp.isLoadingDetail) {
+    if (AppConfig.debugForceServiceListSkeleton ||
+        (sp.isLoadingDetail && sp.categoryDetail == null)) {
       return const Scaffold(
         backgroundColor: Color(0xFFFAFAFA),
-        body: Center(child: CircularProgressIndicator()),
+        body: SafeArea(
+          child: ServiceListSkeleton(itemCount: 4),
+        ),
       );
     }
 
@@ -425,10 +427,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     final isLoading = sp.isHierarchyLoading(_hierarchyLookupKey);
     final error = sp.hierarchyError(_hierarchyLookupKey);
 
-    if (node == null && isLoading) {
+    if (AppConfig.debugForceServiceListSkeleton || (node == null && isLoading)) {
       return const Scaffold(
         backgroundColor: Color(0xFFFAFAFA),
-        body: Center(child: CircularProgressIndicator()),
+        body: SafeArea(
+          child: ServiceListSkeleton(itemCount: 4),
+        ),
       );
     }
 
@@ -560,49 +564,55 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       margin: const EdgeInsets.all(16),
       height: 200,
       width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        image: DecorationImage(
-          image: NetworkImage(bannerImage),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppNetworkImage(
+            url: bannerImage,
+            fit: BoxFit.cover,
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        padding: const EdgeInsets.all(20),
-        alignment: Alignment.bottomLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              eyebrow,
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
-            ),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.7),
+                  Colors.transparent,
+                ],
               ),
             ),
-            if (subtitle != null && subtitle.isNotEmpty)
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-          ],
-        ),
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.bottomLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  eyebrow,
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle != null && subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -635,12 +645,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(15),
                     image: DecorationImage(
-                      image: NetworkImage(
-                        group.image ??
-                            'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=100',
-                      ),
+                      image: const AssetImage('assets/images/placeholder.png'),
                       fit: BoxFit.cover,
                     ),
+                  ),
+                  child: AppNetworkImage(
+                    url: group.image ??
+                        'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=100',
+                    height: 65,
+                    width: 65,
+                    fit: BoxFit.cover,
+                    borderRadius: BorderRadius.circular(15),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -738,12 +753,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Image.network(
-        imageUrl,
+      child: AppNetworkImage(
+        url: imageUrl,
         height: size,
         width: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => placeholder,
       ),
     );
   }
@@ -898,23 +912,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     Widget imageBlock() {
       final image = ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: Image.network(
-          service.image ??
+        child: AppNetworkImage(
+          url: service.image ??
               'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=300',
           height: 128,
           width: 128,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            height: 128,
-            width: 128,
-            color: const Color(0xFFFFF1F4),
-            alignment: Alignment.center,
-            child: Icon(
-              _getIconForLabel(service.name),
-              color: AppTheme.primaryColor,
-              size: 34,
-            ),
-          ),
         ),
       );
 
@@ -1087,36 +1090,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   void _showServiceDetails(BuildContext context, DetailedService service) {
     final provider = context.read<ServiceProvider>();
-    provider
-        .fetchHierarchyNode(
-          nodeKey: service.slug,
-          level: 'service',
-          seedNode: service.toHierarchyNode(),
-          forceRefresh: provider.hierarchyNode(service.slug) == null,
-        )
-        .then((_) {
-          if (!context.mounted) {
-            return;
-          }
+    provider.fetchHierarchyNode(
+      nodeKey: service.slug,
+      level: 'service',
+      seedNode: service.toHierarchyNode(),
+      forceRefresh: provider.hierarchyNode(service.slug) == null,
+    );
 
-          final resolvedNode =
-              provider.hierarchyNode(service.slug) ?? service.toHierarchyNode();
-
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (context) => _VariantOptionsSheet(
-              service: service,
-              node: resolvedNode,
-              onQuantityChange: _changeServiceQuantity,
-              currentQuantities: _serviceQuantities,
-              syncingStates: {
-                for (var id in _syncingServiceIds) id: true,
-              },
-            ),
-          );
-        });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _VariantOptionsSheet(
+        service: service,
+        nodeKey: service.slug,
+        initialNode: provider.hierarchyNode(service.slug) ?? service.toHierarchyNode(),
+        onQuantityChange: _changeServiceQuantity,
+        currentQuantities: _serviceQuantities,
+        syncingStates: {
+          for (var id in _syncingServiceIds) id: true,
+        },
+      ),
+    );
   }
 
   Widget _buildQuantityControl({
@@ -1406,14 +1401,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 }
 class _VariantOptionsSheet extends StatefulWidget {
   final DetailedService service;
-  final ServiceHierarchyNode node;
+  final String nodeKey;
+  final ServiceHierarchyNode initialNode;
   final Future<void> Function(DetailedService, int) onQuantityChange;
   final Map<int, int> currentQuantities;
   final Map<int, bool> syncingStates;
 
   const _VariantOptionsSheet({
     required this.service,
-    required this.node,
+    required this.nodeKey,
+    required this.initialNode,
     required this.onQuantityChange,
     required this.currentQuantities,
     required this.syncingStates,
@@ -1440,7 +1437,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
   }
 
   List<DetailedService> get _sheetItems {
-    final variants = widget.node.children
+    final variants = _resolvedNode.children
         .where((child) => child.level == 'variant')
         .map(_serviceFromNode)
         .toList();
@@ -1453,7 +1450,12 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
   }
 
   bool get _hasVariantItems =>
-      widget.node.children.any((child) => child.level == 'variant');
+      _resolvedNode.children.any((child) => child.level == 'variant');
+
+  ServiceHierarchyNode get _resolvedNode {
+    final provider = context.read<ServiceProvider>();
+    return provider.hierarchyNode(widget.nodeKey) ?? widget.initialNode;
+  }
 
   DetailedService _serviceFromNode(ServiceHierarchyNode node) {
     final normalizedNodeData = {
@@ -1495,188 +1497,206 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final items = _sheetItems;
-    final safeBottom = MediaQuery.of(context).padding.bottom;
+    return Consumer<ServiceProvider>(
+      builder: (context, provider, _) {
+        final resolvedNode =
+            provider.hierarchyNode(widget.nodeKey) ?? widget.initialNode;
+        final isInitialLoading =
+            AppConfig.debugForceServicePopupSkeleton ||
+            (provider.isHierarchyLoading(widget.nodeKey) &&
+                provider.hierarchyNode(widget.nodeKey) == null);
 
-    var totalQuantity = 0;
-    var totalPrice = 0.0;
+        if (isInitialLoading) {
+          return ServicePopupSkeleton(
+            showBanner: widget.initialNode.banners.hasPopupBanner,
+            showVariantCarousel: true,
+          );
+        }
 
-    for (final item in items) {
-      final quantity = widget.currentQuantities[item.id] ?? 0;
-      totalQuantity += quantity;
-      totalPrice += quantity * item.price;
-    }
+        final items = _sheetItems;
+        final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              0,
-              0,
-              0,
-              totalQuantity > 0 ? 128 + safeBottom : 28,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 14, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.service.name,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            if ((widget.service.description ?? '').trim().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  widget.service.description!.trim(),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                    height: 1.4,
+        var totalQuantity = 0;
+        var totalPrice = 0.0;
+
+        for (final item in items) {
+          final quantity = widget.currentQuantities[item.id] ?? 0;
+          totalQuantity += quantity;
+          totalPrice += quantity * item.price;
+        }
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.88,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  0,
+                  0,
+                  0,
+                  totalQuantity > 0 ? 128 + safeBottom : 28,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 14, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.service.name,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.close, size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.node.banners.hasPopupBanner) ...[
-                  ServiceFlowBannerCarousel(
-                    banners: widget.node.banners.popupBanner,
-                    height: 188,
-                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    borderRadius: BorderRadius.circular(22),
-                    compact: true,
-                  ),
-                ],
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Divider(),
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    _hasVariantItems ? 'Choose a variant' : 'Service details',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_hasVariantItems)
-                  _buildVariantCarousel(items)
-                else
-                  ...items.map(_buildSelectionCard),
-                const SizedBox(height: 20),
-                _buildReviewsSection(widget.service.id),
-              ],
-            ),
-          ),
-          if (totalQuantity > 0)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$totalQuantity item${totalQuantity == 1 ? '' : 's'} selected',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                                if ((widget.service.description ?? '').trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      widget.service.description!.trim(),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 13,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            formatRupees(totalPrice),
-                            style: GoogleFonts.outfit(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, size: 20),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(
-                      height: 52,
-                      width: 132,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: Text(
-                          'Done',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
+                    if (resolvedNode.banners.hasPopupBanner) ...[
+                      ServiceFlowBannerCarousel(
+                        banners: resolvedNode.banners.popupBanner,
+                        height: 188,
+                        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        borderRadius: BorderRadius.circular(22),
+                        compact: true,
+                      ),
+                    ],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Divider(),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        _hasVariantItems ? 'Choose a variant' : 'Service details',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    if (_hasVariantItems)
+                      _buildVariantCarousel(items)
+                    else
+                      ...items.map(_buildSelectionCard),
+                    const SizedBox(height: 20),
+                    _buildReviewsSection(widget.service.id),
                   ],
                 ),
               ),
-            ),
-        ],
-      ),
+              if (totalQuantity > 0)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 18,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$totalQuantity item${totalQuantity == 1 ? '' : 's'} selected',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                formatRupees(totalPrice),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          height: 52,
+                          width: 132,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text(
+                              'Done',
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1803,13 +1823,11 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: item.image != null && item.image!.isNotEmpty
-                  ? Image.network(
-                      item.image!,
+                  ? AppNetworkImage(
+                      url: item.image,
                       height: 210,
                       width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          _buildImagePlaceholder(),
                     )
                   : _buildImagePlaceholder(),
             ),

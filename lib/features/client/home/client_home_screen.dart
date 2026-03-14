@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -23,9 +24,7 @@ import 'widgets/home_story_section.dart';
 import 'widgets/home_testimonials_section.dart';
 import 'widgets/home_trending_packages_section.dart';
 import 'widgets/home_download_app_section.dart';
-import 'widgets/home_testimonials_section.dart';
-import 'widgets/home_trending_packages_section.dart';
-import 'widgets/home_download_app_section.dart';
+import 'widgets/home_screen_skeleton.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -36,6 +35,7 @@ class ClientHomeScreen extends StatefulWidget {
 
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   late ConfettiController _confettiController;
+  bool _hasPlayedLoadedConfetti = false;
 
   @override
   void initState() {
@@ -97,14 +97,49 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final homeProvider = context.watch<HomeProvider>();
+    final showInitialSkeleton =
+        AppConfig.debugForceHomeSkeleton ||
+        homeProvider.isLoading && homeProvider.sections.isEmpty;
+    final shouldShowLoadedContent =
+        !showInitialSkeleton && homeProvider.errorMessage == null;
+    final categorySection = _findFirstSection(homeProvider.sections, (section) {
+      return section.type == 'category_carousel';
+    });
+    final serviceSection = _findFirstSection(homeProvider.sections, (section) {
+      return section.type == 'service_carousel' || section.type == 'service_grid';
+    });
+    final skeletonServiceCount = _normalizedSkeletonCount(
+      categorySection?.items.length,
+      fallback: 4,
+    );
+    final skeletonMostBookedCount = _normalizedSkeletonCount(
+      serviceSection?.items.length,
+      fallback: 2,
+      max: 5,
+    );
+
+    if (shouldShowLoadedContent &&
+        !_hasPlayedLoadedConfetti &&
+        homeProvider.sections.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _hasPlayedLoadedConfetti) {
+          return;
+        }
+        _confettiController.play();
+        _hasPlayedLoadedConfetti = true;
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
           SafeArea(
-            child: homeProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
+            child: showInitialSkeleton
+                ? HomeScreenSkeleton(
+                    serviceCount: skeletonServiceCount,
+                    mostBookedCount: skeletonMostBookedCount,
+                  )
                 : homeProvider.errorMessage != null
                 ? Center(
                     child: Column(
@@ -299,23 +334,24 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                     ),
                   ),
           ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: [
-                Colors.green,
-                Colors.blue,
-                Colors.pink,
-                Colors.orange,
-                Colors.purple,
-                AppTheme.primaryColor,
-              ],
-              createParticlePath: drawStar,
+          if (shouldShowLoadedContent)
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: [
+                  Colors.green,
+                  Colors.blue,
+                  Colors.pink,
+                  Colors.orange,
+                  Colors.purple,
+                  AppTheme.primaryColor,
+                ],
+                createParticlePath: drawStar,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -345,5 +381,33 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     }
     path.close();
     return path;
+  }
+
+  int _normalizedSkeletonCount(
+    int? rawCount, {
+    required int fallback,
+    int min = 1,
+    int max = 6,
+  }) {
+    final value = rawCount ?? fallback;
+    if (value < min) {
+      return min;
+    }
+    if (value > max) {
+      return max;
+    }
+    return value;
+  }
+
+  HomeSection? _findFirstSection(
+    List<HomeSection> sections,
+    bool Function(HomeSection section) matcher,
+  ) {
+    for (final section in sections) {
+      if (matcher(section)) {
+        return section;
+      }
+    }
+    return null;
   }
 }
