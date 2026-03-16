@@ -10,6 +10,7 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/services/api_service.dart';
 
+import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'controllers/cart_provider.dart';
 import '../services/client_api_service.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
@@ -326,6 +327,22 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
         _lastOrderId = orderData['order_id'];
 
         if (_selectedPaymentMethod == 'online' && orderData['razorpay_order_id'] != null) {
+          if (orderData['is_mock'] == true) {
+            if (!mounted) return;
+            MockRazorpayDialog.show(
+              context,
+              options: {
+                'amount': orderData['amount'],
+                'name': 'BellaVella',
+                'description': 'Service Booking',
+                'order_id': orderData['razorpay_order_id'],
+              },
+              onSuccess: _handlePaymentSuccess,
+              onFailure: _handlePaymentError,
+            );
+            return;
+          }
+          
           // Open Razorpay
           final options = {
             'key': 'rzp_test_S7dlJIqMvrpcaj',

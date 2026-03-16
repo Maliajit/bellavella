@@ -174,6 +174,7 @@ class Professional {
   final String? panImg;
   final String? certificateImg;
   final String? selfieUrl;
+  final bool isOnline;
 
 
   Professional({
@@ -203,11 +204,12 @@ class Professional {
     this.panImg,
     this.certificateImg,
     this.selfieUrl,
+    this.isOnline = false,
   });
 
   factory Professional.fromJson(dynamic json) {
     if (json is! Map) {
-      return Professional(id: '', name: 'Error Loading', photoUrl: '', rating: 0, phone: '', status: '', verification: '', payout: PayoutDetails());
+      return Professional(id: '', name: 'Error Loading', photoUrl: '', rating: 0, phone: '', status: '', verification: '', payout: PayoutDetails(), isOnline: false);
     }
     
     List<Service> services = [];
@@ -263,6 +265,7 @@ class Professional {
       panImg: _resolveDocUrl(json['pan_img']?.toString()),
       certificateImg: _resolveDocUrl(json['certificate_img']?.toString()),
       selfieUrl: _resolveDocUrl(json['selfie']?.toString()),
+      isOnline: json['is_online'] == true || json['is_online'] == 1,
     );
   }
 
@@ -284,13 +287,15 @@ class Professional {
 }
 
 enum BookingStatus {
-  requested,
-  accepted,
-  onTheWay,
-  arrived,
-  started,
-  completed,
-  cancelled,
+  requested,  // client created booking
+  assigned,   // admin dispatched to professional — NOT yet accepted
+  accepted,   // professional accepted
+  onTheWay,   // professional started journey
+  arrived,    // professional arrived
+  started,    // service in progress (inProgress)
+  paymentPending, // service finished, waiting for payment
+  completed,  // service finished and paid
+  cancelled,  // cancelled / rejected
 }
 
 class Booking {

@@ -3,13 +3,52 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import '../widgets/workflow_stepper.dart';
 
-class ProJobCompleteScreen extends StatelessWidget {
+class ProJobCompleteScreen extends StatefulWidget {
   final ProfessionalBooking booking;
   const ProJobCompleteScreen({super.key, required this.booking});
+
+  @override
+  State<ProJobCompleteScreen> createState() => _ProJobCompleteScreenState();
+}
+
+class _ProJobCompleteScreenState extends State<ProJobCompleteScreen> {
+  late ProfessionalBooking _booking;
+
+  @override
+  void initState() {
+    super.initState();
+    _booking = widget.booking;
+    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
+      _fetchLatestDetails();
+    }
+    // Job is complete — clear it from global active state immediately
+    _clearActiveJob();
+  }
+
+  void _clearActiveJob() {
+    if (mounted) {
+      DashboardController.instance.clearJob();
+      debugPrint('✅ Completion: Cleared active job controller');
+    }
+  }
+
+  Future<void> _fetchLatestDetails() async {
+    try {
+      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
+      if (mounted) {
+        setState(() => _booking = latest);
+      }
+    } catch (e) {
+      debugPrint('Failed to re-fetch booking: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,7 +96,7 @@ class ProJobCompleteScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        currencyFormat.format(booking.totalPrice),
+                        currencyFormat.format(_booking.totalPrice),
                         style: GoogleFonts.inter(
                           fontSize: 48,
                           fontWeight: FontWeight.w900,
@@ -74,7 +113,7 @@ class ProJobCompleteScreen extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
-                            _summaryItem(Icons.person_outline_rounded, "Client", booking.clientName),
+                            _summaryItem(Icons.person_outline_rounded, "Client", _booking.clientName),
                             const SizedBox(height: 16),
                             _summaryItem(Icons.timer_outlined, "Duration", "45 mins"),
                             const SizedBox(height: 16),

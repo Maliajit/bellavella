@@ -6,6 +6,9 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/core/models/data_models.dart';
 
 class ProfessionalNavigationScreen extends StatefulWidget {
   final ProfessionalBooking booking;
@@ -16,7 +19,40 @@ class ProfessionalNavigationScreen extends StatefulWidget {
 }
 
 class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScreen> {
+  late ProfessionalBooking _booking;
   bool _isProcessing = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _booking = widget.booking;
+    _fetchLatestData();
+  }
+
+  Future<void> _fetchLatestData() async {
+    try {
+      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
+      if (mounted) {
+        setState(() {
+          _booking = latest;
+          _isLoading = false;
+        });
+        _syncController();
+      }
+    } catch (e) {
+      debugPrint('Error fetching latest booking: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Syncs the local booking state with the central DashboardController.
+  void _syncController() {
+    if (mounted) {
+      DashboardController.instance.setActiveJob(_booking);
+      debugPrint('🔄 Navigation: Synced controller with ${_booking.id} (${_booking.status.name})');
+    }
+  }
 
   Future<void> _startJourney() async {
     setState(() => _isProcessing = true);
@@ -24,7 +60,15 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
       final res = await ProfessionalApiService.jobStartJourney(widget.booking.id);
       if (mounted) {
         if (res['success'] == true) {
-          context.pushNamed(AppRoutes.proArriveName, extra: widget.booking);
+          // Proactively update status to On The Way in the controller
+          final updated = widget.booking.copyWith(status: BookingStatus.onTheWay);
+          DashboardController.instance.updateJob(updated);
+
+          context.pushNamed(
+            AppRoutes.proArriveName, 
+            pathParameters: {'id': widget.booking.id},
+            extra: updated
+          );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(res['message'] ?? 'Failed to start journey')),
@@ -43,10 +87,10 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
   }
 
   Future<void> _launchNavigation() async {
-    if (widget.booking.lat != null && widget.booking.lng != null) {
-      await _openGoogleMaps(widget.booking.lat!, widget.booking.lng!);
+    if (_booking.lat != null && _booking.lng != null) {
+      await _openGoogleMaps(_booking.lat!, _booking.lng!);
     } else {
-      await _openAddressSearch(widget.booking.address);
+      await _openAddressSearch(_booking.address);
     }
     // Also trigger the backend/state transition
     await _startJourney();
@@ -176,7 +220,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.booking.clientName,
+                              _booking.clientName,
                               style: GoogleFonts.inter(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w800,
@@ -185,7 +229,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              widget.booking.serviceName,
+                              _booking.serviceName,
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
@@ -233,7 +277,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          widget.booking.address,
+                          _booking.address,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.inter(

@@ -196,12 +196,12 @@ class _PaymentSuccessScreenState extends State<PaymentSuccessScreen>
                     width: double.infinity,
                     height: 48,
                     child: OutlinedButton(
-                      onPressed: () => context.goNamed(AppRoutes.proKitStoreName),
+                      onPressed: () => context.goNamed(AppRoutes.proDashboardName),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFFE5E7EB), width: 1.5),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: Text('Back to Store', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280))),
+                      child: Text('Back to Dashboard', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w600, color: const Color(0xFF6B7280))),
                     ),
                   ),
                   const SizedBox(height: 16),

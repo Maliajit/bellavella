@@ -13,6 +13,7 @@ class ProfessionalBooking {
   final DateTime? serviceStartedAt;
   final double? lat;
   final double? lng;
+  final String phone; // Customer's phone number for the Call button
 
   ProfessionalBooking({
     required this.id,
@@ -26,7 +27,38 @@ class ProfessionalBooking {
     this.serviceStartedAt,
     this.lat,
     this.lng,
+    this.phone = '',
   });
+
+  ProfessionalBooking copyWith({
+    String? id,
+    String? clientName,
+    String? serviceName,
+    String? time,
+    String? date,
+    double? totalPrice,
+    String? address,
+    BookingStatus? status,
+    DateTime? serviceStartedAt,
+    double? lat,
+    double? lng,
+    String? phone,
+  }) {
+    return ProfessionalBooking(
+      id: id ?? this.id,
+      clientName: clientName ?? this.clientName,
+      serviceName: serviceName ?? this.serviceName,
+      time: time ?? this.time,
+      date: date ?? this.date,
+      totalPrice: totalPrice ?? this.totalPrice,
+      address: address ?? this.address,
+      status: status ?? this.status,
+      serviceStartedAt: serviceStartedAt ?? this.serviceStartedAt,
+      lat: lat ?? this.lat,
+      lng: lng ?? this.lng,
+      phone: phone ?? this.phone,
+    );
+  }
 
   factory ProfessionalBooking.empty() => ProfessionalBooking(
     id: '', 
@@ -47,22 +79,45 @@ class ProfessionalBooking {
       return ProfessionalBooking(id: '', clientName: 'Unknown', serviceName: 'Service', time: '', date: '', totalPrice: 0, address: '', status: BookingStatus.requested);
     }
     // Backend uses 'customer_name', 'slot' as time, 'price' as total_price
-    String statusStr = (json['status'] ?? '').toString().toLowerCase().trim().replaceAll(' ', '');
+    String statusStr = (json['status'] ?? '').toString().toLowerCase().trim().replaceAll(' ', '_');
     BookingStatus status = BookingStatus.requested;
     
-    if (statusStr == 'confirmed' || statusStr == 'assigned' || statusStr == 'accepted') {
-      status = BookingStatus.accepted;
-    } else if (statusStr == 'started') {
-      status = BookingStatus.onTheWay;
-    } else if (statusStr == 'arrived') {
-      status = BookingStatus.arrived;
-    } else if (statusStr == 'inprogress' || statusStr == 'service_started') {
-      status = BookingStatus.started;
-    } else if (statusStr == 'completed') {
-      status = BookingStatus.completed;
-    } else if (statusStr == 'cancelled') {
-      status = BookingStatus.cancelled;
+    switch (statusStr) {
+      case 'assigned':
+        status = BookingStatus.assigned;        // Dispatched but NOT yet accepted
+        break;
+      case 'confirmed':
+      case 'accepted':
+        status = BookingStatus.accepted;        // Professional accepted ✅ show job card
+        break;
+      case 'on_the_way':
+      case 'on_way':
+      case 'started_journey':
+        status = BookingStatus.onTheWay;        // Journey started ✅ show job card
+        break;
+      case 'arrived':
+        status = BookingStatus.arrived;         // At location ✅ show job card
+        break;
+      case 'in_progress':
+      case 'inprogress':
+      case 'service_started':
+        status = BookingStatus.started;         // Service underway ✅ show job card
+        break;
+      case 'payment_pending':
+      case 'paymentpending':
+        status = BookingStatus.paymentPending;  // Service done, wait for payment ✅ show job card
+        break;
+      case 'completed':
+        status = BookingStatus.completed;       // Done — remove card
+        break;
+      case 'rejected':
+      case 'cancelled':
+        status = BookingStatus.cancelled;       // Rejected/cancelled — no card
+        break;
+      default:
+        status = BookingStatus.requested;
     }
+
 
     return ProfessionalBooking(
       id: json['id']?.toString() ?? '',
@@ -78,6 +133,7 @@ class ProfessionalBooking {
           : null,
       lat: ParserUtil.safeParseDouble(json['lat']),
       lng: ParserUtil.safeParseDouble(json['lng']),
+      phone: (json['customer_phone'] ?? json['phone'] ?? '').toString(),
     );
   }
 }

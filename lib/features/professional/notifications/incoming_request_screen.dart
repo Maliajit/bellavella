@@ -4,8 +4,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
 import 'package:go_router/go_router.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 
 class IncomingRequestScreen extends StatefulWidget {
   final Map<String, dynamic> notification;
@@ -84,19 +87,72 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
   Future<void> _handleAccept() async {
     if (_isProcessing) return;
     if (mounted) setState(() => _isProcessing = true);
-    
+
     _vibrationTimer?.cancel();
     _countdownTimer?.cancel();
     Vibration.cancel();
     _audioPlayer.stop();
 
     try {
-      final bookingId = widget.notification['booking_id']?.toString() ?? '';
-      await ProfessionalApiService.acceptBooking(bookingId);
+      // ── Resolve booking_id from any payload shape ──────────────────────────
+      // Shape 1 (Firestore job doc):   { "booking_id": 12, "service": "..." }
+      // Shape 2 (DB notification):     notification['data'] = { "booking_id": 12 }
+      final notif = widget.notification;
+      final nestedData = notif['data'];
+      final String bookingId = (notif['booking_id']
+              ?? (nestedData is Map ? nestedData['booking_id'] : null)
+              ?? '')
+          .toString()
+          .trim();
+
+      debugPrint('🎯 _handleAccept → resolved bookingId: "$bookingId"');
+      debugPrint('🎯 Full notification payload: $notif');
+
+      if (bookingId.isEmpty) {
+        throw Exception('Booking ID is missing from the notification. Cannot accept.');
+      }
+
+      // Step 1: Call the accept API
+      final response = await ProfessionalApiService.acceptBooking(bookingId);
+      debugPrint('📡 Accept API response → success:${response['success']} message:${response['message']}');
+
+      if (response['success'] != true) {
+        throw Exception(response['message'] ?? 'Accept API returned failure');
+      }
+
+      // Step 2a: Use the booking returned directly by the accept endpoint
+      ProfessionalBooking? booking;
+      if (response['data'] != null) {
+        booking = ProfessionalBooking.fromJson(response['data']);
+        debugPrint('✅ Accept API returned booking: ${booking.id} (${booking.status.name})');
+      }
+
+      // Step 2b: Fallback — backend returned success but no data body
+      if (booking == null) {
+        debugPrint('⚠️ Accept returned no data — calling getActiveJob() as fallback');
+        booking = await ProfessionalApiService.getActiveJob();
+      }
+
+      // Step 3: Push booking into the controller → Dashboard rebuilds instantly
+      if (booking != null) {
+        DashboardController.instance.setActiveJob(booking);
+        debugPrint('✅ setActiveJob → ${booking.id} (${booking.status.name})');
+      } else {
+        debugPrint('❌ Could not get booking — dashboard will not update immediately (polling will catch it)');
+      }
+
+      // Step 4: Pop the incoming-request screen, returning true to dashboard
       if (mounted) context.pop(true);
     } catch (e) {
+      debugPrint('❌ _handleAccept error: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Accept failed: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
         setState(() => _isProcessing = false);
       }
     }

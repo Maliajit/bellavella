@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/core/models/data_models.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProArrivalScreen extends StatefulWidget {
@@ -16,14 +20,48 @@ class ProArrivalScreen extends StatefulWidget {
 
 class _ProArrivalScreenState extends State<ProArrivalScreen> {
   bool _isProcessing = false;
+  late ProfessionalBooking _booking;
+
+  @override
+  void initState() {
+    super.initState();
+    _booking = widget.booking;
+    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
+      _fetchLatestDetails();
+    }
+  }
+
+  Future<void> _fetchLatestDetails() async {
+    try {
+      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
+      if (mounted) {
+        setState(() => _booking = latest);
+        _syncController();
+      }
+    } catch (e) {
+      debugPrint('Failed to re-fetch booking: $e');
+    }
+  }
+
+  /// Syncs the local booking state with the central DashboardController.
+  void _syncController() {
+    if (mounted) {
+      DashboardController.instance.setActiveJob(_booking);
+      debugPrint('🔄 Kit Scan: Synced controller with ${_booking.id} (${_booking.status.name})');
+    }
+  }
 
   Future<void> _confirmArrival() async {
     setState(() => _isProcessing = true);
     try {
-      final res = await ProfessionalApiService.jobArrived(widget.booking.id);
+      final res = await ProfessionalApiService.jobArrived(_booking.id);
       if (mounted) {
         if (res['success'] == true) {
-          context.pushNamed(AppRoutes.proScanKitName, extra: widget.booking);
+          // Proactively update status to Arrived in the controller
+          final updated = _booking.copyWith(status: BookingStatus.arrived);
+          DashboardController.instance.updateJob(updated);
+          
+          context.pushNamed(AppRoutes.proScanKitName, pathParameters: {'id': _booking.id}, extra: updated);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(res['message'] ?? 'Failed to confirm arrival')),
@@ -71,7 +109,7 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.booking.clientName,
+                    _booking.clientName,
                     style: GoogleFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
@@ -80,7 +118,7 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    widget.booking.serviceName,
+                    _booking.serviceName,
                     style: GoogleFonts.inter(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,

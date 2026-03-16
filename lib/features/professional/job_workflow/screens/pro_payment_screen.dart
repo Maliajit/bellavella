@@ -7,7 +7,10 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:intl/intl.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProPaymentScreen extends StatefulWidget {
@@ -33,10 +36,36 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     );
   }
 
+  late ProfessionalBooking _booking;
+
   @override
   void initState() {
     super.initState();
+    _booking = widget.booking;
+    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
+      _fetchLatestDetails();
+    }
     _initRazorpay();
+  }
+
+  Future<void> _fetchLatestDetails() async {
+    try {
+      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
+      if (mounted) {
+        setState(() => _booking = latest);
+        _syncController();
+      }
+    } catch (e) {
+      debugPrint('Failed to re-fetch booking: $e');
+    }
+  }
+
+  /// Syncs the local booking state with the central DashboardController.
+  void _syncController() {
+    if (mounted) {
+      DashboardController.instance.setActiveJob(_booking);
+      debugPrint('🔄 Payment: Synced controller with ${_booking.id} (${_booking.status.name})');
+    }
   }
 
   @override
@@ -49,14 +78,14 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     setState(() => _isProcessing = true);
     try {
       final res = await ProfessionalApiService.verifyJobPayment(
-        id: widget.booking.id,
+        id: _booking.id,
         razorpayPaymentId: response.paymentId!,
         razorpayOrderId: response.orderId!,
         razorpaySignature: response.signature!,
       );
       
       if (mounted) {
-        context.pushNamed(AppRoutes.proJobCompleteName, extra: widget.booking);
+        context.pushNamed(AppRoutes.proJobCompleteName, pathParameters: {'id': _booking.id}, extra: _booking);
       }
     } catch (e) {
       if (mounted) {
@@ -82,14 +111,14 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   Future<void> _startRazorpayPayment() async {
     setState(() => _isProcessing = true);
     try {
-      final orderRes = await ProfessionalApiService.createJobPaymentOrder(widget.booking.id);
+      final orderRes = await ProfessionalApiService.createJobPaymentOrder(_booking.id);
       
       final options = {
         'key': 'rzp_test_S7dlJIqMvrpcaj',
         'amount': orderRes['amount'],
         'name': 'BellaVella',
         'order_id': orderRes['order_id'],
-        'description': 'Payment for ${widget.booking.serviceName}',
+        'description': 'Payment for ${_booking.serviceName}',
         'timeout': 300,
         'prefill': {
           'contact': '', // Professional mobile or client mobile?
@@ -101,6 +130,23 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
       };
 
       _initRazorpay();
+      
+      if (orderRes['is_mock'] == true) {
+        if (!mounted) return;
+        MockRazorpayDialog.show(
+          context,
+          options: {
+            'amount': orderRes['amount'],
+            'name': 'BellaVella',
+            'description': 'Payment for ${_booking.serviceName}',
+            'order_id': orderRes['order_id'],
+          },
+          onSuccess: _handlePaymentSuccess,
+          onFailure: _handlePaymentError,
+        );
+        return;
+      }
+
       _razorpayService!.open(options);
     } catch (e) {
       if (mounted) {
@@ -117,10 +163,10 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     // This is for Cash payment or direct completion if allowed
     setState(() => _isProcessing = true);
     try {
-      final res = await ProfessionalApiService.jobComplete(widget.booking.id);
+      final res = await ProfessionalApiService.jobComplete(_booking.id);
       if (mounted) {
         if (res['success'] == true) {
-          context.pushNamed(AppRoutes.proJobCompleteName, extra: widget.booking);
+          context.pushNamed(AppRoutes.proJobCompleteName, pathParameters: {'id': _booking.id}, extra: _booking);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(res['message'] ?? 'Failed to complete job')),
@@ -179,7 +225,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    currencyFormat.format(widget.booking.totalPrice),
+                    currencyFormat.format(_booking.totalPrice),
                     style: GoogleFonts.inter(
                       fontSize: 48,
                       fontWeight: FontWeight.w900,

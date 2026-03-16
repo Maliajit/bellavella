@@ -10,6 +10,7 @@ import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_help
 import 'widgets/kit_store_header.dart';
 import 'widgets/kit_store_banner.dart';
 import 'widgets/kit_product_card.dart';
+import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 
@@ -102,6 +103,27 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
     try {
       // Step 1: Create Order on Backend
       final orderData = await ProfessionalApiService.createKitPaymentOrder(kit.id, qty);
+      
+      if (orderData['is_mock'] == true) {
+        if (!mounted) return;
+        MockRazorpayDialog.show(
+          context,
+          options: {
+            'amount': orderData['amount'],
+            'name': 'Bella Villa',
+            'description': '${kit.name} × $qty',
+            'order_id': orderData['order_id'],
+          },
+          onSuccess: _onPaymentSuccess,
+          onFailure: (failure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(failure.message ?? 'Payment Cancelled'), backgroundColor: Colors.red),
+            );
+          },
+        );
+        return;
+      }
+
       final String razorpayOrderId = orderData['order_id'];
       final int amountPaise = orderData['amount'];
 

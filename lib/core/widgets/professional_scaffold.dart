@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../widgets/professional_bottom_nav.dart';
+import '../../features/professional/services/professional_realtime_service.dart';
+import '../../features/professional/controllers/professional_profile_controller.dart';
 
-class ProfessionalScaffold extends StatelessWidget {
+class ProfessionalScaffold extends StatefulWidget {
   final Widget child;
 
   const ProfessionalScaffold({
@@ -11,9 +14,46 @@ class ProfessionalScaffold extends StatelessWidget {
   });
 
   @override
+  State<ProfessionalScaffold> createState() => _ProfessionalScaffoldState();
+}
+
+class _ProfessionalScaffoldState extends State<ProfessionalScaffold> {
+  @override
+  void initState() {
+    super.initState();
+    // Start listening as soon as we have a profile, and also listen for changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initRealtimeListeners();
+      context.read<ProfessionalProfileController>().addListener(_onProfileChange);
+    });
+  }
+
+  void _onProfileChange() {
+    _initRealtimeListeners();
+  }
+
+  void _initRealtimeListeners() {
+    if (!mounted) return;
+    final profile = context.read<ProfessionalProfileController>().profile;
+    if (profile != null) {
+      ProfessionalRealtimeService.startAllListeners(profile.id);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Correctly remove listener to avoid memory leaks
+    if (mounted) {
+      context.read<ProfessionalProfileController>().removeListener(_onProfileChange);
+    }
+    ProfessionalRealtimeService.stopAllListeners();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: child,
+      body: widget.child,
       bottomNavigationBar: ProfessionalBottomNav(
         currentIndex: _calculateSelectedIndex(context),
       ),

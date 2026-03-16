@@ -6,6 +6,9 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/core/models/data_models.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProServiceScreen extends StatefulWidget {
@@ -20,11 +23,36 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   bool _isProcessing = false;
   Timer? _timer;
   String _timeDisplay = "00:00:00";
+  late ProfessionalBooking _booking;
 
   @override
   void initState() {
     super.initState();
+    _booking = widget.booking;
+    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
+      _fetchLatestDetails();
+    }
     _startTimer();
+  }
+
+  Future<void> _fetchLatestDetails() async {
+    try {
+      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
+      if (mounted) {
+        setState(() => _booking = latest);
+        _syncController();
+      }
+    } catch (e) {
+      debugPrint('Failed to re-fetch booking: $e');
+    }
+  }
+
+  /// Syncs the local booking state with the central DashboardController.
+  void _syncController() {
+    if (mounted) {
+      DashboardController.instance.setActiveJob(_booking);
+      debugPrint('🔄 Payment: Synced controller with ${_booking.id} (${_booking.status.name})');
+    }
   }
 
   @override
@@ -46,7 +74,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   }
 
   String _calculateElapsedTime() {
-    final startTime = widget.booking.serviceStartedAt;
+    final startTime = _booking.serviceStartedAt;
     if (startTime == null) return "00:00:00";
 
     final now = DateTime.now();
@@ -64,15 +92,18 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   Future<void> _proceedToPayment() async {
     setState(() => _isProcessing = true);
     try {
-      // Logic: Backend might want "Start Service" called either at the beginning or end
-      // For this workflow, we call it when moving to payment to ensure status is correctly synced
-      final res = await ProfessionalApiService.jobStartService(widget.booking.id);
+      // Call finishService to transition status to 'Payment Pending'
+      final res = await ProfessionalApiService.jobFinishService(_booking.id);
       if (mounted) {
         if (res['success'] == true) {
-          context.pushNamed(AppRoutes.proCollectPaymentName, extra: widget.booking);
+          // Proactively update status to Payment Pending (Completed in this flow)
+          final updated = _booking.copyWith(status: BookingStatus.completed);
+          DashboardController.instance.updateJob(updated);
+          
+          context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': _booking.id}, extra: updated);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to proceed to payment')),
+            SnackBar(content: Text(res['message'] ?? 'Failed to finish service')),
           );
         }
       }
@@ -144,7 +175,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                     child: Column(
                       children: [
                         Text(
-                          widget.booking.clientName,
+                          _booking.clientName,
                           style: GoogleFonts.inter(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
@@ -153,7 +184,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          widget.booking.serviceName,
+                          _booking.serviceName,
                           style: GoogleFonts.inter(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -210,7 +241,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _checklistItem(widget.booking.serviceName, true),
+                  _checklistItem(_booking.serviceName, true),
                   _checklistItem("Post-service Cleanup", false),
 
                   const SizedBox(height: 24),
@@ -249,7 +280,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                 child: _isProcessing 
                     ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(
-                        "Proceed to Payment",
+                        "Finish Service",
                         style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
                       ),
               ),

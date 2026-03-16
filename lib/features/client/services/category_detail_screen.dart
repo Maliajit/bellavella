@@ -1815,14 +1815,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
                     ],
                   ),
                 ],
-              ],
-            ),
-          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+
                 const SizedBox(height: 10),
                 Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,

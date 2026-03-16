@@ -1,15 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 
-class ProfessionalActiveJobScreen extends StatelessWidget {
-  const ProfessionalActiveJobScreen({super.key});
+class ProfessionalActiveJobScreen extends StatefulWidget {
+  final ProfessionalBooking? booking;
+  const ProfessionalActiveJobScreen({super.key, this.booking});
+
+  @override
+  State<ProfessionalActiveJobScreen> createState() => _ProfessionalActiveJobScreenState();
+}
+
+class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScreen> {
+  bool _isCompleting = false;
+
+  Future<void> _handleComplete() async {
+    setState(() => _isCompleting = true);
+    try {
+      final booking = widget.booking ?? DashboardController.instance.activeJob;
+      if (booking != null) {
+        await ProfessionalApiService.jobComplete(booking.id);
+      }
+      if (mounted) {
+        // Clear the job from the controller — dashboard card disappears instantly
+        DashboardController.instance.clearJob();
+        context.go(AppRoutes.proDashboard);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error completing job: $e')),
+        );
+        setState(() => _isCompleting = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final booking = widget.booking ?? DashboardController.instance.activeJob;
+
     return Scaffold(
+
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -284,7 +321,7 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () => context.pop(),
+                    onPressed: _isCompleting ? null : _handleComplete,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
@@ -292,10 +329,12 @@ class ProfessionalActiveJobScreen extends StatelessWidget {
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    child: Text(
-                      "Complete Job",
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
+                    child: _isCompleting
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(
+                            "Complete Job",
+                            style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                          ),
                   ),
                 ),
               ),

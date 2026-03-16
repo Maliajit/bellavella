@@ -50,7 +50,10 @@ import '../../features/professional/leave/leave_apply_screen.dart';
 import '../../core/models/data_models.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 
+final proNavigatorKey = GlobalKey<NavigatorState>();
+
 final professionalRouter = GoRouter(
+  navigatorKey: proNavigatorKey,
   initialLocation: AppRoutes.splash,
   routes: [
     ..._rootRoutes,
@@ -80,6 +83,14 @@ final _rootRoutes = [
     path: AppRoutes.onboarding,
     name: AppRoutes.onboardingName,
     builder: (context, state) => const OnboardingScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.proIncomingRequest,
+    name: AppRoutes.proIncomingRequestName,
+    builder: (context, state) {
+      final notification = state.extra as Map<String, dynamic>? ?? {};
+      return IncomingRequestScreen(notification: notification);
+    },
   ),
 ];
 
@@ -212,17 +223,10 @@ final _proOtherRoutes = [
     builder: (context, state) => const ProfessionalAvailabilityScreen(),
   ),
   GoRoute(
-    path: AppRoutes.proIncomingRequest,
-    name: AppRoutes.proIncomingRequestName,
-    builder: (context, state) {
-      final notification = state.extra as Map<String, dynamic>? ?? {};
-      return IncomingRequestScreen(notification: notification);
-    },
-  ),
-  GoRoute(
     path: AppRoutes.proNavigation,
     name: AppRoutes.proNavigationName,
     builder: (context, state) {
+      final id = state.pathParameters['id'] ?? '';
       final extra = state.extra;
       ProfessionalBooking booking;
       if (extra is ProfessionalBooking) {
@@ -230,7 +234,7 @@ final _proOtherRoutes = [
       } else if (extra is Map<String, dynamic>) {
         booking = ProfessionalBooking.fromJson(extra);
       } else {
-        booking = ProfessionalBooking.empty();
+        booking = ProfessionalBooking.empty().copyWith(id: id);
       }
       return ProfessionalNavigationScreen(booking: booking);
     },
@@ -239,6 +243,7 @@ final _proOtherRoutes = [
     path: AppRoutes.proActiveJob,
     name: AppRoutes.proActiveJobName,
     builder: (context, state) {
+      final id = state.pathParameters['id'] ?? '';
       final extra = state.extra;
       ProfessionalBooking booking;
       if (extra is ProfessionalBooking) {
@@ -246,7 +251,7 @@ final _proOtherRoutes = [
       } else if (extra is Map<String, dynamic>) {
         booking = ProfessionalBooking.fromJson(extra);
       } else {
-        booking = ProfessionalBooking.empty();
+        booking = ProfessionalBooking.empty().copyWith(id: id);
       }
       return ProServiceScreen(booking: booking);
     },
@@ -255,6 +260,7 @@ final _proOtherRoutes = [
     path: AppRoutes.proArrive,
     name: AppRoutes.proArriveName,
     builder: (context, state) {
+      final id = state.pathParameters['id'] ?? '';
       final extra = state.extra;
       ProfessionalBooking booking;
       if (extra is ProfessionalBooking) {
@@ -262,7 +268,7 @@ final _proOtherRoutes = [
       } else if (extra is Map<String, dynamic>) {
         booking = ProfessionalBooking.fromJson(extra);
       } else {
-        booking = ProfessionalBooking.empty();
+        booking = ProfessionalBooking.empty().copyWith(id: id);
       }
       return ProArrivalScreen(booking: booking);
     },
@@ -271,6 +277,7 @@ final _proOtherRoutes = [
     path: AppRoutes.proScanKit,
     name: AppRoutes.proScanKitName,
     builder: (context, state) {
+      final id = state.pathParameters['id'] ?? '';
       final extra = state.extra;
       ProfessionalBooking booking;
       if (extra is ProfessionalBooking) {
@@ -278,7 +285,7 @@ final _proOtherRoutes = [
       } else if (extra is Map<String, dynamic>) {
         booking = ProfessionalBooking.fromJson(extra);
       } else {
-        booking = ProfessionalBooking.empty();
+        booking = ProfessionalBooking.empty().copyWith(id: id);
       }
       return ProKitScanScreen(booking: booking);
     },
@@ -287,6 +294,7 @@ final _proOtherRoutes = [
     path: AppRoutes.proCollectPayment,
     name: AppRoutes.proCollectPaymentName,
     builder: (context, state) {
+      final id = state.pathParameters['id'] ?? '';
       final extra = state.extra;
       ProfessionalBooking booking;
       if (extra is ProfessionalBooking) {
@@ -294,7 +302,7 @@ final _proOtherRoutes = [
       } else if (extra is Map<String, dynamic>) {
         booking = ProfessionalBooking.fromJson(extra);
       } else {
-        booking = ProfessionalBooking.empty();
+        booking = ProfessionalBooking.empty().copyWith(id: id);
       }
       return ProPaymentScreen(booking: booking);
     },
@@ -303,6 +311,7 @@ final _proOtherRoutes = [
     path: AppRoutes.proJobComplete,
     name: AppRoutes.proJobCompleteName,
     builder: (context, state) {
+      final id = state.pathParameters['id'] ?? '';
       final extra = state.extra;
       ProfessionalBooking booking;
       if (extra is ProfessionalBooking) {
@@ -310,7 +319,7 @@ final _proOtherRoutes = [
       } else if (extra is Map<String, dynamic>) {
         booking = ProfessionalBooking.fromJson(extra);
       } else {
-        booking = ProfessionalBooking.empty();
+        booking = ProfessionalBooking.empty().copyWith(id: id);
       }
       return ProJobCompleteScreen(booking: booking);
     },

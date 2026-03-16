@@ -12,7 +12,9 @@ import './widgets/availability_toggle.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import './widgets/booking_request_dialog.dart';
+import './widgets/job_card.dart';
 import 'package:bellavella/core/models/data_models.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
@@ -31,17 +33,19 @@ class _ProfessionalDashboardScreenState
   String? _errorMessage;
   late ConfettiController _confettiController;
   final ScrollController _scrollController = ScrollController();
-  bool _isOnline = false; // Default: Offline until requirements met
   bool _hasActiveJob = false;
   int _kitCount = 0;
   double _walletCash = 0;
-  Timer? _heartbeatTimer;
   String? _lastNotificationId;
 
   @override
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    // Load active job immediately (fast, dedicated endpoint)
+    // This runs in parallel with _fetchDashboardData so the job card
+    // appears even before the full dashboard stats load completes.
+    _loadActiveJob();
     _fetchDashboardData();
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
@@ -50,6 +54,20 @@ class _ProfessionalDashboardScreenState
       _confettiController.play();
       PermissionHandlerUtil.requestAllPermissions(context);
     });
+  }
+
+  /// Immediately hydrates DashboardController from the server.
+  Future<void> _loadActiveJob() async {
+    try {
+      final job = await ProfessionalApiService.getActiveJob();
+      if (mounted) {
+        context.read<DashboardController>().setActiveJob(job!);
+      }
+    } catch (e) {
+      if (mounted) {
+        context.read<DashboardController>().clearJob();
+      }
+    }
   }
 
   Future<void> _fetchDashboardData({bool isSilent = false}) async {
@@ -66,19 +84,32 @@ class _ProfessionalDashboardScreenState
           _stats = stats;
           _isLoading = false;
           // A job is "active" if it's assigned to me and not completed/cancelled
-          _hasActiveJob = stats.recentBookings.any((b) => 
-            b.status == BookingStatus.accepted || 
-            b.status == BookingStatus.onTheWay || 
-            b.status == BookingStatus.arrived || 
+          _hasActiveJob = stats.recentBookings.any((b) =>
+            b.status == BookingStatus.accepted ||
+            b.status == BookingStatus.onTheWay ||
+            b.status == BookingStatus.arrived ||
             b.status == BookingStatus.started
           );
+          
           _kitCount = stats.kitCount;
           _walletCash = stats.walletBalance; 
-          // _isOnline = stats.isOnline; // Removed as per your previous requirement for manual toggle
         });
-        
-        // Check for new notifications
-        _checkNewNotifications();
+
+        // Seed the DashboardController on app start / re-open so the
+        // Job Card appears immediately without waiting for stats API.
+        final activeInStats = stats.recentBookings.firstWhere(
+          (b) => b.status == BookingStatus.accepted || 
+                 b.status == BookingStatus.onTheWay || 
+                 b.status == BookingStatus.arrived ||
+                 b.status == BookingStatus.started,
+          orElse: () => pro_models.ProfessionalBooking.empty(),
+        );
+
+        if (activeInStats.id.isNotEmpty) {
+          context.read<DashboardController>().setActiveJob(activeInStats);
+        } else {
+          context.read<DashboardController>().clearJob();
+        }
       }
     } catch (e) {
       debugPrint('Dashboard fetch error: $e');
@@ -91,43 +122,7 @@ class _ProfessionalDashboardScreenState
     }
   }
 
-  Future<void> _checkNewNotifications() async {
-    if (!_isOnline) return; // Only show alerts if professional is online
-
-    try {
-      final notifications = await ProfessionalApiService.getNotifications();
-// ... (rest of the existing logic remains inside)
-      if (notifications.isNotEmpty && mounted) {
-        final latest = notifications.first;
-        final String currentId = latest['id'].toString();
-        final bool isUnread = latest['read_at'] == null;
-        
-        // Trigger if it's an assignment AND unread
-        if (latest['type'] == 'booking_assigned' && isUnread) {
-          // Mark as read immediately to prevent duplicate triggers
-          await ProfessionalApiService.markNotificationAsRead(currentId);
-          
-          // Navigate to the full-screen interactive request screen
-          if (mounted) {
-            final result = await context.pushNamed(
-              AppRoutes.proIncomingRequestName,
-              extra: latest['data'] ?? latest, // Use 'data' if nested, else the whole map
-            );
-            
-            // If the user accepted (returned true), refresh the dashboard
-            if (result == true) {
-              _fetchDashboardData(isSilent: true);
-              _confettiController.play();
-            }
-          }
-        }
-        
-        _lastNotificationId = currentId;
-      }
-    } catch (e) {
-      debugPrint('[Notifications] Fetch error: $e');
-    }
-  }
+  // Notification checking logic removed in favor of FirebaseMessagingService
 
   Future<void> _toggleAvailability(bool value) async {
     // Going online requires ₹1500 wallet balance
@@ -135,38 +130,16 @@ class _ProfessionalDashboardScreenState
       _showRequirementsError();
       return;
     }
-
-    final previousState = _isOnline;
-    setState(() => _isOnline = value); // Optimistic Update
-
-    try {
-      final res = await ProfessionalApiService.toggleAvailability(value);
-      if (res['success'] == true) {
-        if (value) _checkNewNotifications(); // Immediate check when going online
-      } else {
-        // Rollback on server failure
-        if (mounted) {
-          setState(() => _isOnline = previousState);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to update status')),
-          );
-        }
-      }
-    } catch (e) {
-      // Rollback on error
-      if (mounted) {
-        setState(() => _isOnline = previousState);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+    await context.read<ProfessionalProfileController>().toggleAvailability(value);
+    if (value && mounted) {
+      _fetchDashboardData(isSilent: true);
     }
   }
 
   @override
   void dispose() {
+    // Firestore listener now handled globally in ProfessionalScaffold
     WidgetsBinding.instance.removeObserver(this);
-    _heartbeatTimer?.cancel();
     _scrollController.dispose();
     _confettiController.dispose();
     super.dispose();
@@ -174,22 +147,17 @@ class _ProfessionalDashboardScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed && mounted) {
       _startHeartbeat();
-    } else {
-      _heartbeatTimer?.cancel();
+      _loadActiveJob(); // re-check active job when app returns to foreground
     }
   }
 
+  bool get _isOnline => mounted ? context.watch<ProfessionalProfileController>().isOnline : false;
+
   void _startHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
-      // Periodic heartbeat + data refresh
-      ProfessionalApiService.updateOnlineStatus();
-      _fetchDashboardData(isSilent: true);
-    });
-    // Initial heartbeat
-    ProfessionalApiService.updateOnlineStatus();
+    // Heartbeat logic now moved to ProfessionalProfileController
+    _fetchDashboardData(isSilent: true);
   }
 
   @override
@@ -281,11 +249,11 @@ class _ProfessionalDashboardScreenState
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _isOnline ? 'Available for bookings' : 'Currently Offline',
+                      profileController.isOnline ? 'Available for bookings' : 'Currently Offline',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: _isOnline ? Colors.green.shade600 : Colors.grey.shade500,
+                        color: profileController.isOnline ? Colors.green.shade600 : Colors.grey.shade500,
                       ),
                     ),
                   ],
@@ -296,7 +264,7 @@ class _ProfessionalDashboardScreenState
               Row(
                 children: [
                   AvailabilityToggle(
-                    isOnline: _isOnline,
+                    isOnline: profileController.isOnline,
                     onChanged: (value) => _toggleAvailability(value),
                   ),
                   const SizedBox(width: 8),
@@ -315,8 +283,9 @@ class _ProfessionalDashboardScreenState
     );
   }
 
-  // Micro-UX Status Feedback
   Widget _buildStatusFeedback() {
+    if (!_isOnline) return const SizedBox.shrink();
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
       transitionBuilder: (child, animation) {
@@ -339,7 +308,7 @@ class _ProfessionalDashboardScreenState
           ? Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.05),
+                color: Colors.green.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -356,7 +325,7 @@ class _ProfessionalDashboardScreenState
           : Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.05),
+                color: Colors.grey.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -374,30 +343,28 @@ class _ProfessionalDashboardScreenState
     );
   }
 
-  // 2️⃣ Primary Focus Panel (Adaptive)
+  // 2⃣ Primary Focus Panel — reactive to DashboardController
   Widget _buildPrimaryFocusPanel() {
-    final bool showActiveCard = _hasActiveJob && _isOnline;
+    return Consumer<DashboardController>(
+      builder: (context, controller, _) {
+        final activeJob = controller.activeJob;
+        final bool showActiveCard = activeJob != null;
 
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 300),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: showActiveCard ? AppTheme.primaryColor : const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: showActiveCard
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  )
-                ]
-              : [],
-        ),
-        child: showActiveCard ? _buildJobActiveContent() : _buildNoJobContent(),
-      ),
+        return AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          child: showActiveCard
+              ? _buildJobActiveCard(activeJob)
+              : Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: _buildNoJobContent(),
+                ),
+        );
+      },
     );
   }
 
@@ -426,171 +393,64 @@ class _ProfessionalDashboardScreenState
             color: Colors.grey.shade500,
           ),
         ),
+        if (_isOnline) ...[
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 20),
+          Text(
+            "Ready for new requests!",
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryColor.withOpacity(0.7),
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  Widget _buildJobActiveContent() {
-    // Find the most relevant active job
-    if (_stats == null || _stats!.recentBookings.isEmpty) {
-      return const SizedBox.shrink(); // No jobs to show in the active card
-    }
-
-    final activeJob = _stats?.recentBookings.firstWhere(
-      (b) => b.status == BookingStatus.started || 
-             b.status == BookingStatus.arrived || 
-             b.status == BookingStatus.onTheWay || 
-             b.status == BookingStatus.accepted,
-      orElse: () => _stats!.recentBookings.first
+  Widget _buildJobActiveCard(pro_models.ProfessionalBooking activeJob) {
+    String buttonText = "Start Job";
+    VoidCallback onPressed = () => context.pushNamed(
+      AppRoutes.proArriveName, 
+      pathParameters: {'id': activeJob.id},
+      extra: activeJob
     );
 
-    String buttonText = "Start Job";
-    VoidCallback onPressed = () => context.pushNamed(AppRoutes.proArriveName);
-
-    switch (activeJob?.status) {
+    switch (activeJob.status) {
       case BookingStatus.accepted:
         buttonText = "Start Journey";
-        onPressed = () => context.pushNamed(AppRoutes.proNavigationName, extra: activeJob);
+        onPressed = () => context.pushNamed(AppRoutes.proNavigationName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
       case BookingStatus.onTheWay:
         buttonText = "I Have Arrived";
-        onPressed = () => context.pushNamed(AppRoutes.proArriveName, extra: activeJob);
+        onPressed = () => context.pushNamed(AppRoutes.proArriveName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
       case BookingStatus.arrived:
-        buttonText = "Start Job";
-        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, extra: activeJob);
+        buttonText = "Start Service";
+        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
       case BookingStatus.started:
-        buttonText = "Continue Job";
-        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, extra: activeJob);
+        buttonText = "Complete Job";
+        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
       default:
         buttonText = "View Details";
-        onPressed = () => context.pushNamed(AppRoutes.proBookingDetailName, pathParameters: {'id': activeJob?.id ?? ''});
+        onPressed = () => context.pushNamed(AppRoutes.proBookingDetailName, pathParameters: {'id': activeJob.id});
     }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                activeJob?.time ?? 'Asap',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const Icon(Icons.more_horiz_rounded, color: Colors.white70),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Text(
-          activeJob?.clientName ?? 'Customer',
-          style: GoogleFonts.outfit(
-            fontSize: 28,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            height: 1.1,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          activeJob?.serviceName ?? 'Service',
-          style: GoogleFonts.outfit(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white.withValues(alpha: 0.9),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            const Icon(Icons.location_on_rounded, size: 16, color: Colors.white70),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                activeJob?.address ?? 'Location not set',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  color: Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 32),
-        Row(
-          children: [
-            _panelAction(Icons.phone_rounded, "Call", Colors.green),
-            const SizedBox(width: 12),
-            _panelAction(Icons.near_me_rounded, "Navigate", Colors.blue, onTap: () => context.pushNamed(AppRoutes.proNavigationName)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: onPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppTheme.primaryColor,
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-            child: Text(
-              buttonText,
-              style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w900, 
-                fontSize: 16,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _panelAction(IconData icon, String label, Color color, {VoidCallback? onTap}) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: Colors.white),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
+    return JobCard(
+      job: activeJob,
+      buttonText: buttonText,
+      onPressed: onPressed,
+      onCall: () {
+          // Logic for call
+      },
+      onNavigate: () => context.pushNamed(
+        AppRoutes.proNavigationName, 
+        pathParameters: {'id': activeJob.id},
+        extra: activeJob
       ),
     );
   }

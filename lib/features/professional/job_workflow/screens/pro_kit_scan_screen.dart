@@ -4,6 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProKitScanScreen extends StatefulWidget {
@@ -17,17 +21,48 @@ class ProKitScanScreen extends StatefulWidget {
 class _ProKitScanScreenState extends State<ProKitScanScreen> {
   bool _isScanned = false;
   bool _isStarting = false;
+  late ProfessionalBooking _booking;
+
+  @override
+  void initState() {
+    super.initState();
+    _booking = widget.booking;
+    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
+      _fetchLatestDetails();
+    }
+  }
+
+  Future<void> _fetchLatestDetails() async {
+    try {
+      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
+      if (mounted) {
+        setState(() => _booking = latest);
+        _syncController();
+      }
+    } catch (e) {
+      debugPrint('Failed to re-fetch booking: $e');
+    }
+  }
+
+  /// Syncs the local booking state with the central DashboardController.
+  void _syncController() {
+    if (mounted) {
+      DashboardController.instance.setActiveJob(_booking);
+      debugPrint('🔄 Kit Scan: Synced controller with ${_booking.id} (${_booking.status.name})');
+    }
+  }
 
   Future<void> _startService() async {
     setState(() => _isStarting = true);
     try {
-      final res = await ProfessionalApiService.jobStartService(widget.booking.id);
+      final res = await ProfessionalApiService.jobStartService(_booking.id);
       if (mounted) {
         if (res['success'] == true) {
           // Fetch updated booking with serviceStartedAt
-          final updatedBooking = await ProfessionalApiService.getBookingDetail(widget.booking.id);
+          final updatedBooking = await ProfessionalApiService.getBookingDetail(_booking.id);
           if (mounted) {
-            context.pushNamed(AppRoutes.proActiveJobName, extra: updatedBooking);
+            DashboardController.instance.setActiveJob(updatedBooking);
+            context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': _booking.id}, extra: updatedBooking);
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

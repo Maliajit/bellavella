@@ -9,6 +9,28 @@ import 'package:image_picker/image_picker.dart';
 class ProfessionalApiService {
   static const String _prefix = '/professional';
 
+  static Future<Map<String, dynamic>> updateFcmToken(String token) async {
+    return await ApiService.post('$_prefix/update-fcm-token', {
+      'fcm_token': token,
+    });
+  }
+
+  static Future<List<Map<String, dynamic>>> getNotifications() async {
+    final response = await ApiService.get('$_prefix/notifications');
+    if (response['success'] == true && response['data'] != null) {
+      if (response['data'] is List) {
+        return List<Map<String, dynamic>>.from(response['data']);
+      } else if (response['data'] is Map && response['data']['data'] is List) {
+        return List<Map<String, dynamic>>.from(response['data']['data']);
+      }
+    }
+    return [];
+  }
+
+  static Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
+    return await ApiService.post('$_prefix/notifications/$id/read', {});
+  }
+
   // --- Auth ---
   static Future<Map<String, dynamic>> sendOtp(String mobile) async {
     return await ApiService.post('$_prefix/send-otp', {
@@ -150,10 +172,9 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to load bookings');
   }
 
-
   static Future<pro_models.ProfessionalBooking> getBookingDetail(String id) async {
     final response = await ApiService.get('$_prefix/bookings/$id');
-    if (response['success'] == true) {
+    if (response['success'] == true && response['data'] != null) {
       return pro_models.ProfessionalBooking.fromJson(response['data']);
     }
     throw Exception(response['message'] ?? 'Failed to load booking details');
@@ -169,6 +190,25 @@ class ProfessionalApiService {
 
   static Future<Map<String, dynamic>> jobStartService(String id) async {
     return await ApiService.post('$_prefix/jobs/$id/start-service', {});
+  }
+
+  static Future<Map<String, dynamic>> jobFinishService(String id) async {
+    return await ApiService.post('$_prefix/jobs/$id/finish-service', {});
+  }
+
+  static Future<pro_models.ProfessionalBooking?> getActiveJob() async {
+    try {
+      final response = await ApiService.get('$_prefix/active-job');
+      if (response['success'] == true && response['data'] != null) {
+        final job = pro_models.ProfessionalBooking.fromJson(response['data']);
+        debugPrint('📋 getActiveJob: ${job.id} (${job.status.name})');
+        return job;
+      }
+    } catch (e) {
+      debugPrint('⚠️ getActiveJob error: $e');
+    }
+    debugPrint('📋 getActiveJob: null (no active job)');
+    return null;
   }
 
   static Future<Map<String, dynamic>> jobComplete(String id) async {
@@ -242,37 +282,6 @@ class ProfessionalApiService {
 
   static Future<Map<String, dynamic>> uploadProfileImage(XFile image) async {
     return await ApiService.multipart('$_prefix/upload-profile-image', {}, {'image': image});
-  }
-
-  // --- Notifications ---
-  static Future<List<Map<String, dynamic>>> getNotifications() async {
-    final response = await ApiService.get('$_prefix/notifications');
-    if (response['success'] == true) {
-      final rawData = response['data'];
-      
-      // Case 1: Directly a list
-      if (rawData is List) {
-        return List<Map<String, dynamic>>.from(
-          rawData.map((e) => Map<String, dynamic>.from(e))
-        );
-      } 
-      
-      // Case 2: Paginated response with nested 'data' list
-      if (rawData is Map) {
-        final nestedData = rawData['data'];
-        if (nestedData is List) {
-          return List<Map<String, dynamic>>.from(
-            nestedData.map((e) => Map<String, dynamic>.from(e))
-          );
-        }
-      }
-      return [];
-    }
-    throw Exception(response['message'] ?? 'Failed to load notifications');
-  }
-
-  static Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
-    return await ApiService.post('$_prefix/notifications/$id/read', {});
   }
 
   static Future<Map<String, dynamic>> markAllNotificationsRead() async {

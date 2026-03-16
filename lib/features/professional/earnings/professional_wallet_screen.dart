@@ -8,6 +8,7 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
+import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/core/models/data_models.dart';
@@ -120,6 +121,22 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
           'wallets': ['paytm']
         }
       };
+
+      if (orderData['is_mock'] == true) {
+        if (!mounted) return;
+        MockRazorpayDialog.show(
+          context,
+          options: {
+            'amount': orderData['amount'],
+            'name': 'BellaVella',
+            'description': 'Wallet Deposit',
+            'order_id': orderData['order_id'],
+          },
+          onSuccess: _onPaymentSuccess,
+          onFailure: _onPaymentError,
+        );
+        return;
+      }
 
       _razorpayService?.open(options);
     } catch (e) {

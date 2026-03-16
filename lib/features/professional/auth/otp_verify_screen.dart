@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/services/notification_service.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../services/professional_api_service.dart';
 
@@ -50,6 +51,8 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
               'referral_code': widget.referralCode,
             });
           } else {
+            // Register FCM token
+            await NotificationService().registerFcmToken();
             context.go('/professional/dashboard');
           }
         } else {
