@@ -1,12 +1,10 @@
+import 'package:bellavella/core/widgets/skeleton_box.dart';
 import 'package:flutter/material.dart';
 
 /// A reusable network image widget with built-in:
 /// - Skeleton loading placeholder (no layout jump)
 /// - Local asset fallback on error
 /// - Graceful null URL handling
-///
-/// Usage:
-///   AppNetworkImage(url: imageUrl, height: 200, width: double.infinity, fit: BoxFit.cover)
 class AppNetworkImage extends StatelessWidget {
   final String? url;
   final double? width;
@@ -25,10 +23,12 @@ class AppNetworkImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget image = _buildImage();
-
+    final image = _buildImage();
     if (borderRadius != null) {
-      return ClipRRect(borderRadius: borderRadius!, child: image);
+      return ClipRRect(
+        borderRadius: borderRadius!,
+        child: image,
+      );
     }
     return image;
   }
@@ -43,15 +43,20 @@ class AppNetworkImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
-      // Skeleton shown while loading — no layout jump because size is constrained
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) {
+          return child;
+        }
         return _skeleton();
       },
-      // Local asset shown on error — UI stays stable
-      errorBuilder: (context, error, stackTrace) {
-        return _placeholder();
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) {
+          return child;
+        }
+        return _skeleton();
       },
+      errorBuilder: (context, error, stackTrace) => _placeholder(),
     );
   }
 
@@ -59,7 +64,7 @@ class AppNetworkImage extends StatelessWidget {
     return SizedBox(
       width: width,
       height: height,
-      child: const _ShimmerBox(),
+      child: const SkeletonBox(),
     );
   }
 
@@ -76,49 +81,11 @@ class AppNetworkImage extends StatelessWidget {
           width: width,
           height: height,
           color: const Color(0xFFF0F0F0),
-          child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey),
-        ),
-      ),
-    );
-  }
-}
-
-/// Simple shimmer/skeleton box for loading state
-class _ShimmerBox extends StatefulWidget {
-  const _ShimmerBox();
-
-  @override
-  State<_ShimmerBox> createState() => _ShimmerBoxState();
-}
-
-class _ShimmerBoxState extends State<_ShimmerBox>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.4, end: 0.8).animate(_controller);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (_, __) => Container(
-        decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(_animation.value),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.image_not_supported_outlined,
+            color: Colors.grey,
+          ),
         ),
       ),
     );

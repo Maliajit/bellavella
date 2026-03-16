@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
+import 'package:bellavella/core/widgets/app_network_image.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/features/client/services/widgets/category_screen_skeleton.dart';
 
 class ClientCategoryScreen extends StatefulWidget {
   final String categorySlug;
@@ -75,8 +77,11 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
       ),
       body: Consumer<ServiceProvider>(
         builder: (context, sp, _) {
-          if (sp.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+          if (sp.isLoading && sp.categoryPageData == null) {
+            return const CategoryScreenSkeleton(
+              categoryCount: 4,
+              carouselCount: 2,
+            );
           }
           if (sp.error != null) {
             return Center(child: Text('Error: ${sp.error}'));
@@ -190,36 +195,56 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(15),
                   image: DecorationImage(
-                    image: NetworkImage(banner.imageUrl),
+                    image: const AssetImage('assets/images/placeholder.png'),
                     fit: BoxFit.cover,
                   ),
                 ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(15),
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Colors.black.withValues(alpha: 0.6), Colors.transparent],
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    AppNetworkImage(
+                      url: banner.imageUrl,
+                      fit: BoxFit.cover,
+                      borderRadius: BorderRadius.circular(15),
                     ),
-                  ),
-                  padding: const EdgeInsets.all(15),
-                  alignment: Alignment.bottomLeft,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        banner.title,
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      if (banner.subtitle != null)
-                        Text(
-                          banner.subtitle!,
-                          style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(15),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.6),
+                            Colors.transparent,
+                          ],
                         ),
-                    ],
-                  ),
+                      ),
+                      padding: const EdgeInsets.all(15),
+                      alignment: Alignment.bottomLeft,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            banner.title,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (banner.subtitle != null)
+                            Text(
+                              banner.subtitle!,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
@@ -354,14 +379,12 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(18),
-                    child: item.image != null 
-                      ? Image.network(
-                          item.image!,
-                          height: 185,
-                          width: 185,
-                          fit: BoxFit.cover,
-                        )
-                      : Container(height: 185, width: 185, color: Colors.grey.shade200),
+                    child: AppNetworkImage(
+                      url: item.image,
+                      height: 185,
+                      width: 185,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -445,14 +468,16 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                 children: [
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(15),
+                      ),
                       child: item.image != null
-                        ? Image.network(
-                            item.image!,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          )
-                        : Container(color: Colors.grey.shade200),
+                          ? AppNetworkImage(
+                              url: item.image,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(color: Colors.grey.shade200),
                     ),
                   ),
                   Padding(
@@ -483,28 +508,50 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
-        image: DecorationImage(image: NetworkImage(banner.imageUrl), fit: BoxFit.cover),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppNetworkImage(
+            url: banner.imageUrl,
+            fit: BoxFit.cover,
+            borderRadius: BorderRadius.circular(15),
           ),
-        ),
-        padding: const EdgeInsets.all(20),
-        alignment: Alignment.centerLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(banner.title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-            if (banner.subtitle != null)
-              Text(banner.subtitle!, style: const TextStyle(color: Colors.white70, fontSize: 14)),
-          ],
-        ),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(15),
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  Colors.black.withValues(alpha: 0.7),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.centerLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  banner.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (banner.subtitle != null)
+                  Text(
+                    banner.subtitle!,
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

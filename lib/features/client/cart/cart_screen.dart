@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import 'package:bellavella/features/client/cart/models/cart_model.dart';
+import 'package:bellavella/core/services/auth_flow_service.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
@@ -26,6 +27,7 @@ class _CartScreenState extends State<CartScreen> {
 
   final TextEditingController _couponController = TextEditingController();
   bool _isSyncing = false;
+  bool _hasAppliedPendingCheckout = false;
 
   @override
   void initState() {
@@ -41,9 +43,69 @@ class _CartScreenState extends State<CartScreen> {
     super.dispose();
   }
 
+  Future<void> _proceedToCheckout() async {
+    if (!TokenManager.hasToken) {
+      await AuthFlowService.setPendingAction(
+        const PendingAuthAction(
+          routeName: AppRoutes.clientCartName,
+          actionType: 'cart_proceed_checkout',
+        ),
+      );
+      if (!mounted) return;
+      ToastUtil.showError(
+        context,
+        'Please sign in first to continue to checkout. We will return you to your cart.',
+      );
+      context.push(AppRoutes.clientLogin);
+      return;
+    }
+
+    setState(() => _isSyncing = true);
+
+    final cartProvider = context.read<CartProvider>();
+    final syncSuccess = await cartProvider.syncCartWithBackend();
+
+    if (!mounted) return;
+    setState(() => _isSyncing = false);
+
+    if (syncSuccess) {
+      context.push('/client/checkout-address');
+    } else {
+      ToastUtil.showError(context, 'Failed to sync cart. Please try again.');
+    }
+  }
+
+  void _resumePendingCheckoutIfNeeded(CartProvider cartProvider) {
+    if (_hasAppliedPendingCheckout ||
+        !TokenManager.hasToken ||
+        cartProvider.isLoading ||
+        cartProvider.items.isEmpty ||
+        _isSyncing) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _hasAppliedPendingCheckout || _isSyncing) {
+        return;
+      }
+      AuthFlowService.consumeIf(
+        (pending) =>
+            pending.routeName == AppRoutes.clientCartName &&
+            pending.actionType == 'cart_proceed_checkout',
+      ).then((action) {
+        if (!mounted || action == null) {
+          return;
+        }
+        _hasAppliedPendingCheckout = true;
+        _proceedToCheckout();
+      });
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
+    _resumePendingCheckoutIfNeeded(cartProvider);
     final groupedItems = <String, List<CartItem>>{};
     for (var item in cartProvider.items) {
       final cat = item.categoryName ?? 'Other';
@@ -112,8 +174,6 @@ class _CartScreenState extends State<CartScreen> {
                           const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
                         ],
                       )),
-                  _buildFrequentlyAdded(),
-                  const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
                   _buildCouponsSection(),
                   const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
                   _buildPaymentSummary(cartProvider),
@@ -191,6 +251,8 @@ class _CartScreenState extends State<CartScreen> {
                   children: [
                     Text(
                       item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
@@ -206,6 +268,8 @@ class _CartScreenState extends State<CartScreen> {
                         ),
                         child: Text(
                           item.subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.outfit(
                             fontSize: 14,
                             color: Colors.grey.shade600,
@@ -219,8 +283,12 @@ class _CartScreenState extends State<CartScreen> {
               const SizedBox(width: 10),
               _buildQuantitySelector(item.quantity,
                 isSyncing: cartProvider.isItemSyncing(item.id),
-                onIncrement: () => cartProvider.incrementQuantity(item.id),
-                onDecrement: () => cartProvider.decrementQuantity(item.id),
+                onIncrement: () {
+                  cartProvider.incrementQuantity(item.id);
+                },
+                onDecrement: () {
+                  cartProvider.decrementQuantity(item.id);
+                },
               ),
               const SizedBox(width: 15),
               _buildPriceDisplay(item.price, null),
@@ -238,6 +306,7 @@ class _CartScreenState extends State<CartScreen> {
     VoidCallback? onDecrement,
   }) {
     return Container(
+      height: 40,
       decoration: BoxDecoration(
         color: pinkLight,
         borderRadius: BorderRadius.circular(10),
@@ -246,11 +315,17 @@ class _CartScreenState extends State<CartScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.remove, size: 16, color: pinkPrimary),
-            onPressed: isSyncing ? null : onDecrement,
+          SizedBox(
+            width: 34,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: isSyncing ? null : onDecrement,
+                child: const Icon(Icons.remove, size: 16, color: pinkPrimary),
+              ),
+            ),
           ),
           SizedBox(
             width: 24,
@@ -271,11 +346,17 @@ class _CartScreenState extends State<CartScreen> {
                     ),
             ),
           ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            padding: EdgeInsets.zero,
-            icon: const Icon(Icons.add, size: 16, color: pinkPrimary),
-            onPressed: isSyncing ? null : onIncrement,
+          SizedBox(
+            width: 34,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: isSyncing ? null : onIncrement,
+                child: const Icon(Icons.add, size: 16, color: pinkPrimary),
+              ),
+            ),
           ),
         ],
       ),
@@ -304,84 +385,6 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildFrequentlyAdded() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Frequently added together',
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-          ),
-          const SizedBox(height: 15),
-          SizedBox(
-            height: 250,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: [
-                _buildSuggestCard(context, 'Threading', '49', 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400'),
-                _buildSuggestCard(context, 'Casmara charcoal detox mask', '1,299', 'https://images.unsplash.com/photo-1560750588-73207b1ef5b8?q=80&w=400'),
-                _buildSuggestCard(context, 'RIC wax', '69', 'https://images.unsplash.com/photo-1522338242992-e1a54906a8da?q=80&w=400'),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuggestCard(BuildContext context, String title, String price, String img) {
-    return Container(
-      width: 170,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(img, height: 160, width: 170, fit: BoxFit.cover),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.normal),
-          ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('₹$price', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-              GestureDetector(
-                onTap: () {
-                  ToastUtil.showAddToCartToast(context, title);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Text('Add', style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -865,27 +868,7 @@ class _CartScreenState extends State<CartScreen> {
       child: ElevatedButton(
         onPressed: _isSyncing 
             ? null 
-            : () async {
-                if (!TokenManager.hasToken) {
-                  ToastUtil.showError(context, 'Please log in to proceed to checkout.');
-                  context.push(AppRoutes.clientLogin);
-                  return;
-                }
-
-                setState(() => _isSyncing = true);
-                
-                final cartProvider = context.read<CartProvider>();
-                final syncSuccess = await cartProvider.syncCartWithBackend();
-                
-                if (!mounted) return;
-                setState(() => _isSyncing = false);
-
-                if (syncSuccess) {
-                  context.push('/client/checkout-address');
-                } else {
-                  ToastUtil.showError(context, 'Failed to sync cart. Please try again.');
-                }
-              },
+            : _proceedToCheckout,
         style: ElevatedButton.styleFrom(
           backgroundColor: pinkPrimary,
           shape: RoundedRectangleBorder(

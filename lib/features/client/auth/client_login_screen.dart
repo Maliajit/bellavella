@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bellavella/core/services/auth_flow_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import 'services/auth_api_service.dart';
@@ -43,7 +44,11 @@ class _ClientLoginScreenState extends State<ClientLoginScreen> {
         automaticallyImplyLeading: false,
         actions: [
           TextButton(
-            onPressed: () => context.go('/client/location-picker'),
+            onPressed: () async {
+              await AuthFlowService.clearPendingAction();
+              if (!context.mounted) return;
+              context.go('/client/location-picker');
+            },
             child: const Text(
               'SKIP',
               style: TextStyle(

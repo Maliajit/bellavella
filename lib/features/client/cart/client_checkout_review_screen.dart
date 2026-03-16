@@ -8,6 +8,7 @@ import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/services/api_service.dart';
 
 import 'controllers/cart_provider.dart';
 import '../services/client_api_service.dart';
@@ -358,8 +359,9 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
         if (!mounted) return;
         
         // Handle Laravel's default unauthenticated message
-        if (response['message'] == 'Unauthenticated.') {
-          ToastUtil.showError(context, 'Please log in to complete your booking.');
+        if (response['message'] == 'Unauthenticated.' ||
+            response['_auth_expired'] == true) {
+          ToastUtil.showError(context, ApiService.sessionExpiredMessage);
           context.push(AppRoutes.clientLogin);
         } else {
           ToastUtil.showError(context, response['message'] ?? 'Checkout failed');

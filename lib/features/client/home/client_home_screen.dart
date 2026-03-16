@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:confetti/confetti.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/utils/permission_handler_util.dart';
@@ -23,9 +24,8 @@ import 'widgets/home_story_section.dart';
 import 'widgets/home_testimonials_section.dart';
 import 'widgets/home_trending_packages_section.dart';
 import 'widgets/home_download_app_section.dart';
-import 'widgets/home_testimonials_section.dart';
-import 'widgets/home_trending_packages_section.dart';
-import 'widgets/home_download_app_section.dart';
+import 'widgets/home_screen_skeleton.dart';
+import '../services/models/service_models.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -36,6 +36,7 @@ class ClientHomeScreen extends StatefulWidget {
 
 class _ClientHomeScreenState extends State<ClientHomeScreen> {
   late ConfettiController _confettiController;
+  bool _hasPlayedLoadedConfetti = false;
 
   @override
   void initState() {
@@ -94,17 +95,96 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     }
   }
 
+  void _openServiceGroupPage(BuildContext context, HomeCategory category) {
+    final seedNode = ServiceHierarchyNode(
+      id: category.id.toString(),
+      name: category.name,
+      slug: category.slug,
+      level: 'category',
+      nextLevel: 'service_group',
+      hasChildren: true,
+      children: const [],
+      image: category.imageUrl.isEmpty ? null : category.imageUrl,
+    );
+
+    context.pushNamed(
+      AppRoutes.clientServiceHierarchyName,
+      pathParameters: {'nodeKey': seedNode.routeKey},
+      extra: {
+        'seedNode': seedNode.toRouteData(),
+        'breadcrumbs': <Map<String, dynamic>>[],
+      },
+    );
+  }
+
+  void _handleHomeServiceAdd(
+    BuildContext context,
+    HomeService service,
+    String sectionTitle,
+  ) async {
+    await context.read<CartProvider>().addItem(
+      service,
+      categoryName: sectionTitle,
+    );
+    ToastUtil.showAddToCartToast(context, service.title);
+  }
+
+  void _openCategoryPage(BuildContext context, HomeCategory category) {
+    if (category.slug.isEmpty) {
+      return;
+    }
+
+    context.pushNamed(
+      AppRoutes.clientCategoryName,
+      pathParameters: {'slug': category.slug},
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final homeProvider = context.watch<HomeProvider>();
+    final showInitialSkeleton =
+        homeProvider.isLoading && homeProvider.sections.isEmpty;
+    final shouldShowLoadedContent =
+        !showInitialSkeleton && homeProvider.errorMessage == null;
+    final categorySection = _findFirstSection(homeProvider.sections, (section) {
+      return section.type == 'category_carousel';
+    });
+    final serviceSection = _findFirstSection(homeProvider.sections, (section) {
+      return section.type == 'service_carousel' || section.type == 'service_grid';
+    });
+    final skeletonServiceCount = _normalizedSkeletonCount(
+      categorySection?.items.length,
+      fallback: 4,
+    );
+    final skeletonMostBookedCount = _normalizedSkeletonCount(
+      serviceSection?.items.length,
+      fallback: 2,
+      max: 5,
+    );
+
+    if (shouldShowLoadedContent &&
+        !_hasPlayedLoadedConfetti &&
+        homeProvider.sections.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _hasPlayedLoadedConfetti) {
+          return;
+        }
+        _confettiController.play();
+        _hasPlayedLoadedConfetti = true;
+      });
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
           SafeArea(
-            child: homeProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
+            child: showInitialSkeleton
+                ? HomeScreenSkeleton(
+                    serviceCount: skeletonServiceCount,
+                    mostBookedCount: skeletonMostBookedCount,
+                  )
                 : homeProvider.errorMessage != null
                 ? Center(
                     child: Column(
@@ -170,7 +250,16 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                               if (categories.isNotEmpty) {
                                 sectionWidget = HomeServiceGrid(
                                   categories: categories,
-                                  onViewAll: () {},
+                                  onViewAll: () =>
+                                      _openCategoryPage(
+                                        context,
+                                        categories.first,
+                                      ),
+                                  onCategoryTap: (category) =>
+                                      _openServiceGroupPage(
+                                        context,
+                                        category,
+                                      ),
                                 );
                               }
                               break;
@@ -190,14 +279,10 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                   subtitle: section.subtitle ?? '',
                                   services: services,
                                   onAdd: (service) {
-                                    context.read<CartProvider>().addItem(
-                                      service,
-                                      categoryName: section.title,
-                                    );
-                                    // Use global toast utility for Add to Cart message
-                                    ToastUtil.showAddToCartToast(
+                                    _handleHomeServiceAdd(
                                       context,
-                                      service.title,
+                                      service,
+                                      section.title,
                                     );
                                   },
                                 );
@@ -299,23 +384,24 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                     ),
                   ),
           ),
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: [
-                Colors.green,
-                Colors.blue,
-                Colors.pink,
-                Colors.orange,
-                Colors.purple,
-                AppTheme.primaryColor,
-              ],
-              createParticlePath: drawStar,
+          if (shouldShowLoadedContent)
+            Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                shouldLoop: false,
+                colors: [
+                  Colors.green,
+                  Colors.blue,
+                  Colors.pink,
+                  Colors.orange,
+                  Colors.purple,
+                  AppTheme.primaryColor,
+                ],
+                createParticlePath: drawStar,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -345,5 +431,33 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     }
     path.close();
     return path;
+  }
+
+  int _normalizedSkeletonCount(
+    int? rawCount, {
+    required int fallback,
+    int min = 1,
+    int max = 6,
+  }) {
+    final value = rawCount ?? fallback;
+    if (value < min) {
+      return min;
+    }
+    if (value > max) {
+      return max;
+    }
+    return value;
+  }
+
+  HomeSection? _findFirstSection(
+    List<HomeSection> sections,
+    bool Function(HomeSection section) matcher,
+  ) {
+    for (final section in sections) {
+      if (matcher(section)) {
+        return section;
+      }
+    }
+    return null;
   }
 }

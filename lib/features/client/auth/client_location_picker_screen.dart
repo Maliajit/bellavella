@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/foundation.dart';
+import 'package:bellavella/core/services/auth_flow_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../../../../core/services/token_manager.dart';
@@ -227,7 +228,7 @@ class _ClientLocationPickerScreenState extends State<ClientLocationPickerScreen>
                   : () async {
                       await TokenManager.setLocation(_address, _subAddress);
                       if (!context.mounted) return;
-                      context.go('/client/home');
+                      await AuthFlowService.continueAfterClientAuth(context);
                     },
             ),
           ],

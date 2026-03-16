@@ -1,9 +1,16 @@
 import 'package:bellavella/core/services/api_service.dart';
+import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/widgets/app_network_image.dart';
+import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
+import 'package:bellavella/features/client/cart/models/cart_model.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
 import 'package:bellavella/features/client/services/widgets/service_flow_banner_carousel.dart';
+import 'package:bellavella/features/client/services/widgets/service_group_detail_skeleton.dart';
+import 'package:bellavella/features/client/services/widgets/service_list_skeleton.dart';
+import 'package:bellavella/features/client/services/widgets/service_popup_skeleton.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -37,6 +44,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   final Map<int, int> _serviceCartIds = {};
   final Set<int> _syncingServiceIds = {};
   String? _preloadedGroupKey;
+  bool _hasAttemptedInitialHierarchyFetch = false;
 
   bool get _isHierarchyGroupMode =>
       widget.hierarchySeedNode?.level == 'service_group' ||
@@ -55,14 +63,24 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       await _loadCartState();
 
       if (_isHierarchyGroupMode) {
-        await sp.fetchHierarchyNode(
-          nodeKey: _hierarchyLookupKey,
-          level: 'service_group',
-          seedNode: widget.hierarchySeedNode,
-        );
-        final node = sp.hierarchyNode(_hierarchyLookupKey);
-        if (node != null && node.level == 'service' && node.serviceId != null) {
-          sp.fetchServiceReviews(node.serviceId!);
+        try {
+          await sp.fetchHierarchyNode(
+            nodeKey: _hierarchyLookupKey,
+            level: 'service_group',
+            seedNode: widget.hierarchySeedNode,
+          );
+          final node = sp.hierarchyNode(_hierarchyLookupKey);
+          if (node != null &&
+              node.level == 'service' &&
+              node.serviceId != null) {
+            sp.fetchServiceReviews(node.serviceId!);
+          }
+        } finally {
+          if (mounted) {
+            setState(() {
+              _hasAttemptedInitialHierarchyFetch = true;
+            });
+          }
         }
         return;
       }
@@ -91,37 +109,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Future<void> _loadCartState() async {
-    final response = await ApiService.get('/client/cart');
-    if (!mounted ||
-        response['success'] != true ||
-        response['data'] is! Map<String, dynamic>) {
+    final cartProvider = context.read<CartProvider>();
+    await cartProvider.fetchCart();
+    if (!mounted) {
       return;
     }
 
-    final items = (response['data']['items'] as List? ?? const []);
     final nextQuantities = <int, int>{};
     final nextCartIds = <int, int>{};
 
-    for (final rawItem in items.whereType<Map>()) {
-      final item = Map<String, dynamic>.from(rawItem);
-      if (item['item_type']?.toString() != 'service') {
-        continue;
+    for (final item in cartProvider.items) {
+      nextQuantities[item.quantityKey] = item.quantity;
+      if (item.cartId > 0) {
+        nextCartIds[item.quantityKey] = item.cartId;
       }
-
-      final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
-      final serviceVariantId = int.tryParse(
-        item['service_variant_id']?.toString() ?? '',
-      );
-      final cartId = int.tryParse(item['id']?.toString() ?? '');
-      final quantity = int.tryParse(item['quantity']?.toString() ?? '');
-      final quantityKey = serviceVariantId ?? serviceId;
-
-      if (quantityKey == null || cartId == null || quantity == null) {
-        continue;
-      }
-
-      nextQuantities[quantityKey] = quantity;
-      nextCartIds[quantityKey] = cartId;
     }
 
     setState(() {
@@ -161,6 +162,49 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     setState(() => _syncingServiceIds.add(service.id));
 
     try {
+      if (!TokenManager.hasToken) {
+        final currentQuantity = _serviceQuantities[service.id] ?? 0;
+        if (currentQuantity == nextQuantity) {
+          return;
+        }
+
+        final cartItem = CartItem(
+          cartId: 0,
+          id: service.id,
+          serviceId: service.parentServiceId ?? service.id,
+          serviceVariantId: service.serviceVariantId,
+          itemType: service.serviceVariantId != null ? 'variant' : 'service',
+          title: service.name,
+          subtitle: service.description,
+          price: service.price,
+          imageUrl: service.image ?? '',
+          categoryName: widget.categoryName,
+          quantity: nextQuantity <= 0 ? 1 : nextQuantity,
+        );
+
+        await context.read<CartProvider>().addOrUpdateLocalOrRemoteItem(
+          cartItem,
+          nextQuantityDelta: nextQuantity - currentQuantity,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          if (nextQuantity <= 0) {
+            _serviceQuantities.remove(service.id);
+          } else {
+            _serviceQuantities[service.id] = nextQuantity;
+          }
+        });
+
+        if (nextQuantity > currentQuantity) {
+          ToastUtil.showAddToCartToast(context, service.name);
+        }
+        return;
+      }
+
       Map<String, dynamic> response;
 
       if (nextQuantity <= 0) {
@@ -255,9 +299,10 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     }
   }
 
+
   Future<void> _openVariantSelector(DetailedService service) async {
     final provider = context.read<ServiceProvider>();
-    await provider.fetchHierarchyNode(
+    provider.fetchHierarchyNode(
       nodeKey: service.slug,
       level: 'service',
       seedNode: service.toHierarchyNode(),
@@ -268,19 +313,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       return;
     }
 
-    final node = provider.hierarchyNode(service.slug);
-    if (node == null) {
-      _showSnack('Unable to load options.');
-      return;
-    }
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _VariantOptionsSheet(
         service: service,
-        node: node,
+        nodeKey: service.slug,
+        initialNode: provider.hierarchyNode(service.slug) ?? service.toHierarchyNode(),
         onQuantityChange: _changeServiceQuantity,
         currentQuantities: _serviceQuantities,
         syncingStates: {
@@ -308,10 +348,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Widget _buildLegacyCategoryMode(BuildContext context, ServiceProvider sp) {
-    if (sp.isLoadingDetail) {
+    if (sp.isLoadingDetail && sp.categoryDetail == null) {
       return const Scaffold(
         backgroundColor: Color(0xFFFAFAFA),
-        body: Center(child: CircularProgressIndicator()),
+        body: SafeArea(
+          child: ServiceListSkeleton(itemCount: 4),
+        ),
       );
     }
 
@@ -419,15 +461,22 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   Widget _buildHierarchyGroupMode(BuildContext context, ServiceProvider sp) {
-    final node =
-        sp.hierarchyNode(_hierarchyLookupKey) ?? widget.hierarchySeedNode;
+    final resolvedNode = sp.hierarchyNode(_hierarchyLookupKey);
+    final node = resolvedNode ?? widget.hierarchySeedNode;
     final isLoading = sp.isHierarchyLoading(_hierarchyLookupKey);
     final error = sp.hierarchyError(_hierarchyLookupKey);
+    final serviceTypeCount = _normalizedServiceTypeCount(node);
+    final hasOnlySeedNode = resolvedNode != null &&
+        widget.hierarchySeedNode != null &&
+        identical(resolvedNode, widget.hierarchySeedNode);
+    final hasResolvedNode = resolvedNode != null && !hasOnlySeedNode;
+    final showInitialSkeleton =
+        !hasResolvedNode &&
+        (!_hasAttemptedInitialHierarchyFetch || isLoading);
 
-    if (node == null && isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFAFAFA),
-        body: Center(child: CircularProgressIndicator()),
+    if (showInitialSkeleton) {
+      return ServiceGroupDetailSkeleton(
+        serviceTypeCount: serviceTypeCount,
       );
     }
 
@@ -436,6 +485,14 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
         backgroundColor: const Color(0xFFFAFAFA),
         appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
         body: Center(child: Text(error ?? 'Unable to load services.')),
+      );
+    }
+
+    if (!hasResolvedNode && error != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFAFAFA),
+        appBar: AppBar(backgroundColor: Colors.white, elevation: 0),
+        body: Center(child: Text(error)),
       );
     }
 
@@ -559,51 +616,71 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       margin: const EdgeInsets.all(16),
       height: 200,
       width: double.infinity,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        image: DecorationImage(
-          image: NetworkImage(bannerImage),
-          fit: BoxFit.cover,
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          AppNetworkImage(
+            url: bannerImage,
+            fit: BoxFit.cover,
+            borderRadius: BorderRadius.circular(20),
           ),
-        ),
-        padding: const EdgeInsets.all(20),
-        alignment: Alignment.bottomLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              eyebrow,
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
-            ),
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.7),
+                  Colors.transparent,
+                ],
               ),
             ),
-            if (subtitle != null && subtitle.isNotEmpty)
-              Text(
-                subtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-          ],
-        ),
+            padding: const EdgeInsets.all(20),
+            alignment: Alignment.bottomLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  eyebrow,
+                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                if (subtitle != null && subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  int _normalizedServiceTypeCount(ServiceHierarchyNode? node) {
+    final rawCount = node?.children
+            .where((child) => child.level == 'service_type')
+            .length ??
+        widget.hierarchySeedNode?.children
+            .where((child) => child.level == 'service_type')
+            .length ??
+        5;
+    if (rawCount < 1) {
+      return 5;
+    }
+    return rawCount;
   }
 
   Widget _buildLegacyGroupGrid(List<ServiceGroup> groups) {
@@ -634,12 +711,17 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     color: Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(15),
                     image: DecorationImage(
-                      image: NetworkImage(
-                        group.image ??
-                            'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=100',
-                      ),
+                      image: const AssetImage('assets/images/placeholder.png'),
                       fit: BoxFit.cover,
                     ),
+                  ),
+                  child: AppNetworkImage(
+                    url: group.image ??
+                        'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=100',
+                    height: 65,
+                    width: 65,
+                    fit: BoxFit.cover,
+                    borderRadius: BorderRadius.circular(15),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -737,12 +819,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
-      child: Image.network(
-        imageUrl,
+      child: AppNetworkImage(
+        url: imageUrl,
         height: size,
         width: size,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => placeholder,
       ),
     );
   }
@@ -897,23 +978,12 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     Widget imageBlock() {
       final image = ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: Image.network(
-          service.image ??
+        child: AppNetworkImage(
+          url: service.image ??
               'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=300',
           height: 128,
           width: 128,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            height: 128,
-            width: 128,
-            color: const Color(0xFFFFF1F4),
-            alignment: Alignment.center,
-            child: Icon(
-              _getIconForLabel(service.name),
-              color: AppTheme.primaryColor,
-              size: 34,
-            ),
-          ),
         ),
       );
 
@@ -1086,36 +1156,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
   void _showServiceDetails(BuildContext context, DetailedService service) {
     final provider = context.read<ServiceProvider>();
-    provider
-        .fetchHierarchyNode(
-          nodeKey: service.slug,
-          level: 'service',
-          seedNode: service.toHierarchyNode(),
-          forceRefresh: provider.hierarchyNode(service.slug) == null,
-        )
-        .then((_) {
-          if (!context.mounted) {
-            return;
-          }
+    provider.fetchHierarchyNode(
+      nodeKey: service.slug,
+      level: 'service',
+      seedNode: service.toHierarchyNode(),
+      forceRefresh: provider.hierarchyNode(service.slug) == null,
+    );
 
-          final resolvedNode =
-              provider.hierarchyNode(service.slug) ?? service.toHierarchyNode();
-
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (context) => _VariantOptionsSheet(
-              service: service,
-              node: resolvedNode,
-              onQuantityChange: _changeServiceQuantity,
-              currentQuantities: _serviceQuantities,
-              syncingStates: {
-                for (var id in _syncingServiceIds) id: true,
-              },
-            ),
-          );
-        });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _VariantOptionsSheet(
+        service: service,
+        nodeKey: service.slug,
+        initialNode: provider.hierarchyNode(service.slug) ?? service.toHierarchyNode(),
+        onQuantityChange: _changeServiceQuantity,
+        currentQuantities: _serviceQuantities,
+        syncingStates: {
+          for (var id in _syncingServiceIds) id: true,
+        },
+      ),
+    );
   }
 
   Widget _buildQuantityControl({
@@ -1156,7 +1218,6 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 
     return Container(
       height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
@@ -1167,11 +1228,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            onTap: isSyncing ? null : onDecrement,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(Icons.remove, size: 18, color: AppTheme.primaryColor),
+          SizedBox(
+            width: 36,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: isSyncing ? null : onDecrement,
+                child: Icon(
+                  Icons.remove,
+                  size: 18,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
             ),
           ),
           SizedBox(
@@ -1193,11 +1263,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                     ),
             ),
           ),
-          InkWell(
-            onTap: isSyncing ? null : onIncrement,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+          SizedBox(
+            width: 36,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: isSyncing ? null : onIncrement,
+                child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+              ),
             ),
           ),
         ],
@@ -1210,6 +1285,7 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       builder: (context, sp, _) {
         final reviews = sp.serviceReviews(serviceId);
         final isLoading = sp.isReviewsLoading(serviceId);
+        final hasMore = sp.hasMoreReviews(serviceId);
 
         if (isLoading && reviews.isEmpty) {
           return const Padding(
@@ -1241,6 +1317,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               separatorBuilder: (_, __) => const Divider(height: 32),
               itemBuilder: (context, index) => _buildReviewCard(reviews[index]),
             ),
+            if (hasMore || (isLoading && reviews.isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () => sp.fetchServiceReviews(
+                              serviceId,
+                              loadMore: true,
+                            ),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load more'),
+                  ),
+                ),
+              ),
             const SizedBox(height: 40),
           ],
         );
@@ -1369,14 +1467,16 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
 }
 class _VariantOptionsSheet extends StatefulWidget {
   final DetailedService service;
-  final ServiceHierarchyNode node;
+  final String nodeKey;
+  final ServiceHierarchyNode initialNode;
   final Future<void> Function(DetailedService, int) onQuantityChange;
   final Map<int, int> currentQuantities;
   final Map<int, bool> syncingStates;
 
   const _VariantOptionsSheet({
     required this.service,
-    required this.node,
+    required this.nodeKey,
+    required this.initialNode,
     required this.onQuantityChange,
     required this.currentQuantities,
     required this.syncingStates,
@@ -1403,7 +1503,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
   }
 
   List<DetailedService> get _sheetItems {
-    final variants = widget.node.children
+    final variants = _resolvedNode.children
         .where((child) => child.level == 'variant')
         .map(_serviceFromNode)
         .toList();
@@ -1416,7 +1516,12 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
   }
 
   bool get _hasVariantItems =>
-      widget.node.children.any((child) => child.level == 'variant');
+      _resolvedNode.children.any((child) => child.level == 'variant');
+
+  ServiceHierarchyNode get _resolvedNode {
+    final provider = context.read<ServiceProvider>();
+    return provider.hierarchyNode(widget.nodeKey) ?? widget.initialNode;
+  }
 
   DetailedService _serviceFromNode(ServiceHierarchyNode node) {
     final normalizedNodeData = {
@@ -1458,188 +1563,205 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final items = _sheetItems;
-    final safeBottom = MediaQuery.of(context).padding.bottom;
+    return Consumer<ServiceProvider>(
+      builder: (context, provider, _) {
+        final resolvedNode =
+            provider.hierarchyNode(widget.nodeKey) ?? widget.initialNode;
+        final isInitialLoading =
+            provider.isHierarchyLoading(widget.nodeKey) &&
+                provider.hierarchyNode(widget.nodeKey) == null;
 
-    var totalQuantity = 0;
-    var totalPrice = 0.0;
+        if (isInitialLoading) {
+          return ServicePopupSkeleton(
+            showBanner: widget.initialNode.banners.hasPopupBanner,
+            showVariantCarousel: true,
+          );
+        }
 
-    for (final item in items) {
-      final quantity = widget.currentQuantities[item.id] ?? 0;
-      totalQuantity += quantity;
-      totalPrice += quantity * item.price;
-    }
+        final items = _sheetItems;
+        final safeBottom = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              0,
-              0,
-              0,
-              totalQuantity > 0 ? 128 + safeBottom : 28,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 18, 14, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.service.name,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            if ((widget.service.description ?? '').trim().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 6),
-                                child: Text(
-                                  widget.service.description!.trim(),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 13,
-                                    height: 1.4,
+        var totalQuantity = 0;
+        var totalPrice = 0.0;
+
+        for (final item in items) {
+          final quantity = widget.currentQuantities[item.id] ?? 0;
+          totalQuantity += quantity;
+          totalPrice += quantity * item.price;
+        }
+
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.88,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(
+                  0,
+                  0,
+                  0,
+                  totalQuantity > 0 ? 128 + safeBottom : 28,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 14, 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.service.name,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => Navigator.pop(context),
-                        icon: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.close, size: 20),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (widget.node.banners.hasPopupBanner) ...[
-                  ServiceFlowBannerCarousel(
-                    banners: widget.node.banners.popupBanner,
-                    height: 188,
-                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    borderRadius: BorderRadius.circular(22),
-                    compact: true,
-                  ),
-                ],
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
-                  child: Divider(),
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    _hasVariantItems ? 'Choose a variant' : 'Service details',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_hasVariantItems)
-                  _buildVariantCarousel(items)
-                else
-                  ...items.map(_buildSelectionCard),
-                const SizedBox(height: 20),
-                _buildReviewsSection(widget.service.id),
-              ],
-            ),
-          ),
-          if (totalQuantity > 0)
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$totalQuantity item${totalQuantity == 1 ? '' : 's'} selected',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
+                                if ((widget.service.description ?? '').trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      widget.service.description!.trim(),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 13,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            formatRupees(totalPrice),
-                            style: GoogleFonts.outfit(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
+                          IconButton(
+                            onPressed: () => Navigator.pop(context),
+                            icon: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close, size: 20),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(
-                      height: 52,
-                      width: 132,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: Text(
-                          'Done',
-                          style: GoogleFonts.outfit(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
+                    if (resolvedNode.banners.hasPopupBanner) ...[
+                      ServiceFlowBannerCarousel(
+                        banners: resolvedNode.banners.popupBanner,
+                        height: 188,
+                        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        borderRadius: BorderRadius.circular(22),
+                        compact: true,
+                      ),
+                    ],
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20),
+                      child: Divider(),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Text(
+                        _hasVariantItems ? 'Choose a variant' : 'Service details',
+                        style: GoogleFonts.outfit(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    if (_hasVariantItems)
+                      _buildVariantCarousel(items)
+                    else
+                      ...items.map(_buildSelectionCard),
+                    const SizedBox(height: 20),
+                    _buildReviewsSection(widget.service.id),
                   ],
                 ),
               ),
-            ),
-        ],
-      ),
+              if (totalQuantity > 0)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + safeBottom),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 18,
+                          offset: const Offset(0, -4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$totalQuantity item${totalQuantity == 1 ? '' : 's'} selected',
+                                style: TextStyle(
+                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                formatRupees(totalPrice),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(
+                          height: 52,
+                          width: 132,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Text(
+                              'Done',
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1756,67 +1878,70 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
         ? '${item.ratingAvg.toStringAsFixed(2)} (${item.reviewCount} reviews)'
         : null;
 
-    return Container(
-      width: 224,
-      margin: const EdgeInsets.only(right: 14),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E5E5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: item.image != null && item.image!.isNotEmpty
-                ? Image.network(
-                    item.image!,
-                    height: 210,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => _buildImagePlaceholder(),
-                  )
-                : _buildImagePlaceholder(),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            item.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-          ),
-          if (reviewText != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.star, size: 14, color: Colors.black87),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    reviewText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Container(
+        width: 224,
+        margin: const EdgeInsets.only(right: 14),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5E5E5)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: item.image != null && item.image!.isNotEmpty
+                  ? AppNetworkImage(
+                      url: item.image,
+                      height: 210,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    )
+                  : _buildImagePlaceholder(),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              item.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+            ),
+            if (reviewText != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.star, size: 14, color: Colors.black87),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      reviewText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
+            Text(
+              formatRupees(item.price),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 14),
+            _buildVariantQuantityControl(
+              item: item,
+              quantity: quantity,
+              isSyncing: isSyncing,
+              fullWidth: true,
             ),
           ],
-          const SizedBox(height: 10),
-          Text(
-            formatRupees(item.price),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-          ),
-          const Spacer(),
-          _buildVariantQuantityControl(
-            item: item,
-            quantity: quantity,
-            isSyncing: isSyncing,
-            fullWidth: true,
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1836,6 +1961,7 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
       builder: (context, sp, _) {
         final reviews = sp.serviceReviews(serviceId);
         final isLoading = sp.isReviewsLoading(serviceId);
+        final hasMore = sp.hasMoreReviews(serviceId);
 
         if (isLoading && reviews.isEmpty) {
           return const Padding(
@@ -1876,6 +2002,28 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
                 return _buildReviewCard(reviews[index]);
               },
             ),
+            if ((hasMore && reviews.isNotEmpty) || (isLoading && reviews.isNotEmpty))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () => sp.fetchServiceReviews(
+                              serviceId,
+                              loadMore: true,
+                            ),
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Load more'),
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
           ],
         );
@@ -2031,7 +2179,6 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
     return Container(
       height: 40,
       width: fullWidth ? double.infinity : 100,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
@@ -2040,29 +2187,56 @@ class _VariantOptionsSheetState extends State<_VariantOptionsSheet> {
         color: const Color(0xFFF8F3FF),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          InkWell(
-            onTap: isSyncing ? null : () => _handleQuantityChange(item, quantity - 1),
-            child: Icon(Icons.remove, size: 18, color: AppTheme.primaryColor),
-          ),
-          isSyncing
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(
-                  '$quantity',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+          SizedBox(
+            width: 32,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: isSyncing
+                    ? null
+                    : () => _handleQuantityChange(item, quantity - 1),
+                child: Icon(
+                  Icons.remove,
+                  size: 18,
+                  color: AppTheme.primaryColor,
                 ),
-          InkWell(
-            onTap: isSyncing ? null : () => _handleQuantityChange(item, quantity + 1),
-            child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Center(
+              child: isSyncing
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      '$quantity',
+                      style: TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+            ),
+          ),
+          SizedBox(
+            width: 32,
+            height: double.infinity,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: isSyncing
+                    ? null
+                    : () => _handleQuantityChange(item, quantity + 1),
+                child: Icon(Icons.add, size: 18, color: AppTheme.primaryColor),
+              ),
+            ),
           ),
         ],
       ),

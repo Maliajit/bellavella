@@ -48,8 +48,9 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
         if (mounted) {
           setState(() {
             _errorMessage = response['message'] ?? 'Failed to load status';
-            if (response['message'] == 'Unauthenticated.') {
-              _errorMessage = 'Please sign in to view tracking status.';
+            if (response['message'] == 'Unauthenticated.' ||
+                response['_auth_expired'] == true) {
+              _errorMessage = ApiService.sessionExpiredMessage;
             }
             _isLoading = false;
           });

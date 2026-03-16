@@ -442,6 +442,34 @@ class DetailedService {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'slug': slug,
+      'image': image,
+      'description': description,
+      'short_description': description,
+      'price': price,
+      'display_price': price,
+      'sale_price': salePrice,
+      'original_price': originalPrice,
+      'bookings': bookings,
+      'rating_avg': ratingAvg,
+      'review_count': reviewCount,
+      'has_variants': hasVariants,
+      'is_bookable': isBookable,
+      'bookable_type': bookableType,
+      'duration_minutes': durationMinutes,
+      'service_type_id': serviceTypeId,
+      'service_id': parentServiceId,
+      'service_variant_id': serviceVariantId,
+      'level': level,
+      'next_level': nextLevel,
+      'has_children': hasChildren,
+    };
+  }
+
   ServiceHierarchyNode toHierarchyNode() {
     return ServiceHierarchyNode(
       id: id.toString(),
@@ -853,6 +881,32 @@ class ReviewData {
           json['customer'] != null
               ? ReviewUser.fromJson(json['customer'])
               : null,
+    );
+  }
+}
+
+class ReviewPageData {
+  final List<ReviewData> reviews;
+  final int currentPage;
+  final int lastPage;
+
+  const ReviewPageData({
+    required this.reviews,
+    required this.currentPage,
+    required this.lastPage,
+  });
+
+  bool get hasMore => currentPage < lastPage;
+
+  factory ReviewPageData.fromJson(Map<String, dynamic> json) {
+    final reviewsJson = json['data'] as List? ?? const [];
+
+    return ReviewPageData(
+      reviews: reviewsJson
+          .map((e) => ReviewData.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      currentPage: int.tryParse(json['current_page']?.toString() ?? '') ?? 1,
+      lastPage: int.tryParse(json['last_page']?.toString() ?? '') ?? 1,
     );
   }
 }
