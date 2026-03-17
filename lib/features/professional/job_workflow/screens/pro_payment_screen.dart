@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:intl/intl.dart';
@@ -114,7 +115,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
       final orderRes = await ProfessionalApiService.createJobPaymentOrder(_booking.id);
       
       final options = {
-        'key': 'rzp_test_S7dlJIqMvrpcaj',
+        'key': AppConfig.razorpayKeyId,
         'amount': orderRes['amount'],
         'name': 'BellaVella',
         'order_id': orderRes['order_id'],

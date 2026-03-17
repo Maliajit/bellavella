@@ -417,6 +417,8 @@ class Address {
   final String city;
   final String pincode;
   final String phone;
+  final double? latitude;
+  final double? longitude;
 
   Address({
     required this.id,
@@ -427,6 +429,8 @@ class Address {
     required this.city,
     required this.pincode,
     required this.phone,
+    this.latitude,
+    this.longitude,
   });
 
   factory Address.fromJson(Map<String, dynamic> json) {
@@ -439,6 +443,12 @@ class Address {
       city: json['city'] ?? '',
       pincode: json['pincode'] ?? '',
       phone: json['phone'] ?? '',
+      latitude: ParserUtil.safeParseDouble(
+        json['latitude'] ?? json['lat'] ?? json['address_latitude'],
+      ),
+      longitude: ParserUtil.safeParseDouble(
+        json['longitude'] ?? json['lng'] ?? json['address_longitude'],
+      ),
     );
   }
 
@@ -450,5 +460,14 @@ class Address {
     if (city.isNotEmpty) parts.add(city);
     if (pincode.isNotEmpty) parts.add(pincode);
     return parts.join(', ');
+  }
+
+  String get shortPreview {
+    final parts = <String>[];
+    if (area.isNotEmpty) parts.add(area);
+    if (city.isNotEmpty) parts.add(city);
+    if (pincode.isNotEmpty) parts.add(pincode);
+    final preview = parts.join(', ');
+    return preview.isEmpty ? fullAddress : preview;
   }
 }

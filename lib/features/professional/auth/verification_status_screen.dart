@@ -122,7 +122,7 @@ class _VerificationStatusScreenState extends State<VerificationStatusScreen> {
                 SecondaryButton(
                   label: 'Logout',
                   onPressed: () async {
-                    await TokenManager.clearToken();
+                    await TokenManager.clearProfessionalToken();
                     if (mounted) context.go(AppRoutes.proLogin);
                   },
                 ),

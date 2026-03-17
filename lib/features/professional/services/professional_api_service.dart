@@ -47,7 +47,7 @@ class ProfessionalApiService {
     if (response['success'] == true && response['data'] != null) {
       final token = response['data']['access_token'];
       if (token != null) {
-        await TokenManager.setToken(token);
+        await TokenManager.saveProfessionalToken(token);
       }
     }
     
@@ -106,7 +106,7 @@ class ProfessionalApiService {
       final response = await ApiService.post('$_prefix/register', fields);
       if (response['success'] == true && response['data'] != null) {
         final token = response['data']['access_token'];
-        if (token != null) await TokenManager.setToken(token);
+        if (token != null) await TokenManager.saveProfessionalToken(token);
       }
       return response;
     }
@@ -114,7 +114,7 @@ class ProfessionalApiService {
     final response = await ApiService.multipart('$_prefix/register', fields, files);
     if (response['success'] == true && response['data'] != null) {
       final token = response['data']['access_token'];
-      if (token != null) await TokenManager.setToken(token);
+      if (token != null) await TokenManager.saveProfessionalToken(token);
     }
     return response;
   }

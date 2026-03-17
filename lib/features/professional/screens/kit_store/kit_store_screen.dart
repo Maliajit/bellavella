@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:bellavella/features/professional/models/professional_models.dart';
@@ -30,7 +31,6 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   bool _isProcessing = false;
   final TextEditingController _searchCtrl = TextEditingController();
   rzp_helper.RazorpayService? _razorpayService;
-  static const String _razorpayKey = 'rzp_test_S7dlJIqMvrpcaj'; 
   
   // Selected kit for Razorpay callback
    KitProductModel? _selectedKitForRZP;
@@ -128,7 +128,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
       final int amountPaise = orderData['amount'];
 
       final options = {
-        'key': _razorpayKey,
+        'key': AppConfig.razorpayKeyId,
         'amount': amountPaise,
         'name': 'Bella Villa',
         'description': '${kit.name} × $qty',

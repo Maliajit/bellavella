@@ -29,4 +29,14 @@ class AppConfig {
 
   // Get flavor from environment
   static String get flavor => const String.fromEnvironment('APP_FLAVOR');
+
+  // Public client-side keys only. Secrets must stay on the backend.
+  static String get razorpayKeyId => const String.fromEnvironment(
+    'RAZORPAY_KEY_ID',
+    defaultValue: 'rzp_test_S7dlJIqMvrpcaj',
+  );
+
+  static String get googleMapsApiKey => const String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+  );
 }

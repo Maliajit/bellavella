@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
@@ -305,7 +306,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     Navigator.pop(modalContext);
 
     try {
-      final String fullAddress = '${widget.checkoutData['houseNumber']}, ${widget.checkoutData['landmark']}. ${widget.checkoutData['fullAddress']}';
+      final String fullAddress = _composeCheckoutAddress();
       
       final Map<String, String?> slots = widget.checkoutData['slots'];
       final String? firstSlotStr = slots.values.firstWhere((element) => element != null, orElse: () => null);
@@ -313,6 +314,10 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
 
       final Map<String, dynamic> requestData = {
         'address': fullAddress,
+        'address_id': widget.checkoutData['addressId'],
+        'city': widget.checkoutData['city'],
+        'latitude': widget.checkoutData['latitude'],
+        'longitude': widget.checkoutData['longitude'],
         'scheduled_date': parsedSlot['date'],
         'scheduled_slot': parsedSlot['time'],
         'payment_method': _selectedPaymentMethod,
@@ -345,7 +350,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
           
           // Open Razorpay
           final options = {
-            'key': 'rzp_test_S7dlJIqMvrpcaj',
+            'key': AppConfig.razorpayKeyId,
             'amount': orderData['amount'],
             'name': 'BellaVella',
             'order_id': orderData['razorpay_order_id'],
@@ -391,6 +396,21 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
       ToastUtil.showError(context, 'An error occurred: $e');
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  String _composeCheckoutAddress() {
+    final parts = <String>[
+      if ((widget.checkoutData['houseNumber'] as String?)?.trim().isNotEmpty == true)
+        (widget.checkoutData['houseNumber'] as String).trim(),
+      if ((widget.checkoutData['landmark'] as String?)?.trim().isNotEmpty == true)
+        (widget.checkoutData['landmark'] as String).trim(),
+      if ((widget.checkoutData['fullAddress'] as String?)?.trim().isNotEmpty == true)
+        (widget.checkoutData['fullAddress'] as String).trim(),
+      if ((widget.checkoutData['city'] as String?)?.trim().isNotEmpty == true)
+        (widget.checkoutData['city'] as String).trim(),
+    ];
+
+    return parts.join(', ');
   }
 
   @override

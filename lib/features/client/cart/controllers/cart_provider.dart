@@ -172,7 +172,7 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addItem(HomeService service, {String? categoryName}) async {
+  Future<String?> addItem(HomeService service, {String? categoryName}) async {
     final item = CartItem(
       cartId: 0,
       id: service.id,
@@ -185,10 +185,10 @@ class CartProvider extends ChangeNotifier {
       categoryName: categoryName ?? 'Service',
       quantity: 1,
     );
-    await addOrUpdateLocalOrRemoteItem(item, nextQuantityDelta: 1);
+    return addOrUpdateLocalOrRemoteItem(item, nextQuantityDelta: 1);
   }
 
-  Future<void> addOrUpdateLocalOrRemoteItem(
+  Future<String?> addOrUpdateLocalOrRemoteItem(
     CartItem item, {
     int nextQuantityDelta = 1,
   }) async {
@@ -209,7 +209,7 @@ class CartProvider extends ChangeNotifier {
       }
       await _persistGuestCart();
       notifyListeners();
-      return;
+      return null;
     }
 
     _syncingItemIds.add(itemKey);
@@ -222,7 +222,9 @@ class CartProvider extends ChangeNotifier {
           );
           if (response['success'] == true) {
             _items.remove(itemKey);
+            return null;
           }
+          return response['message']?.toString() ?? 'Failed to update cart.';
         } else {
           final response = await ApiService.put(
             '/client/cart/${existingItem.cartId}',
@@ -230,7 +232,9 @@ class CartProvider extends ChangeNotifier {
           );
           if (response['success'] == true) {
             _items[itemKey] = existingItem.copyWith(quantity: nextQuantity);
+            return null;
           }
+          return response['message']?.toString() ?? 'Failed to update cart.';
         }
       } else if (nextQuantity > 0) {
         final response = await ApiService.post(
@@ -254,8 +258,22 @@ class CartProvider extends ChangeNotifier {
                 nextQuantity,
           );
           _items[itemKey] = createdItem;
+          return null;
         }
+
+        final errors = response['errors'];
+        if (errors is Map && errors.isNotEmpty) {
+          final firstFieldErrors = errors.values.first;
+          if (firstFieldErrors is List && firstFieldErrors.isNotEmpty) {
+            return firstFieldErrors.first?.toString() ??
+                response['message']?.toString() ??
+                'Failed to add item to cart.';
+          }
+        }
+
+        return response['message']?.toString() ?? 'Failed to add item to cart.';
       }
+      return null;
     } finally {
       _syncingItemIds.remove(itemKey);
       notifyListeners();

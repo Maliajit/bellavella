@@ -37,7 +37,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     } catch (_) {
       // Ignore backend logout failures; local logout must still complete.
     } finally {
-      await TokenManager.clearToken();
+      await TokenManager.clearClientToken();
       if (!mounted) {
         return;
       }
@@ -89,7 +89,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
         if (message.toLowerCase().contains('unauthenticated') ||
             message.contains(ApiService.sessionExpiredMessage)) {
           // token might be invalid/expired
-          TokenManager.clearToken();
+          await TokenManager.clearClientToken();
           context.go('/client/login');
           return;
         }

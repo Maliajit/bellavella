@@ -1,0 +1,124 @@
+--------------------------------------------------
+
+CHANGE SUMMARY DOCUMENT
+
+1. Role-Specific Authentication and Session Isolation
+
+Purpose:
+This change separates client and professional authentication state so each app flavor uses its own token lifecycle. It was needed to prevent one user role from accidentally reusing or clearing another role's session, which can cause unauthorized API calls, broken refresh flows, or incorrect logout behavior in a multi-role application.
+
+What Changed:
+Token storage was split into dedicated client, professional, and admin keys instead of relying on a single shared token. API request and refresh logic now resolve the active token based on the current app flavor, and login/logout flows were updated to explicitly write or clear the correct token. Legacy token cleanup and additional diagnostics were also added to make session state easier to reason about.
+
+Impact:
+Client and professional users now authenticate independently, token refresh targets the correct session, and logout only affects the active role. This reduces cross-role session leakage and makes authentication failures easier to recover from without corrupting unrelated login state.
+
+Files:
+- lib/core/services/token_manager.dart
+- lib/core/services/api_service.dart
+- lib/features/client/auth/services/auth_api_service.dart
+- lib/features/professional/services/professional_api_service.dart
+- lib/features/client/profile/client_profile_screen.dart
+- lib/features/professional/auth/verification_status_screen.dart
+- lib/features/professional/profile/professional_profile_screen.dart
+
+--------------------------------------------------
+
+2. Location-Aware Checkout Address and Slot Handling
+
+Purpose:
+This change strengthens the checkout flow so bookings are created with a valid, traceable service location instead of a loosely assembled address string. It was needed because the previous flow depended mostly on free-form text and limited location context, which made saved-address reuse, slot selection, and downstream booking fulfillment less reliable.
+
+What Changed:
+The address step was redesigned to support both current-location selection and saved-address selection, backed by reverse geocoding, map interaction, and saved-address management. Address models now carry latitude, longitude, and compact preview data. The slot step was made more defensive by handling multiple backend response shapes and by falling back to cart data when slot payloads are incomplete. The review step now submits structured address metadata, including city and coordinates, instead of only a concatenated display string.
+
+Impact:
+Checkout now captures clearer delivery/service-location data, supports quicker reuse of existing addresses, and passes richer booking context to the backend. This improves booking accuracy, reduces failures caused by incomplete slot payloads, and gives later order processing more dependable location information.
+
+Files:
+- lib/core/models/data_models.dart
+- lib/features/client/cart/checkout_address_screen.dart
+- lib/features/client/cart/checkout_slot_screen.dart
+- lib/features/client/cart/client_checkout_review_screen.dart
+
+--------------------------------------------------
+
+3. Reusable Service Variant Selection and Cart Integration
+
+Purpose:
+This change makes service selection consistent across the home page and service detail flows by treating variants as first-class booking options. It was needed because the home screen previously pushed services directly into the cart with limited context, which did not scale well for services that require variant choice, quantity adjustments, or hierarchy-aware pricing.
+
+What Changed:
+Home service models were expanded with slug, bookability, and variant metadata so lightweight home cards can open the same variant-selection experience used elsewhere. A shared bottom sheet component was introduced for browsing service variants, reviewing details, and adjusting quantities. The home carousel and home screen were rewired to open this selector instead of blindly adding a service, and cart updates now return backend validation errors so UI flows can surface failures immediately. The category detail screen was also migrated to the shared selector to remove duplicated variant-sheet behavior.
+
+Impact:
+Users now get a uniform selection flow whether they start from the home feed or a service category. Variant-heavy services can be chosen more accurately, cart updates provide clearer feedback, and the client app has less duplicated UI logic for service configuration.
+
+Files:
+- lib/features/client/home/client_home_screen.dart
+- lib/features/client/home/models/home_models.dart
+- lib/features/client/home/widgets/home_service_carousel.dart
+- lib/features/client/services/category_detail_screen.dart
+- lib/features/client/services/widgets/service_variant_options_sheet.dart
+- lib/features/client/cart/controllers/cart_provider.dart
+
+--------------------------------------------------
+
+4. Story Viewer Navigation Usability Improvement
+
+Purpose:
+This change improves the story-viewing experience by making navigation more natural and less brittle. It was needed because the previous implementation disabled page scrolling and overloaded gesture handling in a way that could make story navigation feel rigid or easy to mis-trigger.
+
+What Changed:
+The story viewer now allows horizontal page scrolling again and uses dedicated full-screen tap zones for previous/next navigation instead of relying on tap position logic inside the main gesture handler.
+
+Impact:
+Story interactions are more predictable, swipe navigation behaves like a standard story viewer, and tap navigation is easier for users to understand and trigger reliably.
+
+Files:
+- lib/features/client/home/screens/story_viewer_screen.dart
+
+--------------------------------------------------
+
+5. Environment-Driven Payment Configuration
+
+Purpose:
+This change removes hard-coded Razorpay keys from the app and moves them into shared configuration. It was needed to make payment setup safer, easier to change per environment, and less error-prone across multiple payment entry points.
+
+What Changed:
+Application configuration now exposes the public Razorpay key through environment values, and all client and professional payment flows were updated to read from that single source instead of embedding the key in UI screens.
+
+Impact:
+Payment integrations are now configured centrally, making environment changes simpler and reducing the risk of inconsistent key usage across checkout, wallet deposits, job payments, and kit purchases.
+
+Files:
+- lib/core/config/app_config.dart
+- lib/features/client/cart/client_checkout_review_screen.dart
+- lib/features/professional/earnings/professional_wallet_screen.dart
+- lib/features/professional/job_workflow/screens/pro_payment_screen.dart
+- lib/features/professional/screens/kit_store/kit_store_screen.dart
+
+--------------------------------------------------
+
+6. Generated Desktop Plugin Registration Refresh
+
+Purpose:
+These file changes appear to be generated metadata updates rather than hand-written feature work. They are typically produced when Flutter refreshes desktop plugin registration or normalizes generated files after dependency/tooling operations.
+
+What Changed:
+Generated plugin registrant files for macOS and Windows were updated in the working tree. No business logic appears to have been intentionally introduced in these files.
+
+Impact:
+This does not materially change application behavior on its own, but it keeps generated desktop plugin metadata aligned with the current local Flutter build state.
+
+Files:
+- macos/Flutter/GeneratedPluginRegistrant.swift
+- windows/flutter/generated_plugin_registrant.cc
+- windows/flutter/generated_plugins.cmake
+
+--------------------------------------------------
+
+OVERALL SUMMARY:
+- This commit improves the reliability of two critical app flows: authentication and checkout.
+- It isolates client and professional sessions, upgrades checkout to use structured location-aware address data, and unifies service variant selection across discovery and booking surfaces.
+- It also centralizes Razorpay configuration and includes generated desktop plugin metadata refreshes produced by the Flutter toolchain.

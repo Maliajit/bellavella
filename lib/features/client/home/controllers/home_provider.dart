@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 import '../models/home_models.dart';
 import '../services/home_location_service.dart';
 import 'package:bellavella/core/services/api_service.dart';
+import 'package:bellavella/features/client/profile/services/client_api_service.dart'
+    as client_profile_api;
 
 class HomeProvider extends ChangeNotifier {
   final HomeLocationService _locationService = HomeLocationService();
 
   String _locationAddress = 'Fetching location...';
   String _locationSubAddress = '';
+  int _walletBalance = 0;
 
   String get locationAddress => _locationAddress;
   String get locationSubAddress => _locationSubAddress;
+  int get walletBalance => _walletBalance;
+  String get formattedWalletBalance => _walletBalance.toString();
 
   List<HomeSection> _sections = [];
   List<HomeSection> get sections => _sections;
@@ -34,6 +39,19 @@ class HomeProvider extends ChangeNotifier {
     _locationAddress = main;
     _locationSubAddress = sub;
     notifyListeners();
+  }
+
+  Future<void> fetchWalletBalance() async {
+    try {
+      final data = await client_profile_api.ClientApiService.getWallet();
+      final balance = data['balance'];
+      _walletBalance = balance is num
+          ? balance.toInt()
+          : int.tryParse(balance?.toString() ?? '0') ?? 0;
+      notifyListeners();
+    } catch (_) {
+      // Keep homepage stable if wallet API fails.
+    }
   }
 
   Future<void> fetchHomepageData() async {
@@ -62,6 +80,8 @@ class HomeProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+
+    await fetchWalletBalance();
   }
 }
 

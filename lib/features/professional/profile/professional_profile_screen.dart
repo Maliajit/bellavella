@@ -615,7 +615,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
           ),
           TextButton(
             onPressed: () async {
-              await TokenManager.clearToken();
+              await TokenManager.clearProfessionalToken();
               if (context.mounted) {
                 context.go(AppRoutes.proLogin);
               }

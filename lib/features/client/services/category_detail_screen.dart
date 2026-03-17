@@ -11,6 +11,7 @@ import 'package:bellavella/features/client/services/widgets/service_flow_banner_
 import 'package:bellavella/features/client/services/widgets/service_group_detail_skeleton.dart';
 import 'package:bellavella/features/client/services/widgets/service_list_skeleton.dart';
 import 'package:bellavella/features/client/services/widgets/service_popup_skeleton.dart';
+import 'package:bellavella/features/client/services/widgets/service_variant_options_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -317,15 +318,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _VariantOptionsSheet(
+      builder: (context) => ServiceVariantOptionsSheet(
         service: service,
         nodeKey: service.slug,
         initialNode: provider.hierarchyNode(service.slug) ?? service.toHierarchyNode(),
         onQuantityChange: _changeServiceQuantity,
-        currentQuantities: _serviceQuantities,
-        syncingStates: {
-          for (var id in _syncingServiceIds) id: true,
-        },
+        quantityForItem: (item) => _serviceQuantities[item.id] ?? 0,
+        isItemSyncing: (item) => _syncingServiceIds.contains(item.id),
       ),
     );
   }
@@ -1167,15 +1166,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _VariantOptionsSheet(
+      builder: (context) => ServiceVariantOptionsSheet(
         service: service,
         nodeKey: service.slug,
         initialNode: provider.hierarchyNode(service.slug) ?? service.toHierarchyNode(),
         onQuantityChange: _changeServiceQuantity,
-        currentQuantities: _serviceQuantities,
-        syncingStates: {
-          for (var id in _syncingServiceIds) id: true,
-        },
+        quantityForItem: (item) => _serviceQuantities[item.id] ?? 0,
+        isItemSyncing: (item) => _syncingServiceIds.contains(item.id),
       ),
     );
   }

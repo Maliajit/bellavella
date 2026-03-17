@@ -21,7 +21,7 @@ class AuthApiService {
     if (response['success'] == true && response['data'] != null) {
       final token = response['data']['access_token'];
       if (token != null) {
-        await TokenManager.setToken(token);
+        await TokenManager.saveClientToken(token);
       }
     }
 

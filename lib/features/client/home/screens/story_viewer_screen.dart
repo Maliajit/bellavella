@@ -101,14 +101,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           _videoController?.play();
           setState(() => _isPaused = false);
         },
-        onTapUp: (details) {
-          final width = MediaQuery.of(context).size.width;
-          if (details.globalPosition.dx < width / 3) {
-            _previousStory();
-          } else {
-            _nextStory();
-          }
-        },
         onVerticalDragEnd: (details) {
           if (details.primaryVelocity! > 100) {
             _previousStory(); // Swipe down
@@ -122,7 +114,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             PageView.builder(
               controller: _pageController,
               itemCount: widget.stories.length,
-              physics: const NeverScrollableScrollPhysics(),
+              physics: const PageScrollPhysics(),
               onPageChanged: (index) {
                 setState(() {
                   _currentIndex = index;
@@ -141,6 +133,25 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 }
                 return const Center(child: CircularProgressIndicator(color: Colors.white));
               },
+            ),
+
+            Positioned.fill(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _previousStory,
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _nextStory,
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             // Overlays

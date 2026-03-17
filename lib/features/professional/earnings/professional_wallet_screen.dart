@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
@@ -33,7 +34,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   rzp_helper.RazorpayService? _razorpayService;
   bool _isProcessing = false;
   double _pendingDepositAmount = 0.0;
-  static const String _razorpayKey = 'rzp_test_S7dlJIqMvrpcaj'; 
 
   // Design tokens
   static const double _minDeposit = 1500.0;
@@ -108,7 +108,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     try {
       final orderData = await ProfessionalApiService.createWalletDepositOrder(amount);
       final options = {
-        'key': _razorpayKey,
+        'key': AppConfig.razorpayKeyId,
         'amount': orderData['amount'],
         'name': 'BellaVella',
         'description': 'Wallet Deposit',

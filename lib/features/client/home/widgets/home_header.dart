@@ -15,7 +15,7 @@ class HomeHeader extends StatefulWidget {
     super.key,
     required this.locationAddress,
     required this.locationSubAddress,
-    this.walletBalance = '1,250',
+    this.walletBalance = '0',
     required this.onLocationTap,
   });
 

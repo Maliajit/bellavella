@@ -12,6 +12,8 @@ import '../../../core/utils/location_util.dart';
 import '../../../core/utils/toast_util.dart';
 import 'package:bellavella/features/client/home/controllers/home_provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
+import 'package:bellavella/features/client/cart/models/cart_model.dart';
+import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'models/home_models.dart';
 import 'models/story_model.dart';
 import 'widgets/home_header.dart';
@@ -21,11 +23,11 @@ import 'widgets/home_service_grid.dart';
 import 'widgets/home_service_carousel.dart';
 import 'widgets/home_image_banner.dart';
 import 'widgets/home_story_section.dart';
-import 'widgets/home_testimonials_section.dart';
 import 'widgets/home_trending_packages_section.dart';
 import 'widgets/home_download_app_section.dart';
 import 'widgets/home_screen_skeleton.dart';
 import '../services/models/service_models.dart';
+import '../services/widgets/service_variant_options_sheet.dart';
 
 class ClientHomeScreen extends StatefulWidget {
   const ClientHomeScreen({super.key});
@@ -122,11 +124,87 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
     HomeService service,
     String sectionTitle,
   ) async {
-    await context.read<CartProvider>().addItem(
-      service,
-      categoryName: sectionTitle,
+    final provider = context.read<ServiceProvider>();
+    final detailedService = service.toDetailedService();
+    provider.fetchHierarchyNode(
+      nodeKey: service.slug,
+      level: 'service',
+      seedNode: detailedService.toHierarchyNode(),
+      forceRefresh: provider.hierarchyNode(service.slug) == null,
     );
-    ToastUtil.showAddToCartToast(context, service.title);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ServiceVariantOptionsSheet(
+        service: detailedService,
+        nodeKey: service.slug,
+        initialNode:
+            provider.hierarchyNode(service.slug) ??
+            detailedService.toHierarchyNode(),
+        onQuantityChange: (item, nextQuantity) =>
+            _changeHomeServiceQuantity(context, item, nextQuantity, sectionTitle),
+        quantityForItem: (item) => _homeServiceQuantity(context, item),
+        isItemSyncing: (_) => false,
+      ),
+    );
+  }
+
+  int _homeServiceQuantity(BuildContext context, DetailedService item) {
+    final cartProvider = context.read<CartProvider>();
+    for (final cartItem in cartProvider.items) {
+      if (cartItem.quantityKey == item.id) {
+        return cartItem.quantity;
+      }
+    }
+    return 0;
+  }
+
+  Future<void> _changeHomeServiceQuantity(
+    BuildContext context,
+    DetailedService item,
+    int nextQuantity,
+    String sectionTitle,
+  ) async {
+    final cartProvider = context.read<CartProvider>();
+    final currentQuantity = _homeServiceQuantity(context, item);
+    final quantityDelta = nextQuantity - currentQuantity;
+
+    if (quantityDelta == 0) {
+      return;
+    }
+
+    final cartItem = CartItem(
+      cartId: 0,
+      id: item.id,
+      serviceId: item.parentServiceId ?? item.id,
+      serviceVariantId: item.serviceVariantId,
+      itemType: item.serviceVariantId != null ? 'variant' : 'service',
+      title: item.name,
+      subtitle: item.description,
+      price: item.price,
+      imageUrl: item.image ?? '',
+      categoryName: sectionTitle,
+      quantity: nextQuantity <= 0 ? 1 : nextQuantity,
+    );
+
+    final error = await cartProvider.addOrUpdateLocalOrRemoteItem(
+      cartItem,
+      nextQuantityDelta: quantityDelta,
+    );
+
+    if (!context.mounted) {
+      return;
+    }
+
+    if (error != null && error.isNotEmpty) {
+      ToastUtil.showError(context, error);
+      return;
+    }
+
+    if (nextQuantity > currentQuantity) {
+      ToastUtil.showAddToCartToast(context, item.name);
+    }
   }
 
   void _openCategoryPage(BuildContext context, HomeCategory category) {
@@ -210,6 +288,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                         HomeHeader(
                           locationAddress: homeProvider.locationAddress,
                           locationSubAddress: homeProvider.locationSubAddress,
+                          walletBalance: homeProvider.formattedWalletBalance,
                           onLocationTap: () => homeProvider.determinePosition(),
                         ),
                         const SizedBox(height: 20),
@@ -339,14 +418,6 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
 
                             case 'active_booking':
                               sectionWidget = const ActiveBookingBanner();
-                              break;
-
-                            case 'testimonials':
-                              sectionWidget = HomeTestimonialsSection(
-                                title: section.title,
-                                subtitle: section.subtitle,
-                                items: section.items,
-                              );
                               break;
 
                             case 'trending_packages':

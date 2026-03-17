@@ -17,13 +17,23 @@ class ApiService {
   static const String sessionExpiredMessage =
       'Your session expired. Please sign in again to continue.';
 
+  static String get _activeTokenKeyName =>
+      AppConfig.isProfessional ? 'professional_auth_token' : 'client_auth_token';
+
+  static String? get _activeToken {
+    if (AppConfig.isProfessional) {
+      return TokenManager.getProfessionalToken();
+    }
+    return TokenManager.getClientToken();
+  }
+
   static Map<String, String> get _headers {
     final headers = {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     };
 
-    final token = TokenManager.token;
+    final token = _activeToken;
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
@@ -41,8 +51,12 @@ class ApiService {
     final hasAuthorization = headers.containsKey('Authorization');
     debugPrint('ApiService: $method request to $url');
     debugPrint(
-      'ApiService: auth state -> hasToken=$hasToken, authorizationHeader=$hasAuthorization',
+      'ApiService: auth state -> key=$_activeTokenKeyName, hasToken=$hasToken, '
+      'authorizationHeader=$hasAuthorization',
     );
+    if (!hasToken) {
+      debugPrint('ApiService: missing token before request for key=$_activeTokenKeyName');
+    }
     if (body != null) {
       debugPrint('ApiService: request body -> ${jsonEncode(body)}');
     }
@@ -118,8 +132,9 @@ class ApiService {
     _refreshCompleter = completer;
 
     try {
-      final existingToken = TokenManager.token;
+      final existingToken = _activeToken;
       if (existingToken == null || existingToken.isEmpty) {
+        debugPrint('ApiService: refresh skipped, missing token for key=$_activeTokenKeyName');
         completer.complete(false);
         return completer.future;
       }
@@ -131,6 +146,9 @@ class ApiService {
         'Authorization': 'Bearer $existingToken',
       };
 
+      debugPrint(
+        'ApiService: refreshing token via endpoint=$_refreshEndpoint key=$_activeTokenKeyName',
+      );
       _logRequest('POST', url, headers);
       final response = await http.post(Uri.parse(url), headers: headers);
       final decodedResponse = _decodeResponseBody(response);
@@ -150,7 +168,7 @@ class ApiService {
         await TokenManager.setToken(nextToken);
         debugPrint('ApiService: token refresh succeeded');
       } else {
-        debugPrint('ApiService: token refresh failed');
+        debugPrint('ApiService: token refresh failed via endpoint=$_refreshEndpoint');
       }
 
       completer.complete(refreshed);
@@ -165,6 +183,7 @@ class ApiService {
   }
 
   static Future<void> _handleAuthFailure() async {
+    debugPrint('ApiService: auth failure, clearing key=$_activeTokenKeyName');
     await TokenManager.clearToken();
     if (_isRedirectingToLogin) {
       return;

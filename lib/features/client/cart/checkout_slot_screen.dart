@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/features/client/services/client_api_service.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 
@@ -36,12 +37,23 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
   Future<void> _fetchSlots() async {
     try {
       final response = await ClientApiService.getSlotsFromCart();
-      
-      if (response['success'] == true) {
+      final success = response['success'] == true;
+      final data = response['data'];
+      var slots = _extractSlotsMap(data);
+
+      if (success && slots.isEmpty) {
+        final cartResponse = await ApiService.get('/client/cart');
+        if (cartResponse['success'] == true) {
+          slots = _extractSlotsMap(cartResponse['data']);
+        }
+      }
+
+      if (success) {
         setState(() {
-          _slotsData = response['data']['slots'];
+          _slotsData = slots;
           _categoriesToBook = _slotsData.keys.toList();
           _isLoading = false;
+          _errorMessage = null;
         });
       } else {
         setState(() {
@@ -50,11 +62,90 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
         });
       }
     } catch (e) {
+      final message = e.toString().replaceFirst('Exception: ', '');
       setState(() {
-        _errorMessage = 'An error occurred while fetching slots.';
+        _errorMessage = message.isEmpty
+            ? 'An error occurred while fetching slots.'
+            : message;
         _isLoading = false;
       });
     }
+  }
+
+  Map<String, dynamic> _extractSlotsMap(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      final nestedSlots = data['slots'];
+      if (nestedSlots is Map) {
+        return Map<String, dynamic>.from(nestedSlots);
+      }
+      if (nestedSlots is List) {
+        return _slotsListToMap(nestedSlots);
+      }
+      final items = data['items'];
+      if (items is List) {
+        return _cartItemsToSlotsMap(items);
+      }
+      return {};
+    }
+
+    if (data is List) {
+      return _slotsListToMap(data);
+    }
+
+    return {};
+  }
+
+  Map<String, dynamic> _slotsListToMap(List<dynamic> rawList) {
+    final mapped = <String, dynamic>{};
+
+    for (final item in rawList) {
+      if (item is! Map) {
+        continue;
+      }
+
+      final entry = Map<String, dynamic>.from(item);
+      final key =
+          entry['category']?.toString() ??
+          entry['category_name']?.toString() ??
+          entry['service_name']?.toString() ??
+          entry['name']?.toString() ??
+          entry['title']?.toString();
+
+      if (key == null || key.isEmpty) {
+        continue;
+      }
+
+      mapped[key] = entry;
+    }
+
+    return mapped;
+  }
+
+  Map<String, dynamic> _cartItemsToSlotsMap(List<dynamic> rawItems) {
+    final mapped = <String, dynamic>{};
+
+    for (final item in rawItems) {
+      if (item is! Map) {
+        continue;
+      }
+
+      final entry = Map<String, dynamic>.from(item);
+      final key =
+          entry['service_name']?.toString() ??
+          entry['display_name']?.toString() ??
+          entry['name']?.toString();
+
+      if (key == null || key.isEmpty) {
+        continue;
+      }
+
+      mapped[key] = {
+        ...entry,
+        'available_dates': entry['available_dates'] ?? const [],
+      };
+    }
+
+    return mapped;
   }
 
   void _showDetailedSlotPicker(BuildContext context, String category, String defaultDuration, dynamic backendDates, {VoidCallback? onConfirm}) {
@@ -398,6 +489,11 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
       'houseNumber': widget.addressData['houseNumber'],
       'landmark': widget.addressData['landmark'],
       'name': widget.addressData['name'],
+      'addressId': widget.addressData['addressId'],
+      'city': widget.addressData['city'],
+      'latitude': widget.addressData['latitude'],
+      'longitude': widget.addressData['longitude'],
+      'sourceType': widget.addressData['sourceType'],
       'slots': _selectedCategorySlots,
     };
 

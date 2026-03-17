@@ -1,3 +1,5 @@
+import 'package:bellavella/features/client/services/models/service_models.dart';
+
 // All data models used by the Home feature.
 
 class HomeSection {
@@ -107,11 +109,14 @@ class HomeCategory {
 
 class HomeService {
   final int id;
+  final String slug;
   final String title;
   final String? subtitle;
   final double rating;
   final int reviewCount;
   final double price;
+  final bool hasVariants;
+  final bool isBookable;
   final int? optionCount;
   final String? optionsLabel;
   final String imageUrl;
@@ -119,11 +124,14 @@ class HomeService {
 
   HomeService({
     required this.id,
+    required this.slug,
     required this.title,
     this.subtitle,
     required this.rating,
     required this.reviewCount,
     required this.price,
+    required this.hasVariants,
+    required this.isBookable,
     this.optionCount,
     this.optionsLabel,
     required this.imageUrl,
@@ -133,14 +141,51 @@ class HomeService {
   factory HomeService.fromJson(Map<String, dynamic> json) {
     return HomeService(
       id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      slug:        json['slug'] ?? '',
       title:       json['name'] ?? '',
       subtitle:    json['subtitle'],
       rating:      double.tryParse((json['average_rating'] ?? 0).toString()) ?? 0.0,
       reviewCount: int.tryParse((json['total_reviews'] ?? 0).toString()) ?? 0,
-      price:       double.tryParse((json['price'] ?? 0).toString()) ?? 0.0,
+      price:       double.tryParse(
+            (json['lowest_variant_price'] ?? json['price'] ?? 0).toString(),
+          ) ??
+          0.0,
+      hasVariants: json['has_variants'] == true,
+      isBookable:  json['is_bookable'] == true,
+      optionCount: int.tryParse(
+        (json['variant_count'] ?? json['options_count'] ?? 0).toString(),
+      ),
+      optionsLabel: (() {
+        final count = int.tryParse(
+          (json['variant_count'] ?? json['options_count'] ?? 0).toString(),
+        );
+        if (json['has_variants'] == true && count != null) {
+          return '$count options';
+        }
+        return null;
+      })(),
       imageUrl:    json['image'] ?? '',
       badge:       json['badge'],
     );
+  }
+
+  DetailedService toDetailedService() {
+    return DetailedService.fromJson({
+      'id': id,
+      'name': title,
+      'slug': slug,
+      'image': imageUrl,
+      'short_description': subtitle,
+      'display_price': price,
+      'price': price,
+      'average_rating': rating,
+      'total_reviews': reviewCount,
+      'has_variants': hasVariants,
+      'is_bookable': isBookable,
+      'bookable_type': isBookable ? 'service' : null,
+      'has_children': hasVariants,
+      'next_level': hasVariants ? 'variant' : null,
+    });
   }
 }
 
