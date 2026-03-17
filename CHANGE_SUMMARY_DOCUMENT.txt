@@ -35,6 +35,11 @@ The address step was redesigned to support both current-location selection and s
 Impact:
 Checkout now captures clearer delivery/service-location data, supports quicker reuse of existing addresses, and passes richer booking context to the backend. This improves booking accuracy, reduces failures caused by incomplete slot payloads, and gives later order processing more dependable location information.
 
+Validation Notes:
+- The structured address payload in Flutter now aligns with the backend checkout validator, which expects `address`, `address_id`, `city`, `latitude`, and `longitude`.
+- The slot-selection UI is more defensive, but multi-slot persistence is still not complete end-to-end. The slot screen collects a selection per category, while the final checkout request currently sends only the first selected slot as `scheduled_date` and `scheduled_slot`.
+- Backend checkout therefore still stores a single order-level slot, not one persisted slot per selected category.
+
 Files:
 - lib/core/models/data_models.dart
 - lib/features/client/cart/checkout_address_screen.dart
@@ -122,3 +127,8 @@ OVERALL SUMMARY:
 - This commit improves the reliability of two critical app flows: authentication and checkout.
 - It isolates client and professional sessions, upgrades checkout to use structured location-aware address data, and unifies service variant selection across discovery and booking surfaces.
 - It also centralizes Razorpay configuration and includes generated desktop plugin metadata refreshes produced by the Flutter toolchain.
+
+IMPORTANT VALIDATION CAVEATS:
+- Checkout address handling is materially improved and matches the current backend request contract.
+- Slot handling is only partially end-to-end: Flutter allows per-category slot selection, but checkout currently submits only the first selected slot to the backend.
+- Package ordering is still not fully bookable on the backend. Package items can be added to cart and converted into order items, but the current Laravel checkout flow skips `Booking::create(...)` for package items, so package purchases do not enter the normal booking table flow.
