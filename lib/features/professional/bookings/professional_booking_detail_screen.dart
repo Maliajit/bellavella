@@ -318,7 +318,7 @@ class _ProfessionalBookingDetailScreenState extends State<ProfessionalBookingDet
                 label: 'Verify Kit QR', 
                 onPressed: _verifyKitQR,
               ),
-        if (_booking!.status == BookingStatus.started)
+        if (_booking!.status == BookingStatus.inProgress)
           PrimaryButton(
             label: 'Complete & Collect Payment', 
             onPressed: _showPaymentCode,

@@ -13,7 +13,8 @@ import '../widgets/workflow_stepper.dart';
 
 class ProServiceScreen extends StatefulWidget {
   final ProfessionalBooking booking;
-  const ProServiceScreen({super.key, required this.booking});
+  final bool isInsideContainer;
+  const ProServiceScreen({super.key, required this.booking, this.isInsideContainer = false});
 
   @override
   State<ProServiceScreen> createState() => _ProServiceScreenState();
@@ -29,7 +30,8 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   void initState() {
     super.initState();
     _booking = widget.booking;
-    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
+    // Only fetch if name is missing or we explicitly need a refresh
+    if (_booking.id.isNotEmpty && (_booking.clientName == 'Unknown' || _booking.clientName.isEmpty)) {
       _fetchLatestDetails();
     }
     _startTimer();
@@ -96,8 +98,8 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
       final res = await ProfessionalApiService.jobFinishService(_booking.id);
       if (mounted) {
         if (res['success'] == true) {
-          // Proactively update status to Payment Pending (Completed in this flow)
-          final updated = _booking.copyWith(status: BookingStatus.completed);
+          // Proactively update status to Payment Pending
+          final updated = _booking.copyWith(status: BookingStatus.paymentPending);
           DashboardController.instance.updateJob(updated);
           
           context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': _booking.id}, extra: updated);
@@ -120,6 +122,10 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isInsideContainer) {
+      return _buildBody();
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -162,132 +168,140 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
       body: Column(
         children: [
           const WorkflowStepper(currentStep: 3),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Active Job Header Section
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Column(
-                      children: [
-                        Text(
-                          _booking.clientName,
-                          style: GoogleFonts.inter(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _booking.serviceName,
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Job Timer Section (Mockup)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 28),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          _timeDisplay,
-                          style: GoogleFonts.inter(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black87,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Service in progress",
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  Text(
-                    "Service Checklist",
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _checklistItem(_booking.serviceName, true),
-                  _checklistItem("Post-service Cleanup", false),
-
-                  const SizedBox(height: 24),
-                  
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.report_problem_outlined, size: 16),
-                      label: Text(
-                        "Report Issue",
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.red.shade600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isProcessing ? null : _proceedToPayment,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: _isProcessing 
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        "Finish Service",
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                      ),
-              ),
-            ),
-          ),
+          Expanded(child: _buildBody()),
         ],
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Active Job Header Section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Column(
+                    children: [
+                      Text(
+                        _booking.clientName,
+                        style: GoogleFonts.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _booking.serviceName,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Job Timer Section (Mockup)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 28),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _timeDisplay,
+                        style: GoogleFonts.inter(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.black87,
+                          letterSpacing: -1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Service in progress",
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                Text(
+                  "Service Checklist",
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _checklistItem(_booking.serviceName, true),
+                _checklistItem("Post-service Cleanup", false),
+
+                const SizedBox(height: 24),
+                
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () {},
+                    icon: const Icon(Icons.report_problem_outlined, size: 16),
+                    label: Text(
+                      "Report Issue",
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.red.shade600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isProcessing ? null : _proceedToPayment,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: _isProcessing 
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text(
+                      "Finish Service",
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

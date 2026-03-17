@@ -5,6 +5,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/router/professional_router.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/services/realtime_job_service.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 
@@ -50,6 +51,14 @@ class FirebaseMessagingService {
     final String type = message.data['type'] ?? '';
     
     if (type == 'booking_assigned') {
+      final String bookingId = message.data['booking_id']?.toString() ?? '';
+      if (bookingId.isNotEmpty && RealtimeJobService.shownBookings.contains(bookingId)) {
+        debugPrint('🔔 FCM: Already showing booking $bookingId, skipping duplicate');
+        return;
+      }
+      
+      if (bookingId.isNotEmpty) RealtimeJobService.shownBookings.add(bookingId);
+
       // Direct navigation to IncomingRequestScreen using global navigator key
       proNavigatorKey.currentContext?.pushNamed(
         AppRoutes.proIncomingRequestName,
@@ -69,6 +78,9 @@ class FirebaseMessagingService {
     final String type = message.data['type'] ?? '';
     
     if (type == 'booking_assigned') {
+      final String bookingId = message.data['booking_id']?.toString() ?? '';
+      if (bookingId.isNotEmpty) RealtimeJobService.shownBookings.add(bookingId);
+
       proNavigatorKey.currentContext?.pushNamed(
         AppRoutes.proIncomingRequestName,
         extra: message.data,

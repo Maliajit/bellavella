@@ -33,6 +33,7 @@ import '../../features/professional/job_workflow/screens/pro_kit_scan_screen.dar
 import '../../features/professional/job_workflow/screens/pro_service_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_payment_screen.dart';
 import '../../features/professional/job_workflow/screens/pro_completion_screen.dart';
+import '../../features/professional/job_workflow/screens/job_workflow_container_screen.dart';
 import '../../features/professional/notifications/professional_notifications_screen.dart';
 import '../../features/professional/screens/profile/edit_personal_information_screen.dart';
 import '../../features/professional/screens/profile/edit_service_area_screen.dart';
@@ -244,16 +245,7 @@ final _proOtherRoutes = [
     name: AppRoutes.proActiveJobName,
     builder: (context, state) {
       final id = state.pathParameters['id'] ?? '';
-      final extra = state.extra;
-      ProfessionalBooking booking;
-      if (extra is ProfessionalBooking) {
-        booking = extra;
-      } else if (extra is Map<String, dynamic>) {
-        booking = ProfessionalBooking.fromJson(extra);
-      } else {
-        booking = ProfessionalBooking.empty().copyWith(id: id);
-      }
-      return ProServiceScreen(booking: booking);
+      return JobWorkflowContainerScreen(bookingId: id);
     },
   ),
   GoRoute(
@@ -261,16 +253,7 @@ final _proOtherRoutes = [
     name: AppRoutes.proArriveName,
     builder: (context, state) {
       final id = state.pathParameters['id'] ?? '';
-      final extra = state.extra;
-      ProfessionalBooking booking;
-      if (extra is ProfessionalBooking) {
-        booking = extra;
-      } else if (extra is Map<String, dynamic>) {
-        booking = ProfessionalBooking.fromJson(extra);
-      } else {
-        booking = ProfessionalBooking.empty().copyWith(id: id);
-      }
-      return ProArrivalScreen(booking: booking);
+      return JobWorkflowContainerScreen(bookingId: id);
     },
   ),
   GoRoute(
@@ -278,16 +261,7 @@ final _proOtherRoutes = [
     name: AppRoutes.proScanKitName,
     builder: (context, state) {
       final id = state.pathParameters['id'] ?? '';
-      final extra = state.extra;
-      ProfessionalBooking booking;
-      if (extra is ProfessionalBooking) {
-        booking = extra;
-      } else if (extra is Map<String, dynamic>) {
-        booking = ProfessionalBooking.fromJson(extra);
-      } else {
-        booking = ProfessionalBooking.empty().copyWith(id: id);
-      }
-      return ProKitScanScreen(booking: booking);
+      return JobWorkflowContainerScreen(bookingId: id);
     },
   ),
   GoRoute(
@@ -295,16 +269,7 @@ final _proOtherRoutes = [
     name: AppRoutes.proCollectPaymentName,
     builder: (context, state) {
       final id = state.pathParameters['id'] ?? '';
-      final extra = state.extra;
-      ProfessionalBooking booking;
-      if (extra is ProfessionalBooking) {
-        booking = extra;
-      } else if (extra is Map<String, dynamic>) {
-        booking = ProfessionalBooking.fromJson(extra);
-      } else {
-        booking = ProfessionalBooking.empty().copyWith(id: id);
-      }
-      return ProPaymentScreen(booking: booking);
+      return JobWorkflowContainerScreen(bookingId: id);
     },
   ),
   GoRoute(
@@ -312,16 +277,7 @@ final _proOtherRoutes = [
     name: AppRoutes.proJobCompleteName,
     builder: (context, state) {
       final id = state.pathParameters['id'] ?? '';
-      final extra = state.extra;
-      ProfessionalBooking booking;
-      if (extra is ProfessionalBooking) {
-        booking = extra;
-      } else if (extra is Map<String, dynamic>) {
-        booking = ProfessionalBooking.fromJson(extra);
-      } else {
-        booking = ProfessionalBooking.empty().copyWith(id: id);
-      }
-      return ProJobCompleteScreen(booking: booking);
+      return JobWorkflowContainerScreen(bookingId: id);
     },
   ),
   GoRoute(

@@ -292,7 +292,8 @@ enum BookingStatus {
   accepted,   // professional accepted
   onTheWay,   // professional started journey
   arrived,    // professional arrived
-  started,    // service in progress (inProgress)
+  scanKit,    // scanning professional's kit
+  inProgress, // service in progress (started)
   paymentPending, // service finished, waiting for payment
   completed,  // service finished and paid
   cancelled,  // cancelled / rejected
@@ -325,6 +326,21 @@ class Booking {
     this.paymentCode,
   });
 
+  static BookingStatus _parseStatus(String? status) {
+    if (status == null) return BookingStatus.requested;
+    // Map snake_case from backend to CamelCase enum names
+    switch (status) {
+      case 'on_the_way': return BookingStatus.onTheWay;
+      case 'in_progress': return BookingStatus.inProgress;
+      case 'payment_pending': return BookingStatus.paymentPending;
+      default:
+        return BookingStatus.values.firstWhere(
+          (e) => e.name == status,
+          orElse: () => BookingStatus.requested,
+        );
+    }
+  }
+
   factory Booking.fromJson(dynamic json) {
     if (json is! Map) {
       return Booking(id: '', service: Service.fromJson({}), dateTime: DateTime.now(), address: '', status: BookingStatus.requested, totalPrice: 0);
@@ -334,10 +350,7 @@ class Booking {
       service: Service.fromJson(json['service'] ?? {}),
       dateTime: json['date_time'] != null ? DateTime.parse(json['date_time'].toString()) : DateTime.now(),
       address: (json['address'] ?? '').toString(),
-      status: BookingStatus.values.firstWhere(
-        (e) => e.name == json['status']?.toString(),
-        orElse: () => BookingStatus.requested,
-      ),
+      status: _parseStatus(json['status']?.toString()),
       totalPrice: ParserUtil.safeParseDouble(json['total_price']),
       professional: json['professional'] != null
           ? Professional.fromJson(json['professional'])
