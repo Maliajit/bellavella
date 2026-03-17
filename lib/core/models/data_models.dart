@@ -333,6 +333,7 @@ class Booking {
       case 'on_the_way': return BookingStatus.onTheWay;
       case 'in_progress': return BookingStatus.inProgress;
       case 'payment_pending': return BookingStatus.paymentPending;
+      case 'scan_kit': return BookingStatus.scanKit;
       default:
         return BookingStatus.values.firstWhere(
           (e) => e.name == status,

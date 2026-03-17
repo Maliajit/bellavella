@@ -60,6 +60,15 @@ class ProfessionalBooking {
     );
   }
 
+  bool get isActive {
+    return status == BookingStatus.accepted ||
+           status == BookingStatus.onTheWay ||
+           status == BookingStatus.arrived ||
+           status == BookingStatus.scanKit ||
+           status == BookingStatus.inProgress ||
+           status == BookingStatus.paymentPending;
+  }
+
   factory ProfessionalBooking.empty() => ProfessionalBooking(
     id: '', 
     clientName: 'Unknown', 

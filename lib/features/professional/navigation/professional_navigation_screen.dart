@@ -54,36 +54,26 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
     }
   }
 
-  Future<void> _startJourney() async {
-    setState(() => _isProcessing = true);
-    try {
-      final res = await ProfessionalApiService.jobStartJourney(widget.booking.id);
-      if (mounted) {
-        if (res['success'] == true) {
-          // Proactively update status to On The Way in the controller
-          final updated = widget.booking.copyWith(status: BookingStatus.onTheWay);
-          DashboardController.instance.updateJob(updated);
+  void _startJourney() {
+    // 🔥 Optimistic UI Update
+    final updated = _booking.copyWith(status: BookingStatus.onTheWay);
+    DashboardController.instance.updateJob(updated);
+    
+    // 🔥 Navigate instantly
+    context.pushNamed(
+      AppRoutes.proActiveJobName, 
+      pathParameters: {'id': _booking.id},
+      extra: updated
+    );
 
-          context.pushNamed(
-            AppRoutes.proActiveJobName, 
-            pathParameters: {'id': widget.booking.id},
-            extra: updated
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to start journey')),
-          );
-        }
+    // 🔥 Backend Sync in Background
+    ProfessionalApiService.jobStartJourney(_booking.id).then((res) {
+      if (res['success'] != true) {
+        debugPrint('Background start journey failed: ${res['message']}');
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+    }).catchError((e) {
+      debugPrint('Background start journey error: $e');
+    });
   }
 
   Future<void> _launchNavigation() async {
@@ -93,7 +83,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
       await _openAddressSearch(_booking.address);
     }
     // Also trigger the backend/state transition
-    await _startJourney();
+    _startJourney();
   }
 
   Future<void> _openGoogleMaps(double lat, double lng) async {
@@ -293,7 +283,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isProcessing ? null : _launchNavigation,
+                      onPressed: _startJourney,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
@@ -301,12 +291,10 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: _isProcessing 
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(
-                            "Start Journey",
-                            style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                          ),
+                      child: Text(
+                        "Start Journey",
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                      ),
                     ),
                   ),
                 ],

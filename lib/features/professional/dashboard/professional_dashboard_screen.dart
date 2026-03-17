@@ -107,14 +107,7 @@ class _ProfessionalDashboardScreenState
           _stats = stats;
           _isLoading = false;
           // A job is "active" if it's accepted or in progress (not assigned/completed/cancelled)
-          _hasActiveJob = stats.recentBookings.any((b) =>
-            b.status == BookingStatus.accepted ||
-            b.status == BookingStatus.onTheWay ||
-            b.status == BookingStatus.arrived ||
-            b.status == BookingStatus.scanKit ||
-            b.status == BookingStatus.inProgress ||
-            b.status == BookingStatus.paymentPending
-          );
+          _hasActiveJob = stats.recentBookings.any((b) => b.isActive);
           
           _kitCount = stats.kitCount;
           _walletCash = stats.walletBalance; 
@@ -123,12 +116,7 @@ class _ProfessionalDashboardScreenState
         // Seed the DashboardController on app start / re-open so the
         // Job Card appears immediately without waiting for stats API.
         final activeInStats = stats.recentBookings.firstWhere(
-          (b) => b.status == BookingStatus.accepted || 
-                 b.status == BookingStatus.onTheWay || 
-                 b.status == BookingStatus.arrived ||
-                 b.status == BookingStatus.scanKit ||
-                 b.status == BookingStatus.inProgress ||
-                 b.status == BookingStatus.paymentPending,
+          (b) => b.isActive,
           orElse: () => pro_models.ProfessionalBooking.empty(),
         );
 
@@ -289,8 +277,10 @@ class _ProfessionalDashboardScreenState
                       _buildReferralBanner(),
                       const SizedBox(height: 32),
                       _buildTodayOverviewStrip(),
-                      const SizedBox(height: 32),
-                      _buildScheduleTimeline(),
+                      if (_stats?.recentBookings.isNotEmpty ?? false) ...[
+                        const SizedBox(height: 32),
+                        _buildScheduleTimeline(),
+                      ],
                       const SizedBox(height: 40),
                     ],
                   ),
@@ -429,14 +419,7 @@ class _ProfessionalDashboardScreenState
       builder: (context, controller, _) {
         final activeJob = controller.activeJob;
         // Strictly only show card for statuses that are truly in-progress (not assigned/completed/cancelled)
-        final bool showActiveCard = activeJob != null && (
-          activeJob.status == BookingStatus.accepted ||
-          activeJob.status == BookingStatus.onTheWay ||
-          activeJob.status == BookingStatus.arrived ||
-          activeJob.status == BookingStatus.scanKit ||
-          activeJob.status == BookingStatus.inProgress ||
-          activeJob.status == BookingStatus.paymentPending
-        );
+        final bool showActiveCard = activeJob != null && activeJob.isActive;
 
         return AnimatedSize(
           duration: const Duration(milliseconds: 400),

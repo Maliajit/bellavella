@@ -91,33 +91,22 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
     return "$hours:$minutes:$seconds";
   }
 
-  Future<void> _proceedToPayment() async {
-    setState(() => _isProcessing = true);
-    try {
-      // Call finishService to transition status to 'Payment Pending'
-      final res = await ProfessionalApiService.jobFinishService(_booking.id);
-      if (mounted) {
-        if (res['success'] == true) {
-          // Proactively update status to Payment Pending
-          final updated = _booking.copyWith(status: BookingStatus.paymentPending);
-          DashboardController.instance.updateJob(updated);
-          
-          context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': _booking.id}, extra: updated);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to finish service')),
-          );
-        }
+  void _proceedToPayment() {
+    // 🔥 Optimistic UI Update
+    final updated = _booking.copyWith(status: BookingStatus.paymentPending);
+    DashboardController.instance.updateJob(updated);
+    
+    // 🔥 Navigate instantly
+    context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': _booking.id}, extra: updated);
+
+    // 🔥 Backend Sync in Background
+    ProfessionalApiService.jobFinishService(_booking.id).then((res) {
+      if (res['success'] != true) {
+        debugPrint('Background finish service failed: ${res['message']}');
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+    }).catchError((e) {
+      debugPrint('Background finish service error: $e');
+    });
   }
 
   @override
@@ -284,7 +273,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isProcessing ? null : _proceedToPayment,
+              onPressed: _proceedToPayment,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -292,12 +281,10 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
-              child: _isProcessing 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(
-                      "Finish Service",
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
+              child: Text(
+                "Finish Service",
+                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
             ),
           ),
         ),

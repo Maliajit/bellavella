@@ -53,32 +53,22 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
     }
   }
 
-  Future<void> _confirmArrival() async {
-    setState(() => _isProcessing = true);
-    try {
-      final res = await ProfessionalApiService.jobArrived(_booking.id);
-      if (mounted) {
-        if (res['success'] == true) {
-          // Proactively update status to Scan Kit in the controller
-          final updated = _booking.copyWith(status: BookingStatus.scanKit);
-          DashboardController.instance.updateJob(updated);
-          
-          context.pushNamed(AppRoutes.proScanKitName, pathParameters: {'id': _booking.id}, extra: updated);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to confirm arrival')),
-          );
-        }
+  void _confirmArrival() {
+    // 🔥 Optimistic UI Update
+    final updated = _booking.copyWith(status: BookingStatus.scanKit);
+    DashboardController.instance.updateJob(updated);
+    
+    // 🔥 Navigate instantly
+    context.pushNamed(AppRoutes.proScanKitName, pathParameters: {'id': _booking.id}, extra: updated);
+
+    // 🔥 Backend Sync in Background
+    ProfessionalApiService.jobArrived(_booking.id).then((res) {
+      if (res['success'] != true) {
+        debugPrint('Background arrival failed: ${res['message']}');
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isProcessing = false);
-    }
+    }).catchError((e) {
+      debugPrint('Background arrival error: $e');
+    });
   }
 
   @override
@@ -210,7 +200,7 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isProcessing ? null : _confirmArrival,
+                  onPressed: _confirmArrival,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -218,12 +208,10 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
                     elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: _isProcessing 
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        "Confirm Arrival",
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                      ),
+                  child: Text(
+                    "Confirm Arrival",
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

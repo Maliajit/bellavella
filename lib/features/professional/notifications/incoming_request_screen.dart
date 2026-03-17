@@ -122,53 +122,60 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
         return;
       }
 
-      // Step 1: Call the accept API
-      final response = await ProfessionalApiService.acceptBooking(bookingId);
-      debugPrint('📡 Accept API response → success:${response['success']} message:${response['message']}');
+      // Step 1: Push an optimistic booking state into the controller IMMEDIATELY
+      ProfessionalBooking optimisticBooking = ProfessionalBooking.empty().copyWith(
+        id: bookingId,
+        clientName: clientName,
+        serviceName: serviceName,
+        address: location,
+        totalAmount: earnings.isNotEmpty ? (double.tryParse(earnings.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0) : 0.0,
+        status: BookingStatus.accepted,
+      );
 
-      if (response['success'] != true) {
-        throw Exception(response['message'] ?? 'Accept API returned failure');
-      }
+      DashboardController.instance.setActiveJob(optimisticBooking);
+      debugPrint('⚡ Optimistic UI: Syncing DashboardController instantly to accepted');
 
-      // Step 2a: Use the booking returned directly by the accept endpoint
-      ProfessionalBooking? booking;
-      if (response['data'] != null) {
-        booking = ProfessionalBooking.fromJson(response['data']);
-        debugPrint('✅ Accept API returned booking: ${booking.id} (${booking.status.name})');
-      }
-
-      // Step 2b: Fallback for older backend versions
-      if (booking == null) {
-        debugPrint('⚠️ Accept returned no data — calling getActiveJob() as fallback');
-        booking = await ProfessionalApiService.getActiveJob();
-      }
-
-      // Step 2c: Update Firestore status (Move out of pending)
+      // Step 2: Update Firestore instantly so our real-time status shows 'accepted'
       try {
         final profile = context.read<ProfessionalProfileController>().profile;
         if (profile != null) {
           RealtimeJobService.updateStatus(profile.id.toString(), 'accepted');
         }
       } catch (fe) {
-        debugPrint('⚠️ Firestore update failed after acceptance: $fe');
+        debugPrint('⚠️ Optimistic Firestore update failed: $fe');
       }
 
-      // Step 3: Push booking into the controller → Dashboard rebuilds instantly
-      if (booking != null) {
-        DashboardController.instance.setActiveJob(booking);
-        debugPrint('✅ setActiveJob → ${booking.id} (${booking.status.name})');
-      } else {
-        debugPrint('❌ Could not get booking — dashboard will not update immediately (polling will catch it)');
-      }
-
-      // Step 4: Pop the incoming-request screen, returning true to dashboard
+      // Step 3: Pop the incoming-request screen, returning true to dashboard IMMEDIATELY
       if (mounted) context.pop(true);
+
+      // Step 4: Fire the backend API in the background (no await)
+      ProfessionalApiService.acceptBooking(bookingId).then((response) {
+        debugPrint('📡 Background Accept API response → success:${response['success']} message:${response['message']}');
+        
+        if (response['success'] == true) {
+          ProfessionalBooking? confirmedBooking;
+          if (response['data'] != null) {
+            confirmedBooking = ProfessionalBooking.fromJson(response['data']);
+            DashboardController.instance.setActiveJob(confirmedBooking);
+            debugPrint('✅ Background accept: controller synced with true remote booking');
+          } else {
+            // Fallback: refetch active job
+            ProfessionalApiService.getActiveJob().then((b) {
+               if (b != null) DashboardController.instance.setActiveJob(b);
+            });
+          }
+        }
+      }).catchError((e) {
+        debugPrint('❌ Background _handleAccept error: $e');
+        // Theoretically, if it fails catastrophically, we might want to revert the state.
+      });
+
     } catch (e) {
-      debugPrint('❌ _handleAccept error: $e');
+      debugPrint('❌ _handleAccept setup error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Accept failed: $e'),
+            content: Text('Accept setup failed: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 5),
           ),

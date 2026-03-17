@@ -53,33 +53,27 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
     }
   }
 
-  Future<void> _startService() async {
-    setState(() => _isStarting = true);
-    try {
-      final res = await ProfessionalApiService.jobStartService(_booking.id);
-      if (mounted) {
-        if (res['success'] == true) {
+  void _startService() {
+    // 🔥 Optimistic UI Update
+    final updated = _booking.copyWith(status: BookingStatus.inProgress);
+    DashboardController.instance.updateJob(updated);
+    
+    // 🔥 Navigate instantly
+    context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': _booking.id}, extra: updated);
+
+    // 🔥 Backend Sync in Background
+    ProfessionalApiService.jobStartService(_booking.id).then((res) {
+       if (res['success'] == true) {
           // Fetch updated booking with serviceStartedAt
-          final updatedBooking = await ProfessionalApiService.getBookingDetail(_booking.id);
-          if (mounted) {
-            DashboardController.instance.setActiveJob(updatedBooking);
-            context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': _booking.id}, extra: updatedBooking);
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to start service')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isStarting = false);
-    }
+          ProfessionalApiService.getBookingDetail(_booking.id).then((realUpdated) {
+             DashboardController.instance.setActiveJob(realUpdated);
+          });
+       } else {
+          debugPrint('Background start service failed: ${res['message']}');
+       }
+    }).catchError((e) {
+       debugPrint('Background start service error: $e');
+    });
   }
 
   void _simulateScan() {
@@ -245,7 +239,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isStarting ? null : _startService,
+                onPressed: _startService,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
@@ -253,12 +247,10 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                child: _isStarting 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(
-                      "Start Service",
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                    ),
+                child: Text(
+                  "Start Service",
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
               ),
             ),
           ),
