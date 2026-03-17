@@ -9,6 +9,8 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/core/services/realtime_job_service.dart';
+import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 
 class IncomingRequestScreen extends StatefulWidget {
   final Map<String, dynamic> notification;
@@ -112,6 +114,14 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
         throw Exception('Booking ID is missing from the notification. Cannot accept.');
       }
 
+      // Preventive check: If this job is already active in our controller, just close and go there
+      final currentActive = DashboardController.instance.activeJob;
+      if (currentActive != null && currentActive.id == bookingId) {
+        debugPrint('ℹ️ Job $bookingId is already active in DashboardController. Closing popup.');
+        if (mounted) context.pop(true);
+        return;
+      }
+
       // Step 1: Call the accept API
       final response = await ProfessionalApiService.acceptBooking(bookingId);
       debugPrint('📡 Accept API response → success:${response['success']} message:${response['message']}');
@@ -127,10 +137,20 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
         debugPrint('✅ Accept API returned booking: ${booking.id} (${booking.status.name})');
       }
 
-      // Step 2b: Fallback — backend returned success but no data body
+      // Step 2b: Fallback for older backend versions
       if (booking == null) {
         debugPrint('⚠️ Accept returned no data — calling getActiveJob() as fallback');
         booking = await ProfessionalApiService.getActiveJob();
+      }
+
+      // Step 2c: Update Firestore status (Move out of pending)
+      try {
+        final profile = context.read<ProfessionalProfileController>().profile;
+        if (profile != null) {
+          RealtimeJobService.updateStatus(profile.id.toString(), 'accepted');
+        }
+      } catch (fe) {
+        debugPrint('⚠️ Firestore update failed after acceptance: $fe');
       }
 
       // Step 3: Push booking into the controller → Dashboard rebuilds instantly

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../widgets/professional_bottom_nav.dart';
-import '../../features/professional/services/professional_realtime_service.dart';
+import '../services/realtime_job_service.dart';
 import '../../features/professional/controllers/professional_profile_controller.dart';
+import '../../core/router/professional_router.dart';
 
 class ProfessionalScaffold extends StatefulWidget {
   final Widget child;
@@ -21,6 +22,7 @@ class _ProfessionalScaffoldState extends State<ProfessionalScaffold> {
   @override
   void initState() {
     super.initState();
+    print("Realtime listener started (ProfessionalScaffold)");
     // Start listening as soon as we have a profile, and also listen for changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initRealtimeListeners();
@@ -36,7 +38,7 @@ class _ProfessionalScaffoldState extends State<ProfessionalScaffold> {
     if (!mounted) return;
     final profile = context.read<ProfessionalProfileController>().profile;
     if (profile != null) {
-      ProfessionalRealtimeService.startAllListeners(profile.id);
+      RealtimeJobService.start(profile.id.toString(), proNavigatorKey);
     }
   }
 
@@ -46,7 +48,7 @@ class _ProfessionalScaffoldState extends State<ProfessionalScaffold> {
     if (mounted) {
       context.read<ProfessionalProfileController>().removeListener(_onProfileChange);
     }
-    ProfessionalRealtimeService.stopAllListeners();
+    RealtimeJobService.stop();
     super.dispose();
   }
 

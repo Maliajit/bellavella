@@ -16,6 +16,7 @@ import 'package:bellavella/features/professional/controllers/dashboard_controlle
 import './widgets/booking_request_dialog.dart';
 import './widgets/job_card.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/services/realtime_job_service.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
   const ProfessionalDashboardScreen({super.key});
@@ -37,6 +38,8 @@ class _ProfessionalDashboardScreenState
   int _kitCount = 0;
   double _walletCash = 0;
   String? _lastNotificationId;
+  Timer? _pollingTimer;
+  late AnimationController _radarController;
 
   @override
   void initState() {
@@ -52,8 +55,21 @@ class _ProfessionalDashboardScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _confettiController.play();
-      PermissionHandlerUtil.requestAllPermissions(context);
+    PermissionHandlerUtil.requestAllPermissions(context);
     });
+
+    // Start Polling Fallback
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      _checkIncomingRequests();
+    });
+
+    final profileController = context.read<ProfessionalProfileController>();
+    debugPrint("🆔 Dashboard Init: Professional ID = ${profileController.profile?.id}, isOnline = ${profileController.isOnline}");
+
+    _radarController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    )..repeat();
   }
 
   /// Immediately hydrates DashboardController from the server.
@@ -61,7 +77,14 @@ class _ProfessionalDashboardScreenState
     try {
       final job = await ProfessionalApiService.getActiveJob();
       if (mounted) {
-        context.read<DashboardController>().setActiveJob(job!);
+        if (job != null) {
+          context.read<DashboardController>().setActiveJob(job);
+        } else {
+          context.read<DashboardController>().clearJob();
+          // Reset real-time listener cache so new requests can be detected
+          RealtimeJobService.shownBookings.clear();
+          debugPrint('✅ Dashboard: No active job found. Cleared controller and shownBookings cache.');
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -70,7 +93,7 @@ class _ProfessionalDashboardScreenState
     }
   }
 
-  Future<void> _fetchDashboardData({bool isSilent = false}) async {
+  Future<void> _fetchDashboardData({bool isSilent = true}) async {
     if (!isSilent) {
       setState(() {
         _isLoading = true;
@@ -83,12 +106,14 @@ class _ProfessionalDashboardScreenState
         setState(() {
           _stats = stats;
           _isLoading = false;
-          // A job is "active" if it's assigned to me and not completed/cancelled
+          // A job is "active" if it's accepted or in progress (not assigned/completed/cancelled)
           _hasActiveJob = stats.recentBookings.any((b) =>
             b.status == BookingStatus.accepted ||
             b.status == BookingStatus.onTheWay ||
             b.status == BookingStatus.arrived ||
-            b.status == BookingStatus.started
+            b.status == BookingStatus.scanKit ||
+            b.status == BookingStatus.inProgress ||
+            b.status == BookingStatus.paymentPending
           );
           
           _kitCount = stats.kitCount;
@@ -101,7 +126,9 @@ class _ProfessionalDashboardScreenState
           (b) => b.status == BookingStatus.accepted || 
                  b.status == BookingStatus.onTheWay || 
                  b.status == BookingStatus.arrived ||
-                 b.status == BookingStatus.started,
+                 b.status == BookingStatus.scanKit ||
+                 b.status == BookingStatus.inProgress ||
+                 b.status == BookingStatus.paymentPending,
           orElse: () => pro_models.ProfessionalBooking.empty(),
         );
 
@@ -122,12 +149,65 @@ class _ProfessionalDashboardScreenState
     }
   }
 
+  Future<void> _checkIncomingRequests() async {
+    // Only check if professional is online
+    final isOnline = context.read<ProfessionalProfileController>().isOnline;
+    if (!isOnline) {
+       // debugPrint('⏸ Polling skipped: Professional is OFFLINE');
+       return;
+    }
+
+    try {
+      // debugPrint('🔍 Polling: Checking for incoming requests...');
+      final bookings = await ProfessionalApiService.getBookingRequests();
+      
+      if (bookings.isNotEmpty) {
+        debugPrint('🔍 Polling: Found ${bookings.length} requests in API');
+      }
+
+      for (var booking in bookings) {
+        debugPrint('🔍 Polling: Checking booking ${booking.id} with status ${booking.status}');
+        // "assigned" means admin dispatched it but professional hasn't accepted yet
+        if (booking.status == BookingStatus.assigned) {
+          if (!RealtimeJobService.shownBookings.contains(booking.id)) {
+            debugPrint('🔔 Polling: New assignment found! ${booking.id}');
+            
+            // Map model to the generic JSON map IncomingRequestScreen expects
+            final data = {
+              'booking_id': booking.id,
+              'client_name': booking.clientName,
+              'service': booking.serviceName,
+              'location': booking.address,
+              'price': booking.totalPrice,
+              'status': 'pending',
+            };
+
+            if (mounted) {
+              RealtimeJobService.shownBookings.add(booking.id.toString());
+              context.pushNamed(
+                AppRoutes.proIncomingRequestName,
+                extra: data,
+              );
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('🔔 Polling error: $e');
+    }
+  }
+
   // Notification checking logic removed in favor of FirebaseMessagingService
 
   Future<void> _toggleAvailability(bool value) async {
     // Going online requires ₹1500 wallet balance
     if (value && _walletCash < 1500) {
-      _showRequirementsError();
+      _showRequirementsError("Minimum ₹1500 wallet balance required to go online.");
+      return;
+    }
+    // Going online requires at least 5 kits
+    if (value && _kitCount < 5) {
+      _showRequirementsError("Minimum 5 kits required to go online.");
       return;
     }
     await context.read<ProfessionalProfileController>().toggleAvailability(value);
@@ -138,8 +218,8 @@ class _ProfessionalDashboardScreenState
 
   @override
   void dispose() {
-    // Firestore listener now handled globally in ProfessionalScaffold
-    WidgetsBinding.instance.removeObserver(this);
+    _pollingTimer?.cancel();
+    _radarController.dispose();
     _scrollController.dispose();
     _confettiController.dispose();
     super.dispose();
@@ -348,18 +428,35 @@ class _ProfessionalDashboardScreenState
     return Consumer<DashboardController>(
       builder: (context, controller, _) {
         final activeJob = controller.activeJob;
-        final bool showActiveCard = activeJob != null;
+        // Strictly only show card for statuses that are truly in-progress (not assigned/completed/cancelled)
+        final bool showActiveCard = activeJob != null && (
+          activeJob.status == BookingStatus.accepted ||
+          activeJob.status == BookingStatus.onTheWay ||
+          activeJob.status == BookingStatus.arrived ||
+          activeJob.status == BookingStatus.scanKit ||
+          activeJob.status == BookingStatus.inProgress ||
+          activeJob.status == BookingStatus.paymentPending
+        );
 
         return AnimatedSize(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOutQuart,
           child: showActiveCard
               ? _buildJobActiveCard(activeJob)
               : Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(28),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: Colors.grey.shade100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 20,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: _buildNoJobContent(),
                 ),
@@ -371,42 +468,129 @@ class _ProfessionalDashboardScreenState
   Widget _buildNoJobContent() {
     return Column(
       children: [
-        Icon(
-          _isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded, 
-          size: 48, 
-          color: _isOnline ? AppTheme.primaryColor : Colors.grey
-        ),
-        const SizedBox(height: 16),
-        Text(
-          _isOnline ? "You're Online" : "You're Offline",
-          style: GoogleFonts.inter(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: Colors.black87,
+        // Radar/Ripple Animation Area
+        SizedBox(
+          height: 120,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (_isOnline) ...[
+                // Outer Ripple
+                _rippleCircle(size: 100, delay: 0),
+                _rippleCircle(size: 140, delay: 0.5),
+                _rippleCircle(size: 180, delay: 1.0),
+              ],
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: _isOnline ? AppTheme.primaryColor : Colors.grey.shade100,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    if (_isOnline)
+                      BoxShadow(
+                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                  ],
+                ),
+                child: Icon(
+                  _isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
+                  size: 32,
+                  color: _isOnline ? Colors.white : Colors.grey.shade400,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 32),
         Text(
-          "Waiting for new bookings",
+          _isOnline ? "Waiting for Bookings" : "You're Offline",
           style: GoogleFonts.inter(
-            fontSize: 14,
-            color: Colors.grey.shade500,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: Colors.black87,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Text(
+            _isOnline 
+              ? "Your radar is active. We'll notify you as soon as a new request matches your profile."
+              : "Turn on your availability to start receiving job requests and earning.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
           ),
         ),
         if (_isOnline) ...[
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 20),
-          Text(
-            "Ready for new requests!",
-            style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor.withOpacity(0.7),
+          const SizedBox(height: 32),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 6,
+                  height: 6,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  "SEARCHING LIVE",
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryColor,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ],
+    );
+  }
+
+  Widget _rippleCircle({required double size, required double delay}) {
+    return AnimatedBuilder(
+      animation: _radarController,
+      builder: (context, child) {
+        // Offset the value by delay
+        double progress = (_radarController.value + delay) % 1.0;
+        double opacity = (1.0 - progress).clamp(0.0, 1.0);
+        double scale = 0.8 + (0.4 * progress);
+
+        return Opacity(
+          opacity: opacity,
+          child: Container(
+            width: size * scale,
+            height: size * scale,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: AppTheme.primaryColor.withOpacity(0.2),
+                width: 1.5,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -431,7 +615,7 @@ class _ProfessionalDashboardScreenState
         buttonText = "Start Service";
         onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
-      case BookingStatus.started:
+      case BookingStatus.inProgress:
         buttonText = "Complete Job";
         onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
@@ -618,7 +802,7 @@ class _ProfessionalDashboardScreenState
   }
 
 
-  void _showRequirementsError() {
+  void _showRequirementsError(String message) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -643,27 +827,16 @@ class _ProfessionalDashboardScreenState
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 10),
-              RichText(
+              Text(
+                message,
                 textAlign: TextAlign.center,
-                text: TextSpan(children: [
-                  TextSpan(
-                    text: 'You need at least ',
-                    style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
-                  ),
-                  TextSpan(
-                    text: '₹1500',
-                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w800, color: const Color(0xFFFF2D6F)),
-                  ),
-                  TextSpan(
-                    text: ' wallet balance to go online.\nCurrent balance: ',
-                    style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
-                  ),
-                  TextSpan(
-                    text: '₹${_walletCash.toStringAsFixed(0)}',
-                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w800,
-                      color: _walletCash > 0 ? const Color(0xFF111827) : const Color(0xFFEF4444)),
-                  ),
-                ]),
+                style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                'Current: ₹${_walletCash.toStringAsFixed(0)} | $_kitCount Kits',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
               ),
               const SizedBox(height: 20),
               Container(

@@ -28,7 +28,7 @@ class JobCard extends StatelessWidget {
         return '● ON THE WAY';
       case BookingStatus.arrived:
         return '● ARRIVED';
-      case BookingStatus.started:
+      case BookingStatus.inProgress:
         return '● IN PROGRESS';
       default:
         return '● ACTIVE';

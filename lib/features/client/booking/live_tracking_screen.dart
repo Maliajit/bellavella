@@ -200,7 +200,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                   const SizedBox(height: 32),
                   if (_currentStatus == BookingStatus.onTheWay)
                     _buildArrivalCodeSection(),
-                  if (_currentStatus == BookingStatus.arrived || _currentStatus == BookingStatus.started)
+                  if (_currentStatus == BookingStatus.arrived || _currentStatus == BookingStatus.inProgress)
                     ElevatedButton(
                       onPressed: _showPaymentEntryDialog,
                       style: ElevatedButton.styleFrom(
@@ -232,7 +232,7 @@ class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
                 children: [
                   _buildSimBtn('On Way', BookingStatus.onTheWay),
                   _buildSimBtn('Arrived', BookingStatus.arrived),
-                  _buildSimBtn('Started', BookingStatus.started),
+                  _buildSimBtn('Started', BookingStatus.inProgress),
                 ],
               ),
             ),

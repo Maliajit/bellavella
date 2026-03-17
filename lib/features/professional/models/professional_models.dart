@@ -98,10 +98,15 @@ class ProfessionalBooking {
       case 'arrived':
         status = BookingStatus.arrived;         // At location ✅ show job card
         break;
+      case 'scan_kit':
+      case 'kit_scan':
+      case 'scanning_kit':
+        status = BookingStatus.scanKit;         // Scanning kit ✅ show job card
+        break;
       case 'in_progress':
       case 'inprogress':
       case 'service_started':
-        status = BookingStatus.started;         // Service underway ✅ show job card
+        status = BookingStatus.inProgress;         // Service underway ✅ show job card
         break;
       case 'payment_pending':
       case 'paymentpending':

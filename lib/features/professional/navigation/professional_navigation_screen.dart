@@ -65,7 +65,7 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
           DashboardController.instance.updateJob(updated);
 
           context.pushNamed(
-            AppRoutes.proArriveName, 
+            AppRoutes.proActiveJobName, 
             pathParameters: {'id': widget.booking.id},
             extra: updated
           );

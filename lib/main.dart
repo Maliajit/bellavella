@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
@@ -20,21 +21,9 @@ void main({RouterConfig<Object>? router}) async {
   
   // Initialize Firebase
   try {
-    if (kIsWeb) {
-      await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: "AIzaSyA-2aHswGGpbN4dL2Q7oFWjyv5TEiz5d7M",
-          authDomain: "bellavella-68c59.firebaseapp.com",
-          projectId: "bellavella-68c59",
-          storageBucket: "bellavella-68c59.firebasestorage.app",
-          messagingSenderId: "639709879636",
-          appId: "1:639709879636:web:7030ca092280a6c6d23cc1",
-          measurementId: "G-BF9BPY0047",
-        ),
-      );
-    } else {
-      await Firebase.initializeApp();
-    }
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     debugPrint('🔥 Firebase Initialized Successfully');
     
     FirebaseFirestore.instance.collection('job_requests').snapshots().listen((event) {

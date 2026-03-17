@@ -224,7 +224,7 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
                             'name': order.clientName,
                             'service': order.serviceName,
                             'status': order.status == BookingStatus.accepted ? 'Accepted' :
-                                      order.status == BookingStatus.started ? 'Ongoing' :
+                                      order.status == BookingStatus.inProgress ? 'Ongoing' :
                                       order.status == BookingStatus.completed ? 'Completed' :
                                       order.status == BookingStatus.cancelled ? 'Cancelled' : 'Pending',
                             'time': order.time,

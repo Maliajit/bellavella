@@ -121,7 +121,7 @@ class _ProfessionalNotificationsScreenState extends State<ProfessionalNotificati
                             icon: _getIconForType(n['type']),
                             iconColor: _getColorForType(n['type']),
                             title: n['title'] ?? 'Notification',
-                            description: n['message'] ?? '',
+                            description: n['body'] ?? n['message'] ?? '',
                             time: n['created_at'] ?? '',
                             isUnread: n['read_at'] == null,
                           );
