@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/client/packages/models/package_models.dart';
 import '../../../../core/widgets/base_widgets.dart';
 
 class BookingScreen extends StatelessWidget {
@@ -113,10 +114,16 @@ class BookingScreen extends StatelessWidget {
         'price': bookingData['service']['price']?.toString() ?? '0',
         'qty': '1',
       });
-    } else if (bookingData['package'] != null) {
+    } else if (bookingData['package_snapshot'] != null ||
+        bookingData['package'] != null) {
+      final package = PackageSummary.fromJson(
+        Map<String, dynamic>.from(
+          (bookingData['package_snapshot'] ?? bookingData['package']) as Map,
+        ),
+      );
       services.add({
-        'name': bookingData['package']['name']?.toString() ?? 'Unknown Package',
-        'price': bookingData['package']['price']?.toString() ?? '0',
+        'name': package.title,
+        'price': (package.displayPrice ?? 0).toString(),
         'qty': '1',
       });
     }

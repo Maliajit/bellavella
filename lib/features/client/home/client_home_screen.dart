@@ -78,22 +78,24 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
 
   /// Navigates based on the target_page route key returned from backend.
   void _navigateToTarget(BuildContext context, String? targetPage) {
-    if (targetPage == null || targetPage == 'none' || targetPage.isEmpty)
+    if (targetPage == null || targetPage == 'none' || targetPage.isEmpty) {
       return;
+    }
 
-    final routes = {
-      'home': '/home',
-      'services': '/services',
-      'packages': '/packages',
-      'about': '/about',
-      'contact': '/contact',
-      'professionals': '/professionals',
-      'offers': '/offers',
-    };
-
-    final route = routes[targetPage];
-    if (route != null) {
-      Navigator.of(context).pushNamed(route);
+    switch (targetPage) {
+      case 'home':
+        context.go(AppRoutes.clientHome);
+        return;
+      case 'services':
+        context.push(AppRoutes.clientServices);
+        return;
+      case 'packages':
+        // TODO(package-engine): backend must provide a concrete package context
+        // before package banners can navigate to a shared package listing surface.
+        debugPrint('Package target tapped without a concrete package context.');
+        return;
+      default:
+        debugPrint('Unsupported homepage target: $targetPage');
     }
   }
 

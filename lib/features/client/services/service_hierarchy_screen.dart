@@ -1,6 +1,7 @@
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
+import 'package:bellavella/features/client/packages/widgets/context_package_section.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
@@ -166,6 +167,15 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
                 if (breadcrumbs.length > 1) ...[
                   const SizedBox(height: 16),
                   _buildBreadcrumbs(breadcrumbs),
+                ],
+                if (node.level == 'category' && int.tryParse(node.id) != null) ...[
+                  const SizedBox(height: 20),
+                  ContextPackageSection(
+                    contextType: 'category',
+                    contextId: int.parse(node.id),
+                    title: 'Packages',
+                    subtitle: 'Available packages for this category',
+                  ),
                 ],
                 const SizedBox(height: 24),
                 if (isLoading && node.children.isEmpty)

@@ -11,7 +11,6 @@ class AppRoutes {
   static const String clientLocationPicker = '/client/location-picker';
   static const String clientHome = '/client/home';
   static const String clientServices = '/client/services';
-  static const String clientPackages = '/client/packages';
   static const String clientCategory = '/client/services/:slug';
   static const String clientServiceHierarchy = '/client/service-hierarchy/:nodeKey';
   static const String clientCategoryDetail = '/client/category-detail/:name';
@@ -118,8 +117,6 @@ class AppRoutes {
   static const String clientCheckoutSlotsName = 'clientCheckoutSlots';
   static const String clientCheckoutReviewName = 'clientCheckoutReview';
   static const String clientStoryViewerName = 'storyViewer';
-  static const String clientPackagesName = 'client-packages';
-
   static const String proLoginName = 'proLogin';
   static const String proVerifyOtpName = 'proVerifyOtp';
   static const String proSignupName = 'proSignup';

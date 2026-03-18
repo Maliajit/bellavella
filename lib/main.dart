@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import 'features/professional/controllers/professional_profile_controller.dart';
 import 'features/professional/controllers/dashboard_controller.dart';
 import 'features/client/home/controllers/home_provider.dart';
+import 'features/client/packages/controllers/package_provider.dart';
 import 'features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 
@@ -60,6 +61,7 @@ void main({RouterConfig<Object>? router}) async {
         ChangeNotifierProvider(create: (_) => DashboardController.instance),
         ChangeNotifierProvider(create: (_) => HomeProvider()),
         ChangeNotifierProvider(create: (_) => ServiceProvider()),
+        ChangeNotifierProvider(create: (_) => PackageProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
       ],
       child: BellavellaApp(routerConfig: effectiveRouter),

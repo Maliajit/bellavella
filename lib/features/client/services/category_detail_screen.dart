@@ -4,6 +4,9 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import 'package:bellavella/features/client/cart/models/cart_model.dart';
+import 'package:bellavella/features/client/packages/controllers/package_provider.dart';
+import 'package:bellavella/features/client/packages/models/package_models.dart';
+import 'package:bellavella/features/client/packages/widgets/context_package_section.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/features/client/services/utils/service_price_formatter.dart';
@@ -55,6 +58,8 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
       widget.hierarchyNodeKey ??
       widget.hierarchySeedNode?.routeKey ??
       widget.categoryName;
+
+  String _packageSectionKey(int contextId) => 'packages-$contextId';
 
   @override
   void initState() {
@@ -434,6 +439,15 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                       ? detail.name
                       : 'Explore Our Services',
                 ),
+                if (focusedGroup != null) ...[
+                  const SizedBox(height: 20),
+                  ContextPackageSection(
+                    contextType: 'service_group',
+                    contextId: focusedGroup.id,
+                    title: 'Super saver packages',
+                    subtitle: 'Backend-created packages for this section',
+                  ),
+                ],
                 const SizedBox(height: 20),
                 if (focusedGroup == null) ...[
                   _buildLegacyGroupGrid(detail.serviceGroups),
@@ -503,6 +517,13 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     final breadcrumbTitle = widget.hierarchyBreadcrumbs.isNotEmpty
         ? widget.hierarchyBreadcrumbs.first.name
         : null;
+    final packageProvider = context.watch<PackageProvider>();
+    final packageContextId = int.tryParse(node.id);
+    final List<PackageSummary> contextPackages = packageContextId == null
+        ? const []
+        : packageProvider.packagesForContext('service_group:$packageContextId');
+    final packageShortcutImage =
+        contextPackages.isNotEmpty ? contextPackages.first.imageUrl : null;
 
     for (final type in serviceTypes) {
       _sectionKeys['type-${type.id}'] = GlobalKey();
@@ -552,8 +573,28 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
                   banners: node.banners.pageHeader,
                 ),
                 const SizedBox(height: 20),
-                _buildServiceTypeGrid(serviceTypes),
+                _buildServiceTypeGrid(
+                  serviceTypes,
+                  packageShortcut: contextPackages.isNotEmpty,
+                  packageImageUrl: packageShortcutImage,
+                  onPackageTap: packageContextId == null
+                      ? null
+                      : () => _scrollToSection(
+                            _packageSectionKey(packageContextId),
+                          ),
+                ),
                 const SizedBox(height: 30),
+                if (packageContextId != null) ...[
+                  ContextPackageSection(
+                    key: _sectionKeys[_packageSectionKey(packageContextId)] ??=
+                        GlobalKey(),
+                    contextType: 'service_group',
+                    contextId: packageContextId,
+                    title: 'Super saver packages',
+                    subtitle: 'Backend-created packages for this section',
+                  ),
+                  const SizedBox(height: 30),
+                ],
                 _buildOfferCard(
                   node.name,
                   banners: node.banners.promoBanner,
@@ -742,8 +783,30 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     );
   }
 
-  Widget _buildServiceTypeGrid(List<ServiceHierarchyNode> serviceTypes) {
-    if (serviceTypes.isEmpty) return const SizedBox.shrink();
+  Widget _buildServiceTypeGrid(
+    List<ServiceHierarchyNode> serviceTypes, {
+    bool packageShortcut = false,
+    String? packageImageUrl,
+    VoidCallback? onPackageTap,
+  }) {
+    if (serviceTypes.isEmpty && !packageShortcut) return const SizedBox.shrink();
+
+    final tiles = <_ServiceGridTile>[
+      if (packageShortcut)
+        _ServiceGridTile(
+          title: 'Super saver\npackage',
+          imageUrl: packageImageUrl,
+          onTap: onPackageTap,
+          isPackageShortcut: true,
+        ),
+      ...serviceTypes.map(
+        (type) => _ServiceGridTile(
+          title: type.name,
+          imageUrl: type.image,
+          onTap: () => _scrollToSection('type-${type.id}'),
+        ),
+      ),
+    ];
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -766,17 +829,22 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               crossAxisSpacing: 10,
               mainAxisSpacing: 10,
             ),
-            itemCount: serviceTypes.length,
+            itemCount: tiles.length,
             itemBuilder: (context, index) {
-              final type = serviceTypes[index];
+              final tile = tiles[index];
               return InkWell(
-                onTap: () => _scrollToSection('type-${type.id}'),
+                onTap: tile.onTap,
                 child: Column(
                   children: [
-                    _buildSmallImageBadge(type.image, size: 65, radius: 15),
+                    _buildSmallImageBadge(
+                      tile.imageUrl,
+                      size: 65,
+                      radius: 15,
+                      isPackageShortcut: tile.isPackageShortcut,
+                    ),
                     const SizedBox(height: 8),
                     Text(
-                      type.name,
+                      tile.title,
                       style: const TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
@@ -799,17 +867,33 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     String? imageUrl, {
     required double size,
     required double radius,
+    bool isPackageShortcut = false,
   }) {
     final placeholder = Container(
       height: size,
       width: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF2F2),
+        color: isPackageShortcut
+            ? const Color(0xFFF1F2F4)
+            : const Color(0xFFFFF2F2),
         borderRadius: BorderRadius.circular(radius),
         border: Border.all(
-          color: AppTheme.primaryColor.withValues(alpha: 0.12),
+          color: isPackageShortcut
+              ? const Color(0xFFE2E4E8)
+              : AppTheme.primaryColor.withValues(alpha: 0.12),
         ),
       ),
+      alignment: Alignment.center,
+      child: isPackageShortcut
+          ? Text(
+              'SAVE',
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0B8A5B),
+              ),
+            )
+          : null,
     );
 
     if (imageUrl == null || imageUrl.isEmpty) {
@@ -1461,6 +1545,20 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     if (normalized.contains('massage')) return Icons.spa_outlined;
     return Icons.star_outline;
   }
+}
+
+class _ServiceGridTile {
+  final String title;
+  final String? imageUrl;
+  final VoidCallback? onTap;
+  final bool isPackageShortcut;
+
+  const _ServiceGridTile({
+    required this.title,
+    this.imageUrl,
+    this.onTap,
+    this.isPackageShortcut = false,
+  });
 }
 class _VariantOptionsSheet extends StatefulWidget {
   final DetailedService service;
