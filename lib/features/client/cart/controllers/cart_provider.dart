@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
+import 'package:bellavella/features/client/packages/models/package_models.dart';
 import '../models/cart_model.dart';
 import '../services/guest_cart_storage.dart';
 import '../../home/models/home_models.dart';
@@ -79,8 +80,9 @@ class CartProvider extends ChangeNotifier {
   CartItem? _cartItemFromBackend(Map<String, dynamic> item) {
     final serviceId = int.tryParse(item['service_id']?.toString() ?? '');
     final variantId = int.tryParse(item['service_variant_id']?.toString() ?? '');
+    final packageId = int.tryParse(item['package_id']?.toString() ?? '');
     final itemId = int.tryParse(item['item_id']?.toString() ?? '');
-    final quantityKey = variantId ?? serviceId ?? itemId;
+    final quantityKey = variantId ?? serviceId ?? packageId ?? itemId;
     final cartId = int.tryParse(item['id']?.toString() ?? '');
     if (quantityKey == null || cartId == null) {
       return null;
@@ -92,8 +94,11 @@ class CartProvider extends ChangeNotifier {
             : (item['display_name']?.toString() ??
                 item['name']?.toString() ??
                 'Unknown');
-    final subtitle =
-        item['variant_name']?.toString().isNotEmpty == true
+    final subtitle = item['item_type']?.toString() == 'package'
+        ? item['package_context_name']?.toString() ??
+            item['subtitle']?.toString() ??
+            null
+        : item['variant_name']?.toString().isNotEmpty == true
             ? item['service_name']?.toString()
             : null;
 
@@ -102,12 +107,26 @@ class CartProvider extends ChangeNotifier {
       id: quantityKey,
       serviceId: serviceId,
       serviceVariantId: variantId,
+      packageId: packageId,
       itemType: item['item_type']?.toString() ?? 'service',
       title: title,
       subtitle: subtitle,
       price: double.tryParse(item['unit_price']?.toString() ?? '') ?? 0,
       imageUrl: item['image']?.toString() ?? '',
-      categoryName: 'Services',
+      categoryName: item['item_type']?.toString() == 'package'
+          ? 'Packages'
+          : 'Services',
+      durationMinutes: int.tryParse(item['duration_minutes']?.toString() ?? ''),
+      packageConfiguration:
+          item['meta'] is Map<String, dynamic>
+              ? item['meta'] as Map<String, dynamic>
+              : item['meta'] is Map
+                  ? Map<String, dynamic>.from(item['meta'] as Map)
+                  : null,
+      packageContextType: item['package_context_type']?.toString(),
+      packageContextId: int.tryParse(
+        item['package_context_id']?.toString() ?? '',
+      ),
       quantity: int.tryParse(item['quantity']?.toString() ?? '1') ?? 1,
     );
   }
@@ -124,6 +143,77 @@ class CartProvider extends ChangeNotifier {
       payload['bookable_type'] = 'variant';
     }
     return payload;
+  }
+
+  CartItem? findPackageItem(
+    int packageId, {
+    String? contextType,
+    int? contextId,
+  }) {
+    for (final item in _items.values) {
+      if (!item.isPackage || item.packageId != packageId) {
+        continue;
+      }
+      if (contextType != null && item.packageContextType != contextType) {
+        continue;
+      }
+      if (contextId != null && item.packageContextId != contextId) {
+        continue;
+      }
+      return item;
+    }
+    return null;
+  }
+
+  Future<String?> saveConfiguredPackage({
+    required PackageSummary package,
+    required String contextType,
+    required int contextId,
+    required Map<String, dynamic> configuration,
+    int? cartId,
+    int quantity = 1,
+  }) async {
+    await _ensureInitialized();
+
+    if (!TokenManager.hasToken) {
+      return 'Please sign in to add packages to cart.';
+    }
+
+    final payload = <String, dynamic>{
+      'item_type': 'package',
+      'package_id': package.id,
+      'context_type': contextType,
+      'context_id': contextId,
+      'quantity': quantity,
+      'configuration': configuration,
+    };
+
+    final response = cartId == null
+        ? await ApiService.post('/client/cart', payload)
+        : await ApiService.put('/client/cart/$cartId', payload);
+
+    if (response['success'] == true && response['data'] is Map<String, dynamic>) {
+      final cartItem = _cartItemFromBackend(
+        Map<String, dynamic>.from(response['data']),
+      );
+      if (cartItem != null) {
+        _items[cartItem.quantityKey] = cartItem;
+        notifyListeners();
+      }
+      return null;
+    }
+
+    final errors = response['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final firstFieldErrors = errors.values.first;
+      if (firstFieldErrors is List && firstFieldErrors.isNotEmpty) {
+        return firstFieldErrors.first?.toString() ??
+            response['message']?.toString() ??
+            'Failed to save package.';
+      }
+    }
+
+    return response['message']?.toString() ?? 'Failed to save package.';
   }
 
   Future<void> fetchCart() async {

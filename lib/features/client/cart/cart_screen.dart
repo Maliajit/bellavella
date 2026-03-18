@@ -6,6 +6,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
 import 'package:bellavella/features/client/cart/models/cart_model.dart';
+import 'package:bellavella/features/client/packages/controllers/package_provider.dart';
+import 'package:bellavella/features/client/packages/widgets/package_config_sheet.dart';
 import 'package:bellavella/core/services/auth_flow_service.dart';
 import 'package:bellavella/core/services/promotion_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
@@ -41,6 +43,46 @@ class _CartScreenState extends State<CartScreen> {
   void dispose() {
     _couponController.dispose();
     super.dispose();
+  }
+
+  Future<void> _editPackage(CartItem item) async {
+    if (!item.isPackage ||
+        item.packageId == null ||
+        item.packageContextType == null ||
+        item.packageContextId == null) {
+      ToastUtil.showError(context, 'Package details are incomplete.');
+      return;
+    }
+
+    final packageProvider = context.read<PackageProvider>();
+    await packageProvider.fetchPackageConfiguration(
+      packageId: item.packageId!,
+      contextType: item.packageContextType,
+      contextId: item.packageContextId!.toString(),
+      forceRefresh: true,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    final config = packageProvider.packageConfig(item.packageId!);
+    if (config == null) {
+      ToastUtil.showError(context, packageProvider.error ?? 'Unable to load package.');
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PackageConfigSheet(
+        packageConfig: config,
+        contextType: item.packageContextType!,
+        contextId: item.packageContextId!,
+        existingCartItem: item,
+      ),
+    );
   }
 
   Future<void> _proceedToCheckout() async {
@@ -273,6 +315,24 @@ class _CartScreenState extends State<CartScreen> {
                           style: GoogleFonts.outfit(
                             fontSize: 14,
                             color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (item.isPackage) ...[
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: () => _editPackage(item),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          'Edit package',
+                          style: GoogleFonts.outfit(
+                            color: pinkPrimary,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),

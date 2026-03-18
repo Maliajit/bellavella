@@ -3,6 +3,7 @@ import 'package:bellavella/core/services/api_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/services/token_manager.dart';
+import 'package:bellavella/features/client/packages/models/package_models.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 
@@ -205,10 +206,16 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             'price': booking['service']['price']?.toString() ?? '0',
             'qty': '1',
           });
-        } else if (booking['package'] != null) {
+        } else if (booking['package_snapshot'] != null ||
+            booking['package'] != null) {
+          final package = PackageSummary.fromJson(
+            Map<String, dynamic>.from(
+              (booking['package_snapshot'] ?? booking['package']) as Map,
+            ),
+          );
           services.add({
-            'name': booking['package']['name']?.toString() ?? 'Unknown Package',
-            'price': booking['package']['price']?.toString() ?? '0',
+            'name': package.title,
+            'price': (package.displayPrice ?? 0).toString(),
             'qty': '1',
           });
         }
