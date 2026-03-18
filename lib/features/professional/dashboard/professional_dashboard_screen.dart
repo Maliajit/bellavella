@@ -64,6 +64,11 @@ class _ProfessionalDashboardScreenState
     });
 
     final profileController = context.read<ProfessionalProfileController>();
+    if (profileController.profile == null) {
+      debugPrint("🆕 Dashboard Init: Fetching missing profile...");
+      profileController.fetchProfile();
+    }
+    
     debugPrint("🆔 Dashboard Init: Professional ID = ${profileController.profile?.id}, isOnline = ${profileController.isOnline}");
 
     _radarController = AnimationController(
@@ -120,7 +125,7 @@ class _ProfessionalDashboardScreenState
           orElse: () => pro_models.ProfessionalBooking.empty(),
         );
 
-        if (activeInStats.id.isNotEmpty) {
+        if (activeInStats.id.isNotEmpty && activeInStats.isActive && activeInStats.status != BookingStatus.completed) {
           context.read<DashboardController>().setActiveJob(activeInStats);
         } else {
           context.read<DashboardController>().clearJob();
@@ -169,6 +174,21 @@ class _ProfessionalDashboardScreenState
               'price': booking.totalPrice,
               'status': 'pending',
             };
+
+            // Step 6: Safety fix for dashboard and Firestore listener to clear job on 'idle' status.
+            // This logic is typically handled by a real-time listener (e.g., FirebaseMessagingService)
+            // or a dedicated job status update mechanism.
+            // For the polling fallback, we only push 'pending' requests.
+            // The 'idle' status check would be relevant if this method also processed job status updates.
+            // As per the provided snippet, if 'data' had a status of 'idle', it would clear the job.
+            // However, in this specific polling context, 'status' is hardcoded to 'pending'.
+            // If this method were to receive dynamic status updates, the following logic would apply:
+            // if (data?['status'] == 'pending') {
+            //   _showJobPopup(navKey, data!); // Assuming _showJobPopup and navKey are defined elsewhere
+            // } else if (data?['status'] == 'idle') {
+            //   // Redundant safety clear for real-time dashboard sync
+            //   DashboardController.instance.clearJob();
+            // }
 
             if (mounted) {
               RealtimeJobService.shownBookings.add(booking.id.toString());
@@ -594,17 +614,21 @@ class _ProfessionalDashboardScreenState
         buttonText = "I Have Arrived";
         onPressed = () => context.pushNamed(AppRoutes.proArriveName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
-      case BookingStatus.arrived:
-        buttonText = "Start Service";
-        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+      case BookingStatus.scanKit:
+        buttonText = "Start Job";
+        onPressed = () => context.pushNamed(AppRoutes.proScanKitName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
       case BookingStatus.inProgress:
-        buttonText = "Complete Job";
+        buttonText = "View Progress";
         onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        break;
+      case BookingStatus.paymentPending:
+        buttonText = "Collect Payment";
+        onPressed = () => context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': activeJob.id}, extra: activeJob);
         break;
       default:
         buttonText = "View Details";
-        onPressed = () => context.pushNamed(AppRoutes.proBookingDetailName, pathParameters: {'id': activeJob.id});
+        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
     }
 
     return JobCard(
@@ -700,9 +724,10 @@ class _ProfessionalDashboardScreenState
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: _stats?.recentBookings.length ?? 0,
+          itemCount: (_stats?.recentBookings ?? []).where((b) => !b.status.name.contains('cancelled')).length,
           itemBuilder: (context, index) {
-            final booking = _stats!.recentBookings[index];
+            final activeRecent = (_stats?.recentBookings ?? []).where((b) => !b.status.name.contains('cancelled')).toList();
+            final booking = activeRecent[index];
             bool isLast = index == (_stats?.recentBookings.length ?? 0) - 1;
             bool isDone = booking.status == BookingStatus.completed;
 

@@ -112,6 +112,7 @@ final _authRoutes = [
         return OTPVerifyScreen(
           phoneNumber: extra['phone'] as String? ?? '',
           referralCode: extra['referral_code'] as String?,
+          autoFillOtp: extra['auto_fill_otp'] as String?,
         );
       }
       return const ProfessionalLoginScreen();

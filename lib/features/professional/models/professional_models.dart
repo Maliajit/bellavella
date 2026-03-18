@@ -1,6 +1,14 @@
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/utils/parser_util.dart';
 
+enum JobStep {
+  arrived,
+  scanKit,
+  service,
+  payment,
+  complete
+}
+
 class ProfessionalBooking {
   final String id;
   final String clientName;
@@ -10,6 +18,7 @@ class ProfessionalBooking {
   final double totalPrice;
   final String address;
   final BookingStatus status;
+  final String currentStep; // Added field
   final DateTime? serviceStartedAt;
   final double? lat;
   final double? lng;
@@ -24,6 +33,7 @@ class ProfessionalBooking {
     required this.totalPrice,
     required this.address,
     required this.status,
+    this.currentStep = '', // Added to constructor
     this.serviceStartedAt,
     this.lat,
     this.lng,
@@ -39,6 +49,7 @@ class ProfessionalBooking {
     double? totalPrice,
     String? address,
     BookingStatus? status,
+    String? currentStep, // Added to copyWith
     DateTime? serviceStartedAt,
     double? lat,
     double? lng,
@@ -53,6 +64,7 @@ class ProfessionalBooking {
       totalPrice: totalPrice ?? this.totalPrice,
       address: address ?? this.address,
       status: status ?? this.status,
+      currentStep: currentStep ?? this.currentStep, // Added to copyWith return
       serviceStartedAt: serviceStartedAt ?? this.serviceStartedAt,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
@@ -61,12 +73,31 @@ class ProfessionalBooking {
   }
 
   bool get isActive {
-    return status == BookingStatus.accepted ||
-           status == BookingStatus.onTheWay ||
-           status == BookingStatus.arrived ||
-           status == BookingStatus.scanKit ||
-           status == BookingStatus.inProgress ||
-           status == BookingStatus.paymentPending;
+    // A job is active only if it is in an ongoing workflow state
+    final activeStatuses = [
+      BookingStatus.assigned,
+      BookingStatus.accepted,
+      BookingStatus.onTheWay,
+      BookingStatus.arrived,
+      BookingStatus.scanKit,
+      BookingStatus.inProgress,
+      BookingStatus.paymentPending,
+    ];
+    return activeStatuses.contains(status);
+  }
+
+  bool get isToday {
+    try {
+      if (date.isEmpty) return false;
+      final now = DateTime.now();
+      final bookingDate = DateTime.parse(date);
+      return bookingDate.year == now.year &&
+             bookingDate.month == now.month &&
+             bookingDate.day == now.day;
+    } catch (e) {
+      // Fallback if date string is not ISO format (e.g. contains "Today")
+      return date.toLowerCase().contains('today') || time.toLowerCase().contains('today');
+    }
   }
 
   factory ProfessionalBooking.empty() => ProfessionalBooking(
@@ -78,6 +109,7 @@ class ProfessionalBooking {
     totalPrice: 0, 
     address: '', 
     status: BookingStatus.requested,
+    currentStep: '', // Added to empty factory
     serviceStartedAt: null,
     lat: null,
     lng: null,
@@ -85,7 +117,7 @@ class ProfessionalBooking {
 
   factory ProfessionalBooking.fromJson(dynamic json) {
     if (json is! Map) {
-      return ProfessionalBooking(id: '', clientName: 'Unknown', serviceName: 'Service', time: '', date: '', totalPrice: 0, address: '', status: BookingStatus.requested);
+      return ProfessionalBooking(id: '', clientName: 'Unknown', serviceName: 'Service', time: '', date: '', totalPrice: 0, address: '', status: BookingStatus.requested, currentStep: '');
     }
     // Backend uses 'customer_name', 'slot' as time, 'price' as total_price
     String statusStr = (json['status'] ?? '').toString().toLowerCase().trim().replaceAll(' ', '_');
@@ -126,10 +158,12 @@ class ProfessionalBooking {
         break;
       case 'rejected':
       case 'cancelled':
+      case 'canceled':
         status = BookingStatus.cancelled;       // Rejected/cancelled — no card
         break;
       default:
         status = BookingStatus.requested;
+        break;
     }
 
 
@@ -138,10 +172,11 @@ class ProfessionalBooking {
       clientName: (json['customer_name'] ?? json['client_name'] ?? 'Unknown').toString(),
       serviceName: (json['service_name'] ?? 'Service').toString(),
       time: (json['slot'] ?? json['time'] ?? 'Asap').toString(),
-      date: (json['date'] ?? '').toString(),
+      date: (json['booking_date'] ?? json['date'] ?? '').toString(),
       totalPrice: ParserUtil.safeParseDouble(json['price'] ?? json['total_price']),
       address: (json['city'] ?? json['address'] ?? 'No address provided').toString(),
       status: status,
+      currentStep: (json['current_step'] ?? '').toString(), // Added to fromJson
       serviceStartedAt: json['service_started_at'] != null 
           ? DateTime.tryParse(json['service_started_at'].toString()) 
           : null,

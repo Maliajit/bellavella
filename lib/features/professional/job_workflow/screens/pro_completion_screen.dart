@@ -22,45 +22,29 @@ class ProJobCompleteScreen extends StatefulWidget {
 }
 
 class _ProJobCompleteScreenState extends State<ProJobCompleteScreen> {
-  late ProfessionalBooking _booking;
-
   @override
   void initState() {
     super.initState();
-    _booking = widget.booking;
-    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
-      _fetchLatestDetails();
-    }
   }
 
   void _onReturnToDashboard() {
+    // 🔥 Clear all local state first
     DashboardController.instance.clearJob();
-    // Reset real-time listener cache immediately upon completion
     RealtimeJobService.clearCache();
     
-    // Reset Firestore status to idle
+    // Reset Firestore status to idle in background
     try {
       final profile = context.read<ProfessionalProfileController>().profile;
       if (profile != null) {
         RealtimeJobService.updateStatus(profile.id.toString(), 'idle');
       }
     } catch (e) {
-      debugPrint('⚠️ Firestore update failed after completion: $e');
+      debugPrint('⚠️ Firestore update failed: $e');
     }
     
-    debugPrint('✅ Completion: Cleared active job and Firestore status reset to idle');
+    // 🔥 Clean redirect to Dashboard (resets navigation stack)
+    debugPrint('🏁 Job workflow complete. Returning to clean dashboard.');
     context.goNamed(AppRoutes.proDashboardName);
-  }
-
-  Future<void> _fetchLatestDetails() async {
-    try {
-      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
-      if (mounted) {
-        setState(() => _booking = latest);
-      }
-    } catch (e) {
-      debugPrint('Failed to re-fetch booking: $e');
-    }
   }
 
   @override
@@ -87,31 +71,32 @@ class _ProJobCompleteScreenState extends State<ProJobCompleteScreen> {
     return Column(
       children: [
         Expanded(
-          child: Center(
+          child: SingleChildScrollView(
             child: Padding(
-              padding: const EdgeInsets.all(40),
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.check_rounded, size: 64, color: Colors.green),
+                    child: const Icon(Icons.check_rounded, size: 60, color: Colors.green),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   Text(
                     "Job Completed Successfully",
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
                       color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
                   Text(
                     "You Earned",
                     style: GoogleFonts.inter(
@@ -120,26 +105,27 @@ class _ProJobCompleteScreenState extends State<ProJobCompleteScreen> {
                       color: Colors.grey.shade500,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    currencyFormat.format(_booking.totalPrice),
+                    currencyFormat.format(widget.booking.totalPrice),
                     style: GoogleFonts.inter(
-                      fontSize: 48,
+                      fontSize: 44,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.primaryColor,
                       letterSpacing: -1,
                     ),
                   ),
-                  const SizedBox(height: 48),
+                  const SizedBox(height: 32),
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.grey.shade100),
                     ),
                     child: Column(
                       children: [
-                        _summaryItem(Icons.person_outline_rounded, "Client", _booking.clientName),
+                        _summaryItem(Icons.person_outline_rounded, "Client", widget.booking.clientName),
                         const SizedBox(height: 16),
                         _summaryItem(Icons.timer_outlined, "Duration", "45 mins"),
                         const SizedBox(height: 16),
@@ -147,6 +133,7 @@ class _ProJobCompleteScreenState extends State<ProJobCompleteScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),

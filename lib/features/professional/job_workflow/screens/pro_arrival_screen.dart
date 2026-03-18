@@ -21,54 +21,25 @@ class ProArrivalScreen extends StatefulWidget {
 
 class _ProArrivalScreenState extends State<ProArrivalScreen> {
   bool _isProcessing = false;
-  late ProfessionalBooking _booking;
-
   @override
   void initState() {
     super.initState();
-    _booking = widget.booking;
-    // Only fetch if name is missing or we explicitly need a refresh
-    if (_booking.id.isNotEmpty && (_booking.clientName == 'Unknown' || _booking.clientName.isEmpty)) {
-      _fetchLatestDetails();
-    }
   }
 
-  Future<void> _fetchLatestDetails() async {
-    try {
-      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
-      if (mounted) {
-        setState(() => _booking = latest);
-        _syncController();
-      }
-    } catch (e) {
-      debugPrint('Failed to re-fetch booking: $e');
-    }
-  }
-
-  /// Syncs the local booking state with the central DashboardController.
-  void _syncController() {
-    if (mounted) {
-      DashboardController.instance.setActiveJob(_booking);
-      debugPrint('🔄 Kit Scan: Synced controller with ${_booking.id} (${_booking.status.name})');
-    }
-  }
-
-  void _confirmArrival() {
-    // 🔥 Optimistic UI Update
-    final updated = _booking.copyWith(status: BookingStatus.scanKit);
-    DashboardController.instance.updateJob(updated);
+  Future<void> _confirmArrival() async {
+    if (_isProcessing) return;
     
-    // 🔥 Navigate instantly
-    context.pushNamed(AppRoutes.proScanKitName, pathParameters: {'id': _booking.id}, extra: updated);
-
-    // 🔥 Backend Sync in Background
-    ProfessionalApiService.jobArrived(_booking.id).then((res) {
-      if (res['success'] != true) {
-        debugPrint('Background arrival failed: ${res['message']}');
-      }
-    }).catchError((e) {
-      debugPrint('Background arrival error: $e');
-    });
+    setState(() => _isProcessing = true);
+    
+    try {
+      // 🔥 Call centralized controller method instead of direct API + Navigation
+      await context.read<DashboardController>().confirmArrival();
+      debugPrint('✅ ProArrivalScreen: Arrival confirmed via controller.');
+    } catch (e) {
+      debugPrint('❌ ProArrivalScreen: Arrival confirmation failed: $e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   @override
@@ -114,7 +85,7 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _booking.clientName,
+                  widget.booking.clientName,
                   style: GoogleFonts.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
@@ -123,7 +94,7 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _booking.serviceName,
+                  widget.booking.serviceName,
                   style: GoogleFonts.inter(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,

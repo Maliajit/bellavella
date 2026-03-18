@@ -27,6 +27,8 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
   void initState() {
     super.initState();
     _booking = widget.booking;
+    _isLoading = false;
+    // Sync in background if needed, but don't block
     _fetchLatestData();
   }
 
@@ -36,13 +38,11 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
       if (mounted) {
         setState(() {
           _booking = latest;
-          _isLoading = false;
         });
         _syncController();
       }
     } catch (e) {
-      debugPrint('Error fetching latest booking: $e');
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error fetching latest booking in background: $e');
     }
   }
 

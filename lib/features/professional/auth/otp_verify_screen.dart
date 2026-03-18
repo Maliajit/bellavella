@@ -3,37 +3,74 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/services/notification_service.dart';
+import 'package:sms_autofill/sms_autofill.dart';
+import 'package:pinput/pinput.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import '../services/professional_api_service.dart';
 
 class OTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
   final String? referralCode;
-  const OTPVerifyScreen({super.key, required this.phoneNumber, this.referralCode});
+  final String? autoFillOtp;
+  const OTPVerifyScreen({super.key, required this.phoneNumber, this.referralCode, this.autoFillOtp});
 
   @override
   State<OTPVerifyScreen> createState() => _OTPVerifyScreenState();
 }
 
-class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
-  final List<TextEditingController> _controllers = List.generate(4, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+class _OTPVerifyScreenState extends State<OTPVerifyScreen> with CodeAutoFill {
+  final TextEditingController _otpController = TextEditingController();
   String? _errorText;
   bool _isLoading = false;
+  String _appSignature = "";
+
+  @override
+  void initState() {
+    super.initState();
+    _listenOtp();
+    _getAppSignature();
+    
+    // Auto-fill from API response if provided
+    if (widget.autoFillOtp != null && widget.autoFillOtp!.isNotEmpty) {
+      _otpController.text = widget.autoFillOtp!;
+      // Use a small delay to ensure UI is ready before auto-verifying
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (mounted) _verifyOTP(widget.autoFillOtp!);
+      });
+    }
+  }
+
+  void _listenOtp() async {
+    listenForCode();
+  }
+
+  void _getAppSignature() async {
+    try {
+      _appSignature = await SmsAutoFill().getAppSignature;
+      debugPrint("🔍 App Signature: $_appSignature");
+    } catch (e) {
+      debugPrint("⚠️ Failed to get app signature: $e");
+    }
+  }
+
+  @override
+  void codeUpdated() {
+    setState(() {
+      _otpController.text = code ?? "";
+    });
+    if (_otpController.text.length == 4) {
+      _verifyOTP(_otpController.text);
+    }
+  }
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    cancel();
+    _otpController.dispose();
     super.dispose();
   }
 
-  Future<void> _verifyOTP() async {
-    String otp = _controllers.map((c) => c.text).join();
+  Future<void> _verifyOTP(String otp) async {
     if (otp.length < 4) return;
 
     setState(() {
@@ -51,7 +88,6 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
               'referral_code': widget.referralCode,
             });
           } else {
-            // Register FCM token
             await NotificationService().registerFcmToken();
             context.go('/professional/dashboard');
           }
@@ -74,6 +110,27 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final defaultPinTheme = PinTheme(
+      width: 70,
+      height: 70,
+      textStyle: GoogleFonts.outfit(
+        fontSize: 24,
+        fontWeight: FontWeight.bold,
+        color: const Color(0xFF2E2E2E),
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+    );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F4F4),
       appBar: AppBar(
@@ -108,68 +165,30 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
               ),
             ),
             const SizedBox(height: 48),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(4, (index) {
-                return Container(
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+            
+            Center(
+              child: Pinput(
+                length: 4,
+                controller: _otpController,
+                defaultPinTheme: defaultPinTheme,
+                focusedPinTheme: defaultPinTheme.copyWith(
+                  decoration: defaultPinTheme.decoration!.copyWith(
+                    border: Border.all(color: AppTheme.primaryColor, width: 2),
                   ),
-                  child: TextField(
-                    controller: _controllers[index],
-                    focusNode: _focusNodes[index],
-                    autofocus: index == 0,
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    maxLength: 1,
-                    style: GoogleFonts.outfit(
-                      fontSize: 24, 
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF2E2E2E),
-                    ),
-                    decoration: InputDecoration(
-                      counterText: '',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: AppTheme.primaryColor, width: 2),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      if (value.isNotEmpty && index < 3) {
-                        _focusNodes[index + 1].requestFocus();
-                      }
-                      if (value.isEmpty && index > 0) {
-                        _focusNodes[index - 1].requestFocus();
-                      }
-                      if (_controllers.every((c) => c.text.isNotEmpty)) {
-                        _verifyOTP();
-                      }
-                    },
-                  ),
-                );
-              }),
+                ),
+                onCompleted: _verifyOTP,
+                autofocus: true,
+                hapticFeedbackType: HapticFeedbackType.lightImpact,
+              ),
             ),
+
             if (_errorText != null)
               Padding(
                 padding: EdgeInsets.only(top: 20),
                 child: Center(
                   child: Text(
                     _errorText!,
-                    style: GoogleFonts.outfit(
+                     style: GoogleFonts.outfit(
                       color: AppTheme.errorColor, 
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -180,7 +199,7 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
             const SizedBox(height: 48),
             PrimaryButton(
               label: _isLoading ? 'Verifying...' : 'Verify & Continue',
-              onPressed: _isLoading ? null : _verifyOTP,
+              onPressed: _isLoading ? null : () => _verifyOTP(_otpController.text),
             ),
             const SizedBox(height: 32),
             Center(
@@ -196,6 +215,8 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
                   const SizedBox(height: 4),
                   GestureDetector(
                     onTap: () {
+                      _otpController.clear();
+                      _listenOtp();
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('OTP resent')),
                       );
@@ -209,6 +230,16 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> {
                       ),
                     ),
                   ),
+                  if (_appSignature.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      "App Hash: $_appSignature",
+                      style: GoogleFonts.outfit(
+                        fontSize: 10,
+                        color: Colors.grey.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

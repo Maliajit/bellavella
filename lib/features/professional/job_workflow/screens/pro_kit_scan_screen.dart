@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/core/models/data_models.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProKitScanScreen extends StatefulWidget {
@@ -22,62 +23,36 @@ class ProKitScanScreen extends StatefulWidget {
 class _ProKitScanScreenState extends State<ProKitScanScreen> {
   bool _isScanned = false;
   bool _isStarting = false;
-  late ProfessionalBooking _booking;
-
   @override
   void initState() {
     super.initState();
-    _booking = widget.booking;
-    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
-      _fetchLatestDetails();
-    }
   }
 
-  Future<void> _fetchLatestDetails() async {
-    try {
-      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
-      if (mounted) {
-        setState(() => _booking = latest);
-        _syncController();
-      }
-    } catch (e) {
-      debugPrint('Failed to re-fetch booking: $e');
-    }
-  }
-
-  /// Syncs the local booking state with the central DashboardController.
-  void _syncController() {
-    if (mounted) {
-      DashboardController.instance.setActiveJob(_booking);
-      debugPrint('🔄 Kit Scan: Synced controller with ${_booking.id} (${_booking.status.name})');
-    }
-  }
-
-  void _startService() {
-    // 🔥 Optimistic UI Update
-    final updated = _booking.copyWith(status: BookingStatus.inProgress);
-    DashboardController.instance.updateJob(updated);
+  Future<void> _startService() async {
+    if (_isStarting) return;
     
-    // 🔥 Navigate instantly
-    context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': _booking.id}, extra: updated);
-
-    // 🔥 Backend Sync in Background
-    ProfessionalApiService.jobStartService(_booking.id).then((res) {
-       if (res['success'] == true) {
-          // Fetch updated booking with serviceStartedAt
-          ProfessionalApiService.getBookingDetail(_booking.id).then((realUpdated) {
-             DashboardController.instance.setActiveJob(realUpdated);
-          });
-       } else {
-          debugPrint('Background start service failed: ${res['message']}');
-       }
-    }).catchError((e) {
-       debugPrint('Background start service error: $e');
-    });
+    setState(() => _isStarting = true);
+    
+    try {
+      // 🔥 Call centralized controller method instead of direct API + Navigation
+      await context.read<DashboardController>().startService();
+      debugPrint('✅ ProKitScanScreen: Service started via controller.');
+    } catch (e) {
+      debugPrint('❌ ProKitScanScreen: Start service failed: $e');
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
+    }
   }
 
-  void _simulateScan() {
-    setState(() => _isScanned = true);
+  Future<void> _simulateScan() async {
+    // 🔥 Call centralized controller method
+    try {
+      if (mounted) setState(() => _isScanned = true); // Optimistic UI for scan feedback
+      await context.read<DashboardController>().verifyKit();
+      debugPrint('✅ ProKitScanScreen: Kit verified via controller.');
+    } catch (e) {
+      debugPrint('❌ ProKitScanScreen: Kit verification failed: $e');
+    }
   }
 
   @override

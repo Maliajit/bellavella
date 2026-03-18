@@ -78,7 +78,7 @@ class _JobWorkflowContainerScreenState extends State<JobWorkflowContainerScreen>
       title: Column(
         children: [
           Text(
-            _getStepTitle(controller.activeJob?.status),
+            _getStepTitle(controller.currentWorkflowStep),
             style: GoogleFonts.inter(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -106,48 +106,35 @@ class _JobWorkflowContainerScreenState extends State<JobWorkflowContainerScreen>
     );
   }
 
-  String _getStepTitle(BookingStatus? status) {
-    switch (status) {
-      case BookingStatus.accepted:
-      case BookingStatus.onTheWay:
-      case BookingStatus.arrived:
+  String _getStepTitle(JobStep step) {
+    switch (step) {
+      case JobStep.arrived:
         return "I Have Arrived";
-      case BookingStatus.scanKit:
+      case JobStep.scanKit:
         return "Scan Product Kit";
-      case BookingStatus.inProgress:
+      case JobStep.service:
         return "Service In Progress";
-      case BookingStatus.paymentPending:
+      case JobStep.payment:
         return "Collect Payment";
-      case BookingStatus.completed:
+      case JobStep.complete:
         return "Booking Completed";
-      default:
-        return "Job Workflow";
     }
   }
 
   Widget _buildStepContent(ProfessionalBooking booking) {
-    // Note: We are using the existing screens but passing in the reactive booking from controller
-    // To make this fully "same screen", we should eventually refactor these screens 
-    // to separate Scaffold logic from Body logic.
-    // For now, we will use the existing screens as they are mostly Bodies already 
-    // if we ignore their internal Scaffolds (which is tricky but doable).
+    final step = context.read<DashboardController>().currentWorkflowStep;
     
-    switch (booking.status) {
-      case BookingStatus.accepted:
-      case BookingStatus.onTheWay:
-      case BookingStatus.arrived:
+    switch (step) {
+      case JobStep.arrived:
         return ProArrivalScreen(booking: booking, isInsideContainer: true);
-      case BookingStatus.scanKit:
+      case JobStep.scanKit:
         return ProKitScanScreen(booking: booking, isInsideContainer: true);
-      case BookingStatus.inProgress:
+      case JobStep.service:
         return ProServiceScreen(booking: booking, isInsideContainer: true);
-      case BookingStatus.paymentPending:
+      case JobStep.payment:
         return ProPaymentScreen(booking: booking, isInsideContainer: true);
-      case BookingStatus.completed:
+      case JobStep.complete:
         return ProJobCompleteScreen(booking: booking, isInsideContainer: true);
-      default:
-        // Fallback for before-arrival states if someone navigates here directly
-        return ProArrivalScreen(booking: booking, isInsideContainer: true);
     }
   }
 }

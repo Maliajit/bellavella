@@ -196,6 +196,10 @@ class ProfessionalApiService {
     return await ApiService.post('$_prefix/jobs/$id/finish-service', {});
   }
 
+  static Future<Map<String, dynamic>> jobScanKit(String id) async {
+    return await ApiService.post('$_prefix/jobs/$id/scan-kit', {});
+  }
+
   static Future<pro_models.ProfessionalBooking?> getActiveJob() async {
     try {
       final response = await ApiService.get('$_prefix/active-job');

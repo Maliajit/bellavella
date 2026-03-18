@@ -33,6 +33,7 @@ class _ProfessionalLoginScreenState extends State<ProfessionalLoginScreen> {
             extra: {
               'phone': _phoneController.text.trim(),
               'referral_code': _referralController.text.trim(),
+              'auto_fill_otp': res['data']?['otp']?.toString(), // Auto-fill if available
             },
           );
         } else {

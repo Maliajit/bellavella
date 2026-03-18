@@ -23,9 +23,22 @@ class ProfessionalProfileController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _profile = await ProfessionalApiService.getProfile();
-      if (_profile != null) {
-        _isOnline = _profile!.isOnline; // Sync with DB state
+      final newProfile = await ProfessionalApiService.getProfile();
+      if (newProfile != null) {
+        // 🔥 CRITICAL FIX: Guard against unintended offline resets
+        // If we are currently online locally, we prioritize that state.
+        // This prevents profile refreshes (e.g. after job completion) 
+        // from flipping the switch to offline if the backend is slow to update.
+        if (_isOnline) {
+          debugPrint('🌐 ProfessionalProfileController: Syncing profile while ONLINE. (Backend says: ${newProfile.isOnline})');
+          // We keep our local _isOnline as true
+        } else {
+          _isOnline = newProfile.isOnline;
+          debugPrint('🌐 ProfessionalProfileController: Syncing profile while OFFLINE. Updated to: $_isOnline');
+        }
+
+        _profile = newProfile;
+        
         if (_isOnline) _startHeartbeat();
 
         // Initialize Real-time WebSocket Service
@@ -33,6 +46,7 @@ class ProfessionalProfileController extends ChangeNotifier {
         RealTimeService.init(_profile!.id);
       }
     } catch (e) {
+      debugPrint('❌ ProfessionalProfileController Search Error: $e');
       _error = e.toString();
     } finally {
       _isLoading = false;
@@ -41,6 +55,7 @@ class ProfessionalProfileController extends ChangeNotifier {
   }
 
   Future<void> toggleAvailability(bool online) async {
+    debugPrint('🔘 ProfessionalProfileController: Toggling Availability to: $online');
     final previous = _isOnline;
     _isOnline = online;
     notifyListeners();

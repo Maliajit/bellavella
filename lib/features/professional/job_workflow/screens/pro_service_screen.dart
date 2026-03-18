@@ -24,37 +24,10 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   bool _isProcessing = false;
   Timer? _timer;
   String _timeDisplay = "00:00:00";
-  late ProfessionalBooking _booking;
-
   @override
   void initState() {
     super.initState();
-    _booking = widget.booking;
-    // Only fetch if name is missing or we explicitly need a refresh
-    if (_booking.id.isNotEmpty && (_booking.clientName == 'Unknown' || _booking.clientName.isEmpty)) {
-      _fetchLatestDetails();
-    }
     _startTimer();
-  }
-
-  Future<void> _fetchLatestDetails() async {
-    try {
-      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
-      if (mounted) {
-        setState(() => _booking = latest);
-        _syncController();
-      }
-    } catch (e) {
-      debugPrint('Failed to re-fetch booking: $e');
-    }
-  }
-
-  /// Syncs the local booking state with the central DashboardController.
-  void _syncController() {
-    if (mounted) {
-      DashboardController.instance.setActiveJob(_booking);
-      debugPrint('🔄 Payment: Synced controller with ${_booking.id} (${_booking.status.name})');
-    }
   }
 
   @override
@@ -76,7 +49,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   }
 
   String _calculateElapsedTime() {
-    final startTime = _booking.serviceStartedAt;
+    final startTime = widget.booking.serviceStartedAt;
     if (startTime == null) return "00:00:00";
 
     final now = DateTime.now();
@@ -91,22 +64,20 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
     return "$hours:$minutes:$seconds";
   }
 
-  void _proceedToPayment() {
-    // 🔥 Optimistic UI Update
-    final updated = _booking.copyWith(status: BookingStatus.paymentPending);
-    DashboardController.instance.updateJob(updated);
+  Future<void> _proceedToPayment() async {
+    if (_isProcessing) return;
     
-    // 🔥 Navigate instantly
-    context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': _booking.id}, extra: updated);
-
-    // 🔥 Backend Sync in Background
-    ProfessionalApiService.jobFinishService(_booking.id).then((res) {
-      if (res['success'] != true) {
-        debugPrint('Background finish service failed: ${res['message']}');
-      }
-    }).catchError((e) {
-      debugPrint('Background finish service error: $e');
-    });
+    setState(() => _isProcessing = true);
+    
+    try {
+      // 🔥 Call centralized controller method instead of direct API + Navigation
+      await context.read<DashboardController>().finishService();
+      debugPrint('✅ ProServiceScreen: Service finished via controller.');
+    } catch (e) {
+      debugPrint('❌ ProServiceScreen: Finish service failed: $e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   @override
@@ -179,7 +150,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                   child: Column(
                     children: [
                       Text(
-                        _booking.clientName,
+                        widget.booking.clientName,
                         style: GoogleFonts.inter(
                           fontSize: 24,
                           fontWeight: FontWeight.w900,
@@ -188,7 +159,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _booking.serviceName,
+                        widget.booking.serviceName,
                         style: GoogleFonts.inter(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
@@ -245,7 +216,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _checklistItem(_booking.serviceName, true),
+                _checklistItem(widget.booking.serviceName, true),
                 _checklistItem("Post-service Cleanup", false),
 
                 const SizedBox(height: 24),

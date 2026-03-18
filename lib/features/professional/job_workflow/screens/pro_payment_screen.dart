@@ -39,36 +39,10 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     );
   }
 
-  late ProfessionalBooking _booking;
-
   @override
   void initState() {
     super.initState();
-    _booking = widget.booking;
-    if (_booking.id.isNotEmpty && _booking.clientName == 'Unknown') {
-      _fetchLatestDetails();
-    }
     _initRazorpay();
-  }
-
-  Future<void> _fetchLatestDetails() async {
-    try {
-      final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
-      if (mounted) {
-        setState(() => _booking = latest);
-        _syncController();
-      }
-    } catch (e) {
-      debugPrint('Failed to re-fetch booking: $e');
-    }
-  }
-
-  /// Syncs the local booking state with the central DashboardController.
-  void _syncController() {
-    if (mounted) {
-      DashboardController.instance.setActiveJob(_booking);
-      debugPrint('🔄 Payment: Synced controller with ${_booking.id} (${_booking.status.name})');
-    }
   }
 
   @override
@@ -80,24 +54,22 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     setState(() => _isProcessing = true);
     try {
-      final res = await ProfessionalApiService.verifyJobPayment(
-        id: _booking.id,
+      final success = await context.read<DashboardController>().verifyPayment(
         razorpayPaymentId: response.paymentId!,
         razorpayOrderId: response.orderId!,
         razorpaySignature: response.signature!,
       );
       
-      if (mounted) {
-        // Proactively update status to completed
-        final updated = _booking.copyWith(status: BookingStatus.completed);
-        DashboardController.instance.updateJob(updated);
-        
-        context.pushNamed(AppRoutes.proJobCompleteName, pathParameters: {'id': _booking.id}, extra: updated);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification Failed')),
+        );
       }
+      // 🔥 Navigation happens reactively in the container based on controller state
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Verification Failed: $e')),
+          SnackBar(content: Text('Payment Error: $e')),
         );
       }
     } finally {
@@ -118,14 +90,14 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   Future<void> _startRazorpayPayment() async {
     setState(() => _isProcessing = true);
     try {
-      final orderRes = await ProfessionalApiService.createJobPaymentOrder(_booking.id);
+      final orderRes = await ProfessionalApiService.createJobPaymentOrder(widget.booking.id);
       
       final options = {
         'key': AppConfig.razorpayKeyId,
         'amount': orderRes['amount'],
         'name': 'BellaVella',
         'order_id': orderRes['order_id'],
-        'description': 'Payment for ${_booking.serviceName}',
+        'description': 'Payment for ${widget.booking.serviceName}',
         'timeout': 300,
         'prefill': {
           'contact': '', // Professional mobile or client mobile?
@@ -145,7 +117,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
           options: {
             'amount': orderRes['amount'],
             'name': 'BellaVella',
-            'description': 'Payment for ${_booking.serviceName}',
+            'description': 'Payment for ${widget.booking.serviceName}',
             'order_id': orderRes['order_id'],
           },
           onSuccess: _handlePaymentSuccess,
@@ -167,29 +139,12 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   }
 
   Future<void> _completeJob() async {
-    // This is for Cash payment or direct completion if allowed
     setState(() => _isProcessing = true);
     try {
-      final res = await ProfessionalApiService.jobComplete(_booking.id);
-      if (mounted) {
-        if (res['success'] == true) {
-          // Proactively update status to completed
-          final updated = _booking.copyWith(status: BookingStatus.completed);
-          DashboardController.instance.updateJob(updated);
-          
-          context.pushNamed(AppRoutes.proJobCompleteName, pathParameters: {'id': _booking.id}, extra: updated);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(res['message'] ?? 'Failed to complete job')),
-          );
-        }
-      }
+      await context.read<DashboardController>().completeJob();
+      debugPrint('✅ ProPaymentScreen: Job completed (cash) via controller.');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      debugPrint('❌ ProPaymentScreen: Cash completion failed: $e');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -248,7 +203,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  currencyFormat.format(_booking.totalPrice),
+                  currencyFormat.format(widget.booking.totalPrice),
                   style: GoogleFonts.inter(
                     fontSize: 48,
                     fontWeight: FontWeight.w900,

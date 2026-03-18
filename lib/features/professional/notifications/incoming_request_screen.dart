@@ -11,6 +11,7 @@ import 'package:bellavella/features/professional/models/professional_models.dart
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/core/services/realtime_job_service.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
+import 'package:bellavella/core/models/data_models.dart';
 
 class IncomingRequestScreen extends StatefulWidget {
   final Map<String, dynamic> notification;
@@ -122,13 +123,18 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
         return;
       }
 
+      final String clientName = notif['client_name'] ?? 'New Customer';
+      final String serviceName = notif['service'] ?? notif['service_name'] ?? 'New Service Request';
+      final String location = notif['location'] ?? 'Nearby Location';
+      final String earnings = notif['price']?.toString() ?? '850';
+
       // Step 1: Push an optimistic booking state into the controller IMMEDIATELY
       ProfessionalBooking optimisticBooking = ProfessionalBooking.empty().copyWith(
         id: bookingId,
         clientName: clientName,
         serviceName: serviceName,
         address: location,
-        totalAmount: earnings.isNotEmpty ? (double.tryParse(earnings.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0) : 0.0,
+        totalPrice: earnings.isNotEmpty ? (double.tryParse(earnings.replaceAll(RegExp(r'[^0-9.]'), '')) ?? 0.0) : 0.0,
         status: BookingStatus.accepted,
       );
 

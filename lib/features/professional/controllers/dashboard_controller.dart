@@ -12,34 +12,43 @@ class DashboardController extends ChangeNotifier {
 
   ProfessionalBooking? _activeJob;
   Timer? _jobPollingTimer;
+  bool _isUpdating = false;
+  JobStep _currentWorkflowStep = JobStep.arrived;
 
   /// The current active job accepted by the professional
   ProfessionalBooking? get activeJob => _activeJob;
+  
+  /// Whether an update is currently in progress (API call pending)
+  bool get isUpdating => _isUpdating;
 
-  /// Returns the current step (1-5) based on the job status
-  int get currentStep {
-    if (_activeJob == null) return 1;
-    switch (_activeJob!.status) {
-      case BookingStatus.onTheWay:
-      case BookingStatus.accepted:
-      case BookingStatus.arrived:
-        return 1;
-      case BookingStatus.scanKit:
-        return 2;
-      case BookingStatus.inProgress:
-        return 3;
-      case BookingStatus.paymentPending:
-        return 4;
-      case BookingStatus.completed:
-        return 5;
-      default:
-        return 1;
+  /// Reactive step for the UI flow
+  JobStep get currentWorkflowStep => _currentWorkflowStep;
+
+  /// Derived UI step index (1-5)
+  int get currentStepIndex => _currentWorkflowStep.index + 1;
+
+  /// Legacy getter for backward compatibility
+  int get currentStep => currentStepIndex;
+
+  /// Centralized step update with downgrade protection
+  void _updateStep(JobStep newStep) {
+    if (newStep.index < _currentWorkflowStep.index) {
+       debugPrint('⚠️ DashboardController: Prevention of step downgrade from ${_currentWorkflowStep.name} to ${newStep.name}');
+       return;
     }
+    _currentWorkflowStep = newStep;
+    notifyListeners();
   }
 
   /// Sets the active job and starts polling for status updates
   void setActiveJob(ProfessionalBooking job) {
+    if (!job.isActive) {
+      debugPrint('🚫 DashboardController: Attempted to set a non-active job as active. Clearing instead.');
+      clearJob();
+      return;
+    }
     _activeJob = job;
+    _syncWorkflowStep(job.status);
     notifyListeners();
     
     // Start polling when a job becomes "active" for the workflow
@@ -50,15 +59,38 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
-  /// Updates the active job details (e.g., status change)
+  /// Syncs the local JobStep with the BookingStatus from server
+  void _syncWorkflowStep(BookingStatus status) {
+    JobStep step = JobStep.arrived;
+    switch (status) {
+      case BookingStatus.accepted:
+      case BookingStatus.onTheWay:
+      case BookingStatus.arrived:
+        step = JobStep.arrived;
+        break;
+      case BookingStatus.scanKit:
+        step = JobStep.scanKit;
+        break;
+      case BookingStatus.inProgress:
+        step = JobStep.service;
+        break;
+      case BookingStatus.paymentPending:
+        step = JobStep.payment;
+        break;
+      case BookingStatus.completed:
+        step = JobStep.complete;
+        break;
+      default:
+        step = JobStep.arrived;
+    }
+    _updateStep(step);
+  }
+
+  /// Updates the active job details (e.g., status change from user action)
   void updateJob(ProfessionalBooking job) {
     if (_activeJob?.id == job.id) {
-      bool statusChanged = _activeJob?.status != job.status;
       _activeJob = job;
-      
-      if (statusChanged) {
-        notifyListeners();
-      }
+      _syncWorkflowStep(job.status);
       
       if (!_isActiveForWorkflow(job.status)) {
         debugPrint('🏁 Job transitioned to terminal status: ${job.status.name}. Clearing active state.');
@@ -67,9 +99,146 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
+  // --- Centralized API Action Methods ---
+
+  Future<void> confirmArrival() async {
+    if (_activeJob == null || _isUpdating) return;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      final res = await ProfessionalApiService.jobArrived(_activeJob!.id);
+      if (res['success'] == true) {
+        _updateStep(JobStep.scanKit);
+        // Refresh job details to get server-side status consistency
+        final latest = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        _activeJob = latest;
+      }
+    } catch (e) {
+      debugPrint('❌ confirmArrival Error: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> verifyKit() async {
+    if (_activeJob == null || _isUpdating) return;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      await ProfessionalApiService.jobScanKit(_activeJob!.id);
+      final latest = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+      _activeJob = latest;
+    } catch (e) {
+      debugPrint('❌ verifyKit Error: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> startService() async {
+    if (_activeJob == null || _isUpdating) return;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      final res = await ProfessionalApiService.jobStartService(_activeJob!.id);
+      if (res['success'] == true) {
+        _updateStep(JobStep.service);
+        final latest = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        _activeJob = latest;
+      }
+    } catch (e) {
+      debugPrint('❌ startService Error: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> finishService() async {
+    if (_activeJob == null || _isUpdating) return;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      final res = await ProfessionalApiService.jobFinishService(_activeJob!.id);
+      if (res['success'] == true) {
+        _updateStep(JobStep.payment);
+        final latest = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        _activeJob = latest;
+      }
+    } catch (e) {
+      debugPrint('❌ finishService Error: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> completeJob() async {
+    if (_activeJob == null || _isUpdating) return;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      final res = await ProfessionalApiService.jobComplete(_activeJob!.id);
+      if (res['success'] == true) {
+        // 🔥 Re-fetch final details to get accurate totalPrice / stats for completion screen
+        final finalDetails = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        _activeJob = finalDetails;
+        _updateStep(JobStep.complete);
+      }
+    } catch (e) {
+      debugPrint('❌ completeJob Error: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<bool> verifyPayment({
+    required String razorpayPaymentId,
+    required String razorpayOrderId,
+    required String razorpaySignature,
+  }) async {
+    if (_activeJob == null || _isUpdating) return false;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      final res = await ProfessionalApiService.verifyJobPayment(
+        id: _activeJob!.id,
+        razorpayPaymentId: razorpayPaymentId,
+        razorpayOrderId: razorpayOrderId,
+        razorpaySignature: razorpaySignature,
+      );
+      
+      if (res['success'] == true) {
+        // 🔥 Re-fetch final details for accurate stats
+        final finalDetails = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        _activeJob = finalDetails;
+        _updateStep(JobStep.complete);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      debugPrint('❌ verifyPayment Error: $e');
+      return false;
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
   /// Clears the active job when it's completed or cancelled
   void clearJob() {
+    debugPrint('🧹 DashboardController: Clearing active job session.');
     _activeJob = null;
+    _currentWorkflowStep = JobStep.arrived;
     stopJobPolling();
     notifyListeners();
   }
@@ -89,13 +258,23 @@ class DashboardController extends ChangeNotifier {
 
     debugPrint('🔄 Starting Real-Time Status Polling for Job: $jobId');
     _jobPollingTimer = Timer.periodic(const Duration(seconds: 5), (timer) async {
+      // 🔥 Safety Check: Ignore polling if we are currently performing a manual transition
+      if (_isUpdating) {
+        debugPrint('🛡️ Polling: Skip due to active update');
+        return;
+      }
+
       try {
         final latestJob = await ProfessionalApiService.getActiveJob();
+        
+        // Re-check _isUpdating after async call to prevent late API response from overriding local transition
+        if (_isUpdating) return;
+
         if (latestJob != null && latestJob.id == jobId) {
           if (latestJob.status != _activeJob?.status) {
-            debugPrint('🔔 Status Change Detected: ${latestJob.status.name}');
+            debugPrint('🔔 Status Change Detected from Polling: ${latestJob.status.name}');
             _activeJob = latestJob;
-            notifyListeners();
+            _syncWorkflowStep(latestJob.status);
             
             if (!_isActiveForWorkflow(latestJob.status)) {
               debugPrint('🏁 Polling: Job transitioned to terminal status: ${latestJob.status.name}. Clearing.');
@@ -104,7 +283,6 @@ class DashboardController extends ChangeNotifier {
             }
           }
         } else if (latestJob == null && _activeJob != null) {
-          // Job might have been completed and cleared from active-job endpoint
           debugPrint('🏁 Active job no longer returned by API. Clearing.');
           clearJob();
         }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/widgets/job_request_popup.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 
 class RealtimeJobService {
   static StreamSubscription? _subscription;
@@ -36,6 +37,9 @@ class RealtimeJobService {
 
       if (data?['status'] == 'pending') {
         _showJobPopup(navKey, data!);
+      } else if (data?['status'] == 'idle') {
+        // Redundant safety clear for real-time dashboard sync
+        DashboardController.instance.clearJob();
       }
     }, onError: (error) {
       debugPrint('🔥 RealtimeJobService Error: $error');
@@ -69,6 +73,7 @@ class RealtimeJobService {
         .doc('professional_$professionalId')
         .set({
       'status': status,
+      'isActive': status == 'idle' ? false : true,
       'updated_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
     debugPrint('🔥 RealtimeJobService: Updated status to $status for professional_$professionalId');

@@ -57,9 +57,10 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
   List<pro_models.ProfessionalBooking> get _filteredOrders {
     List<pro_models.ProfessionalBooking> filtered = _orders;
     if (_selectedFilter != 'All') {
-      // Basic filter logic for dynamic orders
       if (_selectedFilter == 'Today') {
-        filtered = filtered.where((o) => o.time.contains('Today') || o.time.contains('AM') || o.time.contains('PM')).toList();
+        filtered = filtered.where((o) => o.isToday).toList();
+      } else if (_selectedFilter == 'Upcoming') {
+        filtered = filtered.where((o) => o.isActive).toList();
       } else if (_selectedFilter == 'Completed') {
         filtered = filtered.where((o) => o.status == BookingStatus.completed).toList();
       }
