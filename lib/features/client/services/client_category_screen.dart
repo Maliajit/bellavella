@@ -7,13 +7,14 @@ import 'package:provider/provider.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/client/services/controllers/service_provider.dart';
+import 'package:bellavella/features/client/services/client_api_service.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/features/client/services/widgets/category_screen_skeleton.dart';
 
 class ClientCategoryScreen extends StatefulWidget {
-  final String categorySlug;
-  const ClientCategoryScreen({super.key, required this.categorySlug});
+  final String? categorySlug;
+  const ClientCategoryScreen({super.key, this.categorySlug});
 
   @override
   State<ClientCategoryScreen> createState() => _ClientCategoryScreenState();
@@ -23,14 +24,78 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
   final PageController _bannerController = PageController();
   int _currentBannerPage = 0;
   Timer? _sliderTimer;
+  String? _activeCategorySlug;
+  String? _screenError;
 
   @override
   void initState() {
     super.initState();
     _startAutoSlider();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ServiceProvider>().fetchCategoryScreenData(widget.categorySlug);
+      _loadCategoryScreen();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ClientCategoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.categorySlug != widget.categorySlug) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadCategoryScreen(forceRefresh: true);
+      });
+    }
+  }
+
+  Future<void> _loadCategoryScreen({bool forceRefresh = false}) async {
+    final provider = context.read<ServiceProvider>();
+    final requestedSlug = widget.categorySlug?.trim();
+
+    try {
+      String? resolvedSlug =
+          requestedSlug != null && requestedSlug.isNotEmpty
+              ? requestedSlug
+              : null;
+
+      if (resolvedSlug == null) {
+        final categories = await ClientApiService.getCategories();
+        for (final category in categories) {
+          if (category.slug.isNotEmpty) {
+            resolvedSlug = category.slug;
+            break;
+          }
+        }
+      }
+
+      if (resolvedSlug == null || resolvedSlug.isEmpty) {
+        setState(() {
+          _screenError = 'No categories available.';
+          _activeCategorySlug = null;
+        });
+        return;
+      }
+
+      if (!forceRefresh && _activeCategorySlug == resolvedSlug) {
+        return;
+      }
+
+      setState(() {
+        _screenError = null;
+        _activeCategorySlug = resolvedSlug;
+      });
+
+      await provider.fetchCategoryScreenData(resolvedSlug);
+
+      if (!mounted) return;
+
+      setState(() {
+        _screenError = provider.error;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _screenError = e.toString();
+      });
+    }
   }
 
   void _startAutoSlider() {
@@ -83,8 +148,8 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
               carouselCount: 2,
             );
           }
-          if (sp.error != null) {
-            return Center(child: Text('Error: ${sp.error}'));
+          if (_screenError != null) {
+            return Center(child: Text('Error: $_screenError'));
           }
           final data = sp.categoryPageData;
           if (data == null) {
@@ -92,7 +157,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           }
 
           return RefreshIndicator(
-            onRefresh: () => sp.fetchCategoryScreenData(widget.categorySlug),
+            onRefresh: () => _loadCategoryScreen(forceRefresh: true),
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
@@ -133,20 +198,22 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
           ],
         );
       case 'carousel':
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildSectionHeader(section.title, section.subtitle ?? ''),
-            _buildMostBookedServices(section.items.cast<DetailedService>()),
-            const SizedBox(height: 30),
-          ],
-        );
+        return const SizedBox.shrink();
       case 'horizontal_list':
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionHeader(section.title, section.subtitle ?? ''),
             _buildHorizontalScroll(section.items.cast<DetailedService>()),
+            const SizedBox(height: 30),
+          ],
+        );
+      case 'hierarchy_list':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(section.title, section.subtitle ?? ''),
+            _buildHierarchyHorizontalScroll(section.items.cast<CategoryMinimal>()),
             const SizedBox(height: 30),
           ],
         );
@@ -485,6 +552,77 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
                     child: Text(
                       item.name,
                       maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHierarchyHorizontalScroll(List<CategoryMinimal> items) {
+    return SizedBox(
+      height: 220,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          final node = item.toHierarchyNode();
+          return InkWell(
+            onTap: () => context.pushNamed(
+              AppRoutes.clientServiceHierarchyName,
+              pathParameters: {'nodeKey': node.routeKey},
+              extra: {
+                'seedNode': node.toRouteData(),
+                'breadcrumbs': const [],
+              },
+            ),
+            child: Container(
+              width: 150,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(15),
+                      ),
+                      child: item.image != null
+                          ? AppNetworkImage(
+                              url: item.image,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(color: Colors.grey.shade200),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      item.name,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,

@@ -4,20 +4,81 @@ import 'package:bellavella/features/client/services/models/service_models.dart';
 class ClientApiService {
   static const String _prefix = '/client';
 
+  static bool _isNotFoundResponse(Map<String, dynamic> response) {
+    return response['_http_status'] == 404 ||
+        (response['success'] == false &&
+            response['message']?.toString().toLowerCase() ==
+                'endpoint not found.');
+  }
+
+  static Future<List<CategoryMinimal>> getCategories() async {
+    final response = await ApiService.get('$_prefix/categories');
+    if (response['success'] == true) {
+      return (response['data'] as List)
+          .map((e) => CategoryMinimal.fromJson(e))
+          .toList();
+    }
+    throw Exception(response['message'] ?? 'Failed to load categories');
+  }
+
+  static Future<String?> _fallbackCategorySlug(String failedSlug) async {
+    final categories = await getCategories();
+    for (final category in categories) {
+      if (category.slug.isNotEmpty && category.slug != failedSlug) {
+        return category.slug;
+      }
+    }
+    return null;
+  }
+
   // --- Category Screen ---
   static Future<CategoryPageData> getCategoryScreenData(String categorySlug) async {
-    final response = await ApiService.get('$_prefix/categories/$categorySlug/screen');
+    final response = await ApiService.get(
+      '$_prefix/categories/$categorySlug/screen',
+    );
     if (response['success'] == true) {
       return CategoryPageData.fromJson(response['data']);
     }
+
+    if (_isNotFoundResponse(response)) {
+      final fallbackSlug = await _fallbackCategorySlug(categorySlug);
+      if (fallbackSlug != null) {
+        final fallbackResponse = await ApiService.get(
+          '$_prefix/categories/$fallbackSlug/screen',
+        );
+        if (fallbackResponse['success'] == true) {
+          return CategoryPageData.fromJson(fallbackResponse['data']);
+        }
+      }
+    }
+
     throw Exception(response['message'] ?? 'Failed to load category screen data');
   }
 
   static Future<List<ServiceGroup>> getServiceGroups(String categorySlug) async {
-    final response = await ApiService.get('$_prefix/categories/$categorySlug/service-groups');
+    final response = await ApiService.get(
+      '$_prefix/categories/$categorySlug/service-groups',
+    );
     if (response['success'] == true) {
-      return (response['data'] as List).map((e) => ServiceGroup.fromJson(e)).toList();
+      return (response['data'] as List)
+          .map((e) => ServiceGroup.fromJson(e))
+          .toList();
     }
+
+    if (_isNotFoundResponse(response)) {
+      final fallbackSlug = await _fallbackCategorySlug(categorySlug);
+      if (fallbackSlug != null) {
+        final fallbackResponse = await ApiService.get(
+          '$_prefix/categories/$fallbackSlug/service-groups',
+        );
+        if (fallbackResponse['success'] == true) {
+          return (fallbackResponse['data'] as List)
+              .map((e) => ServiceGroup.fromJson(e))
+              .toList();
+        }
+      }
+    }
+
     throw Exception(response['message'] ?? 'Failed to load service groups');
   }
 
@@ -26,6 +87,19 @@ class ClientApiService {
     if (response['success'] == true) {
       return CategoryDetail.fromJson(response['data']);
     }
+
+    if (_isNotFoundResponse(response)) {
+      final fallbackSlug = await _fallbackCategorySlug(categorySlug);
+      if (fallbackSlug != null) {
+        final fallbackResponse = await ApiService.get(
+          '$_prefix/categories/$fallbackSlug/details',
+        );
+        if (fallbackResponse['success'] == true) {
+          return CategoryDetail.fromJson(fallbackResponse['data']);
+        }
+      }
+    }
+
     throw Exception(response['message'] ?? 'Failed to load category details');
   }
 

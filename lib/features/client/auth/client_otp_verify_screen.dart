@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:sms_autofill/sms_autofill.dart';
 import 'package:bellavella/core/services/auth_flow_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
@@ -11,13 +12,20 @@ import 'package:bellavella/core/utils/toast_util.dart';
 
 class ClientOTPVerifyScreen extends StatefulWidget {
   final String phoneNumber;
-  const ClientOTPVerifyScreen({super.key, required this.phoneNumber});
+  final String? autoFillOtp;
+
+  const ClientOTPVerifyScreen({
+    super.key,
+    required this.phoneNumber,
+    this.autoFillOtp,
+  });
 
   @override
   State<ClientOTPVerifyScreen> createState() => _ClientOTPVerifyScreenState();
 }
 
-class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
+class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen>
+    with CodeAutoFill {
   final List<TextEditingController> _controllers = List.generate(
     4,
     (_) => TextEditingController(),
@@ -26,9 +34,56 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
   final _referralController = TextEditingController();
   String? _errorText;
   bool _isLoading = false;
+  String _appSignature = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _listenOtp();
+    _getAppSignature();
+
+    if (widget.autoFillOtp != null && widget.autoFillOtp!.isNotEmpty) {
+      _applyOtp(widget.autoFillOtp!);
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) {
+          _verifyOTP();
+        }
+      });
+    }
+  }
+
+  void _listenOtp() {
+    listenForCode();
+  }
+
+  Future<void> _getAppSignature() async {
+    try {
+      _appSignature = await SmsAutoFill().getAppSignature;
+      debugPrint('Client OTP App Signature: $_appSignature');
+    } catch (e) {
+      debugPrint('Failed to get client OTP app signature: $e');
+    }
+  }
+
+  void _applyOtp(String otp) {
+    final digits = otp.replaceAll(RegExp(r'[^0-9]'), '');
+    for (var i = 0; i < _controllers.length; i++) {
+      _controllers[i].text = i < digits.length ? digits[i] : '';
+    }
+  }
+
+  @override
+  void codeUpdated() {
+    final incomingCode = code ?? '';
+    _applyOtp(incomingCode);
+    if (incomingCode.replaceAll(RegExp(r'[^0-9]'), '').length >= 4) {
+      _verifyOTP();
+    }
+  }
 
   @override
   void dispose() {
+    cancel();
     for (var controller in _controllers) {
       controller.dispose();
     }
@@ -117,6 +172,13 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
       if (!context.mounted) return;
 
       if (response['success'] == true) {
+        final autoFillOtp = response['data']?['otp']?.toString();
+        if (autoFillOtp != null && autoFillOtp.isNotEmpty) {
+          _applyOtp(autoFillOtp);
+          _verifyOTP();
+          return;
+        }
+
         if (!mounted) return;
         ToastUtil.showSuccess(context, response['message'] ?? 'OTP resent successfully');
       } else {
@@ -163,6 +225,7 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,
                     maxLength: 1,
+                    autofillHints: const [AutofillHints.oneTimeCode],
                     style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -241,6 +304,17 @@ class _ClientOTPVerifyScreenState extends State<ClientOTPVerifyScreen> {
                       ),
                     ),
                   ),
+                  if (_appSignature.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        'App Hash: $_appSignature',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

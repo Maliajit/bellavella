@@ -11,17 +11,10 @@ class AppConfig {
   // API Configuration
   // IMPORTANT: 10.0.2.2 is for Android Emulators
   // For Web, we use 127.0.0.1 (safer for CORS than 'localhost')
-  // Since nothing is on port 8000, we are using port 80 (XAMPP default)
   static String get baseUrl {
-    String host;
-    if (kIsWeb) {
-      host = 'http://127.0.0.1:8000';
-    } else {
-      host = 'http://10.0.2.2:8000';
-    }
-
-    // Assuming we use php artisan serve -> port 8000 -> /api
-    final url = '$host/api';
+    final url = kIsWeb
+        ? 'http://127.0.0.1:8000/api'
+        : 'http://10.0.2.2:8000/api';
 
     debugPrint('AppConfig: Resolved baseUrl: $url');
     return url;
@@ -36,7 +29,6 @@ class AppConfig {
     defaultValue: 'rzp_test_S7dlJIqMvrpcaj',
   );
 
-  static String get googleMapsApiKey => const String.fromEnvironment(
-    'GOOGLE_MAPS_API_KEY',
-  );
+  static String get googleMapsApiKey =>
+      const String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 }

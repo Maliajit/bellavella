@@ -140,8 +140,14 @@ class _ClientLoginScreenState extends State<ClientLoginScreen> {
 
                           if (response['success'] == true) {
                             if (!context.mounted) return;
-                            context.push('/client/verify-otp',
-                                extra: _phoneController.text);
+                            context.push(
+                              '/client/verify-otp',
+                              extra: {
+                                'phone': _phoneController.text.trim(),
+                                'auto_fill_otp':
+                                    response['data']?['otp']?.toString(),
+                              },
+                            );
                           } else {
                             if (!context.mounted) return;
                             ToastUtil.showError(context, response['message'] ?? 'Failed to send OTP');

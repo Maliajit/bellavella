@@ -45,16 +45,14 @@ subprojects {
                 }
 
                 android.javaClass.getMethod("getCompileOptions").invoke(android).let { options ->
-                    options.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_1_8)
-                    options.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_1_8)
+                    options.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_11)
+                    options.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_11)
                 }
             }
         }
 
-        if (project.name != "app") {
-            project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java)?.compilerOptions?.jvmTarget?.set(
-                org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_1_8
-            )
-        }
+        project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java)?.compilerOptions?.jvmTarget?.set(
+            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+        )
     }
 }

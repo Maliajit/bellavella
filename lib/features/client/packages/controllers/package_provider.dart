@@ -7,11 +7,15 @@ class PackageProvider extends ChangeNotifier {
   final Map<int, ConfigurablePackage> _packageConfigs = {};
   final Set<String> _loadingContexts = {};
   final Set<int> _loadingConfigs = {};
+  List<PackageSummary> _featuredPackages = const [];
+  bool _isFeaturedLoading = false;
   String? _error;
 
   String? get error => _error;
   bool isContextLoading(String contextKey) => _loadingContexts.contains(contextKey);
   bool isPackageLoading(int packageId) => _loadingConfigs.contains(packageId);
+  List<PackageSummary> get featuredPackages => _featuredPackages;
+  bool get isFeaturedLoading => _isFeaturedLoading;
 
   List<PackageSummary> packagesForContext(String contextCacheKey) {
     return _packagesByContext[contextCacheKey] ?? const [];
@@ -77,11 +81,37 @@ class PackageProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> fetchFeaturedPackages({
+    int limit = 8,
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh && _featuredPackages.isNotEmpty) {
+      return;
+    }
+
+    _isFeaturedLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _featuredPackages = await PackageApiService.getFeaturedPackages(
+        limit: limit,
+      );
+    } catch (e) {
+      _error = e.toString();
+    } finally {
+      _isFeaturedLoading = false;
+      notifyListeners();
+    }
+  }
+
   void clear() {
     _packagesByContext.clear();
     _packageConfigs.clear();
     _loadingContexts.clear();
     _loadingConfigs.clear();
+    _featuredPackages = const [];
+    _isFeaturedLoading = false;
     _error = null;
     notifyListeners();
   }
