@@ -24,6 +24,7 @@ import 'package:bellavella/core/utils/toast_util.dart';
 class CategoryDetailScreen extends StatefulWidget {
   final String categoryName;
   final int? targetGroupId;
+  final String? targetTypeId;
   final String? hierarchyNodeKey;
   final ServiceHierarchyNode? hierarchySeedNode;
   final List<ServiceHierarchyNode> hierarchyBreadcrumbs;
@@ -32,6 +33,7 @@ class CategoryDetailScreen extends StatefulWidget {
     super.key,
     required this.categoryName,
     this.targetGroupId,
+    this.targetTypeId,
     this.hierarchyNodeKey,
     this.hierarchySeedNode,
     this.hierarchyBreadcrumbs = const [],
@@ -80,6 +82,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
               node.level == 'service' &&
               node.serviceId != null) {
             sp.fetchServiceReviews(node.serviceId!);
+          }
+          if (widget.targetTypeId != null && mounted) {
+            Future.delayed(const Duration(milliseconds: 300), () {
+              _scrollToSection('type-${widget.targetTypeId}');
+            });
           }
         } finally {
           if (mounted) {

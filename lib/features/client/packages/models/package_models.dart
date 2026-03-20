@@ -98,6 +98,7 @@ class PackageItemDefinition {
   final String selectionMode;
   final bool requiresRuntimeVariantSelection;
   final int? selectedVariantId;
+  final String? selectedOptionLabel;
   final double? selectedPrice;
   final int? selectedDurationMinutes;
   final List<PackageOption> options;
@@ -114,6 +115,7 @@ class PackageItemDefinition {
     this.selectionMode = 'manual_option',
     this.requiresRuntimeVariantSelection = false,
     this.selectedVariantId,
+    this.selectedOptionLabel,
     this.selectedPrice,
     this.selectedDurationMinutes,
     this.options = const [],
@@ -137,6 +139,7 @@ class PackageItemDefinition {
       selectedVariantId: _parseNullableInt(
         json['selected_variant_id'] ?? json['selected_option_id'],
       ),
+      selectedOptionLabel: json['selected_option_label']?.toString(),
       selectedPrice: _parseNullableDouble(
         json['selected_price'] ?? json['price'] ?? json['display_price'],
       ),
@@ -163,6 +166,7 @@ class PackageItemDefinition {
       'selection_mode': selectionMode,
       'requires_runtime_variant_selection': requiresRuntimeVariantSelection,
       'selected_variant_id': selectedVariantId,
+      'selected_option_label': selectedOptionLabel,
       'selected_price': selectedPrice,
       'selected_duration_minutes': selectedDurationMinutes,
       'options': options.map((item) => item.toJson()).toList(),

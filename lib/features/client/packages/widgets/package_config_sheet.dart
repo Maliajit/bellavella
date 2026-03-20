@@ -72,7 +72,11 @@ class _PackageConfigSheetState extends State<PackageConfigSheet> {
         final existing = existingItemMap[item.id];
         final selected =
             existing == null
-                ? (item.isRequired || item.isDefaultSelected)
+                ? (item.isRequired ||
+                    item.isDefaultSelected ||
+                    item.selectedVariantId != null ||
+                    (item.selectedOptionLabel?.trim().isNotEmpty ?? false) ||
+                    ((item.selectedPrice ?? 0) > 0))
                 : (existing['selected'] == true);
         final defaultOption = item.options.cast<PackageOption?>().firstWhere(
               (option) => option?.isDefault == true,
@@ -419,6 +423,7 @@ class _PackageConfigSheetState extends State<PackageConfigSheet> {
         _loadingRuntimeOptions.contains(item.id)
             ? 'Loading...'
             : option?.name ??
+                item.selectedOptionLabel ??
                 (item.requiresRuntimeVariantSelection
                     ? 'Choose'
                     : item.selectionMode == 'fixed_service'

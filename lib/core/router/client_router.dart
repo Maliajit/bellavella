@@ -75,9 +75,23 @@ final _authRoutes = [
     path: AppRoutes.clientVerifyOtp,
     name: AppRoutes.clientVerifyOtpName,
     builder: (context, state) {
-      final String? phoneNumber = state.extra as String?;
-      if (phoneNumber == null) return const ClientLoginScreen();
-      return ClientOTPVerifyScreen(phoneNumber: phoneNumber);
+      final extra = state.extra;
+
+      if (extra is String) {
+        return ClientOTPVerifyScreen(phoneNumber: extra);
+      }
+
+      if (extra is Map<String, dynamic>) {
+        final phoneNumber = extra['phone'] as String?;
+        if (phoneNumber == null) return const ClientLoginScreen();
+
+        return ClientOTPVerifyScreen(
+          phoneNumber: phoneNumber,
+          autoFillOtp: extra['auto_fill_otp'] as String?,
+        );
+      }
+
+      return const ClientLoginScreen();
     },
   ),
   GoRoute(
@@ -96,14 +110,13 @@ final _shellRoutes = [
   GoRoute(
     path: AppRoutes.clientServices,
     name: AppRoutes.clientServicesName,
-    builder: (context, state) =>
-        const ClientCategoryScreen(categorySlug: 'salon-for-women'),
+    builder: (context, state) => const ClientCategoryScreen(),
   ),
   GoRoute(
     path: AppRoutes.clientCategory,
     name: AppRoutes.clientCategoryName,
     builder: (context, state) => ClientCategoryScreen(
-      categorySlug: state.pathParameters['slug'] ?? 'salon-for-women',
+      categorySlug: state.pathParameters['slug'],
     ),
   ),
   GoRoute(
@@ -179,6 +192,7 @@ final _featureRoutes = [
       return CategoryDetailScreen(
         categoryName: state.pathParameters['name'] ?? 'Detail',
         targetGroupId: extra?['targetGroupId'] as int?,
+        targetTypeId: extra?['targetTypeId']?.toString(),
         hierarchyNodeKey: extra?['hierarchyNodeKey']?.toString(),
         hierarchySeedNode: seedNodeRaw == null
             ? null

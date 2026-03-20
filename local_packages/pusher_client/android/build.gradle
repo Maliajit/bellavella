@@ -26,7 +26,7 @@ apply plugin: 'kotlin-android'
 
 android {
     namespace 'com.github.chinloyal.pusher_client'
-    compileSdkVersion 29
+    compileSdkVersion 34
 
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
@@ -34,12 +34,20 @@ android {
     defaultConfig {
         minSdkVersion 16
     }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = '11'
+    }
     lintOptions {
         disable 'InvalidPackage'
     }
 
     dependencies {
         implementation "com.pusher:pusher-java-client:2.2.5"
+        implementation "org.slf4j:slf4j-simple:1.7.36"
     }
 }
 

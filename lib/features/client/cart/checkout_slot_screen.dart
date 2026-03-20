@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/features/client/services/client_api_service.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
+import 'package:bellavella/features/client/booking/widgets/slot_picker_bottom_sheet.dart';
 
 class CheckoutSlotScreen extends StatefulWidget {
   final Map<String, dynamic> addressData;
@@ -148,166 +149,40 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
     return mapped;
   }
 
-  void _showDetailedSlotPicker(BuildContext context, String category, String defaultDuration, dynamic backendDates, {VoidCallback? onConfirm}) {
-    int activeDateIndex = 0;
-    
-    // Parse backend dates if provided, otherwise fallback to local 4 days
+  void _showDetailedSlotPicker(BuildContext context, String category, String defaultDuration, dynamic backendDates, {VoidCallback? onConfirm}) async {
     List<DateTime> dates = [];
     if (backendDates != null && backendDates is List) {
-       for (var dt in backendDates) {
-           dates.add(DateTime.parse(dt['date']));
-       }
+      for (final dt in backendDates) {
+        try {
+          dates.add(DateTime.parse(dt['date'].toString()));
+        } catch (_) {}
+      }
     }
 
     if (dates.isEmpty) {
-        final now = DateTime.now();
-        final dayRange = category.toLowerCase().contains('brid') ? 31 : 4;
-        dates = List.generate(dayRange, (index) => now.add(Duration(days: index)));
+      final now = DateTime.now();
+      final dayRange = category.toLowerCase().contains('brid') ? 31 : 4;
+      dates = List.generate(dayRange, (index) => now.add(Duration(days: index)));
     }
 
-    showModalBottomSheet(
+    final selection = await SlotPickerBottomSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSlotState) {
-          return DraggableScrollableSheet(
-            initialChildSize: 0.9,
-            minChildSize: 0.5,
-            maxChildSize: 0.9,
-            builder: (_, scrollController) => Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          category,
-                          style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold),
-                        ),
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.close, color: Colors.black),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        Text(
-                          'When should the professional arrive?',
-                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Service will take approx. $defaultDuration',
-                          style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey.shade600),
-                        ),
-                        const SizedBox(height: 25),
-                        // Date picker
-                        SizedBox(
-                          height: 100,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: dates.length,
-                            itemBuilder: (ctx, idx) {
-                              final date = dates[idx];
-                              // Local fallback logic since full date parsing from backend wasn't fully mocked for slots grid
-                              final isToday = idx == 0 && date.day == DateTime.now().day;
-                              final isSelected = activeDateIndex == idx;
-                              final dayName = isToday ? "Today" : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][date.weekday - 1];
-                              
-                              return GestureDetector(
-                                onTap: () => setSlotState(() => activeDateIndex = idx),
-                                child: Container(
-                                  width: 80,
-                                  margin: const EdgeInsets.only(right: 12),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? pinkLight : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: isSelected ? pinkPrimary : Colors.grey.shade200),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        dayName,
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 13,
-                                          color: isSelected ? pinkPrimary : Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${date.day}',
-                                        style: GoogleFonts.outfit(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: isSelected ? pinkPrimary : Colors.black,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        Text(
-                          'Select start time of service',
-                          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 20),
-                        // Time Grid
-                        _buildTimeGrid(dates[activeDateIndex], category, setSlotState),
-                        const SizedBox(height: 30),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: ElevatedButton(
-                      onPressed: _selectedCategorySlots[category] != null
-                          ? () {
-                              Navigator.pop(context);
-                              setState(() {}); 
-                              if (onConfirm != null) onConfirm();
-                            }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _selectedCategorySlots[category] != null ? pinkPrimary : const Color(0xFFEEEEEE),
-                        minimumSize: const Size(double.infinity, 55),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        'Confirm',
-                        style: GoogleFonts.outfit(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: _selectedCategorySlots[category] != null ? Colors.white : Colors.grey.shade400,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      title: category,
+      subtitle: 'Service will take approx. $defaultDuration',
+      dates: dates,
+      initialSelectionKey: _selectedCategorySlots[category],
     );
+
+    if (selection == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedCategorySlots[category] = selection.selectionKey;
+    });
+    if (onConfirm != null) {
+      onConfirm();
+    }
   }
 
   Widget _buildTimeGrid(DateTime selectedDate, String category, StateSetter setModalState) {

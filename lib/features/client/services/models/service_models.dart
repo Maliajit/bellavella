@@ -675,6 +675,8 @@ class CategorySection {
 
     if (json['key'] == 'service_types' || type == 'grid') {
       items = rawItems.map((e) => CategoryMinimal.fromJson(e)).toList();
+    } else if (type == 'hierarchy_list') {
+      items = rawItems.map((e) => CategoryMinimal.fromJson(e)).toList();
     } else if (json['type'] == 'banner') {
       items = rawItems.map((e) => CategoryBanner.fromJson(e)).toList();
     } else if (json['type'] == 'instagram') {

@@ -32,6 +32,14 @@ class ServiceProvider extends ChangeNotifier {
   bool get isLoadingDetail => _isLoadingDetail;
   String? get error => _error;
 
+  String? _normalizedLevel(String? level) {
+    if (level == null || level.trim().isEmpty) {
+      return null;
+    }
+
+    return level.trim().toLowerCase().replaceAll(' ', '_');
+  }
+
   Future<void> fetchCategoryScreenData(String categorySlug) async {
     _isLoading = true;
     _error = null;
@@ -83,8 +91,16 @@ class ServiceProvider extends ChangeNotifier {
     ServiceHierarchyNode? seedNode,
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh && _hierarchyNodes.containsKey(nodeKey)) {
-      return;
+    final requestedLevel = _normalizedLevel(level ?? seedNode?.level);
+    final cachedNode = _hierarchyNodes[nodeKey];
+    final cachedLevel = _normalizedLevel(cachedNode?.level);
+
+    if (!forceRefresh && cachedNode != null) {
+      final canReuseCache =
+          requestedLevel == null || requestedLevel == cachedLevel;
+      if (canReuseCache) {
+        return;
+      }
     }
 
     _hierarchyLoading[nodeKey] = true;

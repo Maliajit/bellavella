@@ -303,6 +303,8 @@ class Booking {
   final String id;
   final Service service;
   final DateTime dateTime;
+  final String bookingDate;
+  final String bookingTime;
   final String address;
   final BookingStatus status;
   final double totalPrice;
@@ -311,11 +313,26 @@ class Booking {
   final double? lng;
   final String? arrivalCode;
   final String? paymentCode;
+  final String currentStep;
+  final DateTime? requestedAt;
+  final DateTime? assignedAt;
+  final DateTime? acceptedAt;
+  final DateTime? onTheWayAt;
+  final DateTime? arrivedAt;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final DateTime? cancelledAt;
+  final bool canTrackProfessional;
+  final bool canReschedule;
+  final bool canCancel;
+  final DateTime? rescheduleCutoffAt;
 
   Booking({
     required this.id,
     required this.service,
     required this.dateTime,
+    this.bookingDate = '',
+    this.bookingTime = '',
     required this.address,
     required this.status,
     required this.totalPrice,
@@ -324,6 +341,19 @@ class Booking {
     this.lng,
     this.arrivalCode,
     this.paymentCode,
+    this.currentStep = '',
+    this.requestedAt,
+    this.assignedAt,
+    this.acceptedAt,
+    this.onTheWayAt,
+    this.arrivedAt,
+    this.startedAt,
+    this.completedAt,
+    this.cancelledAt,
+    this.canTrackProfessional = false,
+    this.canReschedule = false,
+    this.canCancel = false,
+    this.rescheduleCutoffAt,
   });
 
   static BookingStatus _parseStatus(String? status) {
@@ -342,17 +372,74 @@ class Booking {
     }
   }
 
+  static DateTime _parseBookingDateTime(dynamic bookingDate, dynamic bookingTime) {
+    final date = bookingDate?.toString().trim() ?? '';
+    final time = bookingTime?.toString().trim() ?? '';
+
+    if (date.isEmpty) {
+      return DateTime.now();
+    }
+
+    try {
+      if (time.isNotEmpty) {
+        return DateTime.parse('$date ${_normalizeTime(time)}');
+      }
+      return DateTime.parse(date);
+    } catch (_) {
+      return DateTime.now();
+    }
+  }
+
+  static String _normalizeTime(String raw) {
+    final match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*(AM|PM)$',
+      caseSensitive: false,
+    ).firstMatch(raw.trim());
+
+    if (match == null) {
+      return raw;
+    }
+
+    var hour = int.tryParse(match.group(1) ?? '') ?? 0;
+    final minute = match.group(2) ?? '00';
+    final meridiem = (match.group(3) ?? '').toUpperCase();
+
+    if (meridiem == 'PM' && hour < 12) {
+      hour += 12;
+    } else if (meridiem == 'AM' && hour == 12) {
+      hour = 0;
+    }
+
+    return '${hour.toString().padLeft(2, '0')}:$minute:00';
+  }
+
+  static DateTime? _parseDateTime(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+
+    return DateTime.tryParse(value.toString());
+  }
+
   factory Booking.fromJson(dynamic json) {
     if (json is! Map) {
       return Booking(id: '', service: Service.fromJson({}), dateTime: DateTime.now(), address: '', status: BookingStatus.requested, totalPrice: 0);
     }
+
+    final bookingDate = json['booking_date']?.toString() ?? '';
+    final bookingTime = json['booking_time']?.toString() ?? '';
+
     return Booking(
       id: json['id']?.toString() ?? '',
       service: Service.fromJson(json['service'] ?? {}),
-      dateTime: json['date_time'] != null ? DateTime.parse(json['date_time'].toString()) : DateTime.now(),
+      dateTime: json['date_time'] != null
+          ? DateTime.parse(json['date_time'].toString())
+          : _parseBookingDateTime(bookingDate, bookingTime),
+      bookingDate: bookingDate,
+      bookingTime: bookingTime,
       address: (json['address'] ?? '').toString(),
       status: _parseStatus(json['status']?.toString()),
-      totalPrice: ParserUtil.safeParseDouble(json['total_price']),
+      totalPrice: ParserUtil.safeParseDouble(json['total_amount'] ?? json['total_price']),
       professional: json['professional'] != null
           ? Professional.fromJson(json['professional'])
           : null,
@@ -360,6 +447,19 @@ class Booking {
       lng: ParserUtil.safeParseDouble(json['lng']),
       arrivalCode: json['arrival_code']?.toString(),
       paymentCode: json['payment_code']?.toString(),
+      currentStep: json['current_step']?.toString() ?? '',
+      requestedAt: _parseDateTime(json['requested_at']),
+      assignedAt: _parseDateTime(json['assigned_at']),
+      acceptedAt: _parseDateTime(json['accepted_at']),
+      onTheWayAt: _parseDateTime(json['on_the_way_at']),
+      arrivedAt: _parseDateTime(json['arrived_at']),
+      startedAt: _parseDateTime(json['started_at'] ?? json['service_started_at']),
+      completedAt: _parseDateTime(json['completed_at']),
+      cancelledAt: _parseDateTime(json['cancelled_at']),
+      canTrackProfessional: json['can_track_professional'] == true,
+      canReschedule: json['can_reschedule'] == true,
+      canCancel: json['can_cancel'] == true,
+      rescheduleCutoffAt: _parseDateTime(json['reschedule_cutoff_at']),
     );
   }
 }

@@ -4,6 +4,27 @@ import 'package:bellavella/features/client/packages/models/package_models.dart';
 class PackageApiService {
   static const String _prefix = '/client';
 
+  static Future<List<PackageSummary>> getFeaturedPackages({
+    int limit = 8,
+  }) async {
+    final response = await ApiService.get(
+      '$_prefix/packages/featured?limit=$limit',
+    );
+
+    if (response['success'] == true && response['data'] is Map<String, dynamic>) {
+      final data = Map<String, dynamic>.from(response['data']);
+      final rawPackages = data['packages'] as List? ?? const [];
+      return rawPackages
+          .whereType<Map>()
+          .map((item) => PackageSummary.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+
+    throw Exception(
+      response['message'] ?? 'Failed to load featured packages.',
+    );
+  }
+
   // TODO(package-engine): confirm final Phase 2 backend contract.
   // Expected list response:
   // {

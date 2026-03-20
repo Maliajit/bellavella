@@ -29,6 +29,8 @@ class ServiceHierarchyScreen extends StatefulWidget {
 }
 
 class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
+  bool _redirectedToGroupDetail = false;
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +123,47 @@ class _ServiceHierarchyScreenState extends State<ServiceHierarchyScreen> {
             appBar: AppBar(),
             body: Center(child: Text(error ?? 'Unable to load services')),
           );
+        }
+
+        if (!_redirectedToGroupDetail && node.level == 'service_type') {
+          ServiceHierarchyNode? parentGroup;
+          ServiceHierarchyNode? parentCategory;
+
+          for (final crumb in node.breadcrumbs) {
+            if (crumb.level == 'service_group') {
+              parentGroup = crumb;
+            } else if (crumb.level == 'category') {
+              parentCategory = crumb;
+            }
+          }
+
+          if (parentGroup != null) {
+            final resolvedParentGroup = parentGroup;
+            _redirectedToGroupDetail = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) {
+                return;
+              }
+
+              context.pushReplacementNamed(
+                AppRoutes.clientCategoryDetailName,
+                pathParameters: {'name': resolvedParentGroup.routeKey},
+                extra: {
+                  'hierarchyNodeKey': resolvedParentGroup.routeKey,
+                  'seedNode': resolvedParentGroup.toRouteData(),
+                  'breadcrumbs': parentCategory == null
+                      ? const []
+                      : [parentCategory.toRouteData()],
+                  'targetTypeId': node.id,
+                },
+              );
+            });
+
+            return const Scaffold(
+              backgroundColor: Color(0xFFFAFAFA),
+              body: SizedBox.shrink(),
+            );
+          }
         }
 
         final breadcrumbs = node.breadcrumbs.isNotEmpty
