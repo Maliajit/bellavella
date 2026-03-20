@@ -14,6 +14,7 @@ class ApiService {
   static String get _baseUrl => AppConfig.baseUrl;
   static Completer<bool>? _refreshCompleter;
   static bool _isRedirectingToLogin = false;
+  static bool _isRedirectingToSuspended = false;
   static const String sessionExpiredMessage =
       'Your session expired. Please sign in again to continue.';
 
@@ -205,6 +206,26 @@ class ApiService {
     });
   }
 
+  static Future<void> _handleSuspendedAccount() async {
+    debugPrint('ApiService: accounts suspended, redirecting to SuspendedScreen');
+    if (_isRedirectingToSuspended) {
+      return;
+    }
+
+    _isRedirectingToSuspended = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      try {
+        if (AppConfig.isProfessional) {
+          professionalRouter.go(AppRoutes.proSuspended);
+        }
+      } catch (e) {
+        debugPrint('ApiService: suspended redirect failed -> $e');
+      } finally {
+        _isRedirectingToSuspended = false;
+      }
+    });
+  }
+
   static Future<http.Response> _sendJsonRequest(
     String method,
     String url,
@@ -230,12 +251,7 @@ class ApiService {
     int statusCode,
   ) async {
     await _handleAuthFailure();
-    return {
-      ...decodedResponse,
-      'message': sessionExpiredMessage,
-      '_http_status': statusCode,
-      '_auth_expired': true,
-    };
+    throw Exception("UNAUTHENTICATED");
   }
 
   static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
@@ -271,7 +287,6 @@ class ApiService {
 
       final request = http.MultipartRequest('POST', Uri.parse(url));
       request.headers.addAll(headers);
-      request.headers['Content-Type'] = 'multipart/form-data';
       
       request.fields.addAll(fields);
       
@@ -306,6 +321,11 @@ class ApiService {
         return _unauthorizedResponse(decodedResponse, response.statusCode);
       }
 
+      if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
+        await _handleSuspendedAccount();
+        throw Exception("ACCOUNT_SUSPENDED");
+      }
+
       decodedResponse['_http_status'] = response.statusCode;
       return decodedResponse;
     } catch (e) {
@@ -335,6 +355,11 @@ class ApiService {
           return _request(method, endpoint, body, true);
         }
         return _unauthorizedResponse(decodedResponse, response.statusCode);
+      }
+
+      if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
+        await _handleSuspendedAccount();
+        throw Exception("ACCOUNT_SUSPENDED");
       }
 
       decodedResponse['_http_status'] = response.statusCode;

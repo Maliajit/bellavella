@@ -257,10 +257,10 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to load wallet');
   }
 
-  static Future<Map<String, dynamic>> requestWithdrawal(double amount, String method) async {
-    return await ApiService.post('$_prefix/request-withdrawal', {
+  static Future<Map<String, dynamic>> requestWithdrawal(double amount, [String method = 'direct']) async {
+    return await ApiService.post('$_prefix/withdrawals/request', {
       'amount': amount,
-      'payment_method': method,
+      'method': method,
     });
   }
 
@@ -275,6 +275,14 @@ class ProfessionalApiService {
       return Professional.fromJson(response['data']);
     }
     throw Exception(response['message'] ?? 'Failed to load profile');
+  }
+
+  static Future<Map<String, dynamic>> getVerificationStatus() async {
+    final response = await ApiService.get('$_prefix/verification-status');
+    if (response['success'] == true) {
+      return response['data'];
+    }
+    throw Exception(response['message'] ?? 'Failed to load status');
   }
 
   // Note: Profile update usually requires multipart for images, 

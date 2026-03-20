@@ -163,6 +163,7 @@ class Professional {
   final List<String> languages;
   final String? city;
   final String? serviceArea;
+  
   final double? serviceRadius;
   final List<String> portfolio;
   final PayoutDetails payout;
@@ -282,7 +283,7 @@ class Professional {
     if (path.startsWith('/')) path = path.substring(1);
 
     final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
-    return '$hostUrl/storage/$path';
+    return '${AppConfig.baseUrl}/images/$path';
   }
 }
 

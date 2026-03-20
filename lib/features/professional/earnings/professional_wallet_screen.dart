@@ -213,9 +213,8 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
                             physics: const AlwaysScrollableScrollPhysics(),
                             slivers: [
                               _buildAppBar(),
-                              SliverToBoxAdapter(child: _buildHeroCard()),
-                              if (!_depOk) SliverToBoxAdapter(child: _buildWarning()),
                               SliverToBoxAdapter(child: _buildTabs()),
+                              if (!_depOk) SliverToBoxAdapter(child: _buildWarning()),
                               SliverToBoxAdapter(child: _buildTabBody()),
                               const SliverToBoxAdapter(child: SizedBox(height: 100)),
                             ],
@@ -286,70 +285,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     );
   }
 
-  // ─── Hero Card ──────────────────────────────────────────────────────────────
-  Widget _buildHeroCard() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-      padding: const EdgeInsets.all(0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [BoxShadow(color: const Color(0xFF1A1A2E).withOpacity(0.25), blurRadius: 24, offset: const Offset(0, 12))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(28),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF1C1B3A), Color(0xFF2D1F5E), Color(0xFF1A1A2E)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Decorative circles
-              Positioned(top: -30, right: -30, child: _decoCircle(130, Colors.white.withOpacity(0.04))),
-              Positioned(bottom: -20, left: -20, child: _decoCircle(100, Colors.white.withOpacity(0.03))),
-              Positioned(top: 10, right: 80, child: _decoCircle(60, Colors.white.withOpacity(0.03))),
-              // Content
-              Padding(
-                padding: const EdgeInsets.all(28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white70, size: 18),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('Total Balance', style: GoogleFonts.outfit(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '₹${_total.toStringAsFixed(0)}',
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(child: _heroPill(Icons.trending_up_rounded, 'Earnings', _earn, _green)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _heroPill(Icons.savings_outlined, 'Deposit', _dep, _blue)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _decoCircle(double size, Color c) => Container(width: size, height: size, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
 
@@ -452,6 +387,69 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     }
   }
 
+  // ─── Earnings Hero Card (Dynamic) ───────────────────────────────────────────
+  Widget _buildEarningsHero() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+      padding: const EdgeInsets.all(0),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: const Color(0xFF1A1A2E).withOpacity(0.25), blurRadius: 24, offset: const Offset(0, 12))],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1C1B3A), Color(0xFF2D1F5E), Color(0xFF1A1A2E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Stack(
+            children: [
+              Positioned(top: -30, right: -30, child: _decoCircle(130, Colors.white.withOpacity(0.04))),
+              Positioned(bottom: -20, left: -20, child: _decoCircle(100, Colors.white.withOpacity(0.03))),
+              Positioned(top: 10, right: 80, child: _decoCircle(60, Colors.white.withOpacity(0.03))),
+              Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                          child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white70, size: 18),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('Total Balance', style: GoogleFonts.outfit(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '₹${_total.toStringAsFixed(0)}',
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(child: _heroPill(Icons.trending_up_rounded, 'Earnings', _earn, _green)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _heroPill(Icons.savings_outlined, 'Deposit', _dep, _blue)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ══════════════════════════════════════════════════════
   //  EARNINGS TAB
   // ══════════════════════════════════════════════════════
@@ -464,15 +462,20 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
     final profile = context.watch<ProfessionalProfileController>().profile;
     final isKycVerified = profile?.verification == 'Verified';
-    final isBankAdded = profile?.payout.accountNumber.isNotEmpty ?? false;
-    final isBankVerified = (profile?.payout.verificationStatus ?? 'Pending') == 'Verified';
-    final needsVerification = !isKycVerified || !isBankAdded || !isBankVerified;
+    final hasBank = profile?.payout.accountNumber.isNotEmpty ?? false;
+    final hasUpi = profile?.payout.upiId != null && profile!.payout.upiId!.isNotEmpty;
+    final isPayoutAdded = hasBank || hasUpi;
+    final isPayoutVerified = (profile?.payout.verificationStatus ?? 'Pending') == 'Verified';
+    final needsVerification = !isKycVerified || !isPayoutAdded || !isPayoutVerified;
 
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
 
+      _buildEarningsHero(),
+      const SizedBox(height: 24),
+
       if (needsVerification) ...[
-        _buildVerificationBanner(isKycVerified, isBankAdded, isBankVerified),
+        _buildVerificationBanner(isKycVerified, isPayoutAdded, isPayoutVerified),
         const SizedBox(height: 16),
       ],
 
@@ -673,7 +676,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
           ]),
           const SizedBox(height: 10),
           Text('$kits', style: GoogleFonts.outfit(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1)),
-          Text('kits available', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13)),
+          Text('remaining kits', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13)),
           if (kits < 5) ...[
             const SizedBox(height: 14),
             Container(
@@ -706,8 +709,40 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
       _sLabel('Inventory Log'),
       const SizedBox(height: 12),
-      _emptyState(Icons.inventory_2_outlined, 'No kit log yet', 'Kit assignments will appear here.'),
+      _kitSection(),
     ]));
+  }
+
+  Widget _kitSection() {
+    final kits = _wallet?.kitOrders ?? [];
+    if (kits.isEmpty) return _emptyState(Icons.inventory_2_outlined, 'No kit log yet', 'Kit assignments will appear here.');
+    
+    return Column(children: kits.map((kit) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)]),
+        child: Row(children: [
+          Container(width: 44, height: 44,
+              decoration: BoxDecoration(color: _violet.withOpacity(0.08), borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.inventory_2_outlined, color: _violet, size: 20)),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(kit.description.isEmpty ? 'Kit Assigned' : kit.description, 
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
+            const SizedBox(height: 2),
+            Text(kit.date, style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade400)),
+          ])),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(color: _violet.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            child: Text('Qty: ${kit.amount.toInt()}', 
+                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: _violet)),
+          ),
+        ]),
+      );
+    }).toList());
   }
 
   // ─── Shared small widgets ────────────────────────────────────────────────────
@@ -852,14 +887,57 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     );
   }
 
-  Widget _errView() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-    Icon(Icons.wifi_off_rounded, color: Colors.grey.shade200, size: 64),
-    const SizedBox(height: 14),
-    Text('Could not load wallet', style: GoogleFonts.outfit(fontSize: 15, color: Colors.grey.shade500)),
-    const SizedBox(height: 12),
-    ElevatedButton.icon(onPressed: _fetchData, icon: const Icon(Icons.refresh_rounded),
-        label: const Text('Retry'), style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
-  ]));
+  Widget _errView() {
+    final isAuthError = _error?.contains("UNAUTHENTICATED") ?? false;
+    
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center, 
+        children: [
+          Icon(
+            isAuthError ? Icons.lock_outline_rounded : Icons.wifi_off_rounded, 
+            color: Colors.grey.shade300, 
+            size: 64
+          ),
+          const SizedBox(height: 14),
+          Text(
+            isAuthError ? 'Please sign in first to continue' : 'Could not load wallet', 
+            style: GoogleFonts.outfit(
+              fontSize: 16, 
+              color: Colors.grey.shade600, 
+              fontWeight: FontWeight.w500
+            )
+          ),
+          const SizedBox(height: 24),
+          if (isAuthError)
+            SizedBox(
+              width: 160,
+              child: ElevatedButton(
+                onPressed: () => context.goNamed(AppRoutes.proLoginName),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.black,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: const Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            )
+          else
+            ElevatedButton.icon(
+              onPressed: _fetchData, 
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'), 
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary, 
+                foregroundColor: Colors.white, 
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+              )
+            ),
+        ],
+      )
+    );
+  }
 
   // ─── Bottom Sheets ────────────────────────────────────────────────────────────
   void _showAddMoneySheet() {
@@ -876,53 +954,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   }
 
   void _handleWithdrawClick({bool isEarnings = true}) {
-    final profile = context.read<ProfessionalProfileController>().profile;
-    if (profile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile loading...')));
-      return;
-    }
-
-    final isKycVerified = profile.verification == 'Verified';
-    final isBankAdded = profile.payout.accountNumber.isNotEmpty;
-    final isBankVerified = profile.payout.verificationStatus == 'Verified';
-
-    if (!isKycVerified) {
-      _showVerificationDialog(
-        title: "KYC Verification Required",
-        desc: "Please complete your ID and professional document verification to enable withdrawals.",
-        btnLabel: "Complete KYC",
-        onPressed: () => context.push(AppRoutes.proKycDocuments),
-      );
-      return;
-    }
-
-    if (!isBankAdded) {
-      _showVerificationDialog(
-        title: "Bank Account Required",
-        desc: "Please add your bank account details to withdraw your earnings.",
-        btnLabel: "Add Bank Account",
-        onPressed: () => context.push(AppRoutes.proEditBankDetails),
-      );
-      return;
-    }
-
-    if (!isBankVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.info_outline, color: Colors.white, size: 20),
-              const SizedBox(width: 12),
-              const Expanded(child: Text('Your bank account is under verification. Withdrawals will be available once approved.')),
-            ],
-          ),
-          backgroundColor: _amber,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     _showWithdrawSheet(isEarnings: isEarnings);
   }
 
@@ -948,15 +979,15 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     );
   }
 
-  Widget _buildVerificationBanner(bool kyc, bool bankAdded, bool bankVerified) {
+  Widget _buildVerificationBanner(bool kyc, bool payoutAdded, bool payoutVerified) {
     String msg = "Complete KYC to enable withdrawals.";
-    if (kyc && !bankAdded) msg = "Add bank account to withdraw money.";
-    if (kyc && bankAdded && !bankVerified) msg = "Bank verification pending.";
+    if (kyc && !payoutAdded) msg = "Add Bank or UPI to withdraw money.";
+    if (kyc && payoutAdded && !payoutVerified) msg = "Payment verification pending.";
 
     return GestureDetector(
       onTap: () {
         if (!kyc) context.push(AppRoutes.proKycDocuments);
-        else if (!bankAdded) context.push(AppRoutes.proEditBankDetails);
+        else if (!payoutAdded) context.push(AppRoutes.proEditBankDetails);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -991,10 +1022,45 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
         builder: (_) => _WithdrawSheet(
           maxAmount: isEarnings ? _earn : _dep,
           label: isEarnings ? 'Earnings' : 'Deposit',
-          onWithdraw: (amount) {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested.'), backgroundColor: _primary));
+          onWithdraw: (amount) async {
+            try {
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+              );
+
+              final response = await ProfessionalApiService.requestWithdrawal(amount);
+
+              if (mounted) {
+                // 🔥 FIX: Use rootNavigator: true for dialog, standard for sheet
+                Navigator.of(context, rootNavigator: true).pop(); // Close loading
+                Navigator.of(context).pop(); // Close sheet
+                
+                if (response['success'] == true) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested successfully.'),
+                    backgroundColor: Colors.green,
+                  ));
+                  _fetchData(); // Refresh wallet
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(response['message'] ?? 'Failed to request withdrawal'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
+              }
+            } catch (e) {
+              if (mounted) {
+                // 🔥 FIX: Use rootNavigator: true for dialog
+                Navigator.of(context, rootNavigator: true).pop(); // Close loading
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Error: ${e.toString()}'),
+                  backgroundColor: Colors.red,
+                ));
+              }
+            }
           },
         ));
   }

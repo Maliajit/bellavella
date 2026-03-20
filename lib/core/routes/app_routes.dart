@@ -70,6 +70,7 @@ class AppRoutes {
   static const String proDocumentView = '/professional/document-view';
   static const String proWithdrawalRequest = '/professional/withdrawal-request';
   static const String proWithdrawalHistory = '/professional/withdrawal-history';
+  static const String proSuspended = '/professional/suspended';
 
   // --- Professional Edit Paths ---
   static const String proEditPersonalInfo = '/professional/profile/edit-personal';
@@ -163,4 +164,5 @@ class AppRoutes {
   static const String proNotificationSettingsName = 'proNotificationSettings';
   static const String proChangePasswordName = 'proChangePassword';
   static const String proLanguageSettingsName = 'proLanguageSettings';
+  static const String proSuspendedName = 'proSuspended';
 }

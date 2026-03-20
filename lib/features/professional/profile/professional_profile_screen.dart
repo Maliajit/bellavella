@@ -246,20 +246,16 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                     ),
                     _buildListOption(
                       Icons.account_balance_outlined,
-                      "Bank Account",
-                      subtitle: profile?.payout.bankName != '' ? "${profile?.payout.bankName} • ${profile?.payout.accountNumber}" : "Account number, IFSC code",
+                      "Bank Verification",
+                      subtitle: _getPaymentSubtitle(profile.payout),
+                      value: _getPaymentStatusText(profile.payout),
+                      valueColor: _getPaymentStatusColor(profile.payout),
+                      trailingWidget: _getPaymentStatusIcon(profile.payout),
                       onTap: () async {
-                        await context.pushNamed(AppRoutes.proEditBankDetailsName);
-                        controller.fetchProfile();
-                      },
-                    ),
-                    _buildListOption(
-                      Icons.payments_outlined,
-                      "UPI Details",
-                      subtitle: profile?.payout.upiId != '' ? profile?.payout.upiId : "UPI ID & QR Code",
-                      onTap: () async {
-                        await context.pushNamed(AppRoutes.proEditUPIDetailsName);
-                        controller.fetchProfile();
+                        final result = await context.pushNamed(AppRoutes.proEditBankDetailsName);
+                        if (result == true) {
+                          controller.fetchProfile();
+                        }
                       },
                     ),
                   ]),
@@ -518,6 +514,8 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
     String label, {
     String? subtitle, 
     String? value, 
+    Color? valueColor,
+    Widget? trailingWidget,
     bool isVerified = false, 
     bool isDestructive = false, 
     VoidCallback? onTap
@@ -583,13 +581,25 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                   padding: EdgeInsets.only(right: 8),
                   child: Icon(Icons.check_circle_rounded, size: 16, color: Colors.green.shade600),
                 ),
+              if (trailingWidget != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: trailingWidget,
+                ),
               if (value != null)
-                Text(
-                  value,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: isVerified ? Colors.green.shade600 : Colors.grey.shade700,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (valueColor ?? (isVerified ? Colors.green.shade600 : Colors.grey.shade700)).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    value,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: valueColor ?? (isVerified ? Colors.green.shade600 : Colors.grey.shade700),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               const SizedBox(width: 4),
@@ -599,6 +609,48 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _getPaymentSubtitle(PayoutDetails payout) {
+    if (payout.bankName.isNotEmpty && payout.accountNumber.isNotEmpty) {
+      final last4 = payout.accountNumber.length > 4 
+          ? payout.accountNumber.substring(payout.accountNumber.length - 4) 
+          : payout.accountNumber;
+      return "${payout.bankName} •••• $last4";
+    } else if (payout.upiId.isNotEmpty) {
+      return "UPI: ${payout.upiId}";
+    }
+    return "Account / UPI details";
+  }
+
+  String _getPaymentStatusText(PayoutDetails payout) {
+    if (payout.bankName.isEmpty && payout.upiId.isEmpty) return "Add bank / UPI";
+    switch (payout.verificationStatus.toLowerCase()) {
+      case 'verified': return "Verified";
+      case 'rejected': return "Rejected";
+      case 'pending': return "Pending";
+      default: return "Add bank / UPI";
+    }
+  }
+
+  Color _getPaymentStatusColor(PayoutDetails payout) {
+    if (payout.bankName.isEmpty && payout.upiId.isEmpty) return Colors.grey;
+    switch (payout.verificationStatus.toLowerCase()) {
+      case 'verified': return Colors.green.shade600;
+      case 'rejected': return Colors.red.shade600;
+      case 'pending': return Colors.orange.shade700;
+      default: return Colors.grey;
+    }
+  }
+
+  Widget? _getPaymentStatusIcon(PayoutDetails payout) {
+    if (payout.bankName.isEmpty && payout.upiId.isEmpty) return null;
+    switch (payout.verificationStatus.toLowerCase()) {
+      case 'verified': return Icon(Icons.verified, color: Colors.green.shade600, size: 16);
+      case 'rejected': return Icon(Icons.error, color: Colors.red.shade600, size: 16);
+      case 'pending': return Icon(Icons.access_time_filled, color: Colors.orange.shade700, size: 16);
+      default: return null;
+    }
   }
 
   void _handleLogout(BuildContext context) {

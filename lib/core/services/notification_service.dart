@@ -38,7 +38,7 @@ class NotificationService {
     );
 
     // Create a special channel for custom sounds (Android 8.0+)
-    const AndroidNotificationChannel channel = AndroidNotificationChannel(
+    const AndroidNotificationChannel highImportanceChannel = AndroidNotificationChannel(
       'high_importance_channel', // id
       'High Importance Notifications', // title
       description: 'This channel is used for important notifications with custom sounds.', // description
@@ -47,41 +47,18 @@ class NotificationService {
       sound: RawResourceAndroidNotificationSound('notification_sound'),
     );
 
-    await _notificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(channel);
-
-    // 4. FCM Initialization
-    await _initFcm();
-  }
-
-  Future<void> _initFcm() async {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-
-    // Request permissions (especially for iOS)
-    NotificationSettings settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
+    const AndroidNotificationChannel incomingChannel = AndroidNotificationChannel(
+      'incoming_requests',
+      'Incoming Requests',
+      importance: Importance.max,
+      playSound: true,
     );
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      debugPrint('User granted permission');
-    }
-
-    // Foreground messages
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('Message received in foreground: ${message.notification?.title}');
-      if (message.notification != null) {
-        showNotification(
-          id: message.hashCode,
-          title: message.notification!.title ?? 'New Message',
-          body: message.notification!.body ?? '',
-        );
-      }
-    });
-
-    // Background message callback is usually set in main.dart or here
+    final androidImplementation = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    
+    await androidImplementation?.createNotificationChannel(highImportanceChannel);
+    await androidImplementation?.createNotificationChannel(incomingChannel);
   }
 
   Future<String?> getFcmToken() async {
@@ -146,6 +123,34 @@ class NotificationService {
       id: 100,
       title: 'Login Successful! 🎉',
       body: 'Welcome back to BellaVella. Enjoy your premium salon experience.',
+    );
+  }
+
+  static Future<void> showIncomingCallNotification(RemoteMessage message) async {
+    final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
+    
+    await localNotifications.show(
+      id: 0,
+      title: message.notification?.title ?? "New Job Request",
+      body: message.notification?.body ?? "Tap to accept",
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'incoming_requests',
+          'Incoming Requests',
+          importance: Importance.max,
+          priority: Priority.high,
+          fullScreenIntent: true,
+          category: AndroidNotificationCategory.call,
+          ticker: 'ticker',
+          playSound: true,
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: 'incoming_request',
     );
   }
 }

@@ -3,6 +3,7 @@ import 'core/config/app_config.dart';
 import 'core/router/professional_router.dart';
 import 'core/services/token_manager.dart';
 import 'core/services/theme_service.dart';
+import 'core/services/notification_service.dart';
 import 'core/services/firebase_messaging_service.dart';
 import 'main.dart' as app;
 
@@ -11,6 +12,13 @@ void main() async {
   await TokenManager.init();
   await ThemeService.fetch();
   
+  // Initialize Notifications
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint('🔔 Notification Init Error: $e');
+  }
+
   // Initialize FCM
   try {
     await FirebaseMessagingService.init();

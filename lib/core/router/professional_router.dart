@@ -39,8 +39,7 @@ import '../../features/professional/screens/profile/edit_personal_information_sc
 import '../../features/professional/screens/profile/edit_service_area_screen.dart';
 import '../../features/professional/screens/profile/edit_working_hours_screen.dart';
 import '../../features/professional/screens/profile/edit_contact_details_screen.dart';
-import '../../features/professional/screens/profile/bank_details_screen.dart';
-import '../../features/professional/screens/profile/upi_details_screen.dart';
+import '../../features/professional/screens/profile/payment_details_screen.dart';
 import '../../features/professional/screens/profile/notification_settings_screen.dart';
 import '../../features/professional/screens/profile/change_password_screen.dart';
 import '../../features/professional/screens/profile/language_settings_screen.dart';
@@ -48,6 +47,7 @@ import '../../features/professional/screens/kit_store/kit_order_history_screen.d
 import '../../features/professional/screens/kit_store/payment_success_screen.dart';
 import '../../features/professional/screens/kit_store/kit_order_details_screen.dart';
 import '../../features/professional/leave/leave_apply_screen.dart';
+import '../../features/professional/auth/suspended_screen.dart';
 import '../../core/models/data_models.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 
@@ -140,6 +140,11 @@ final _authRoutes = [
     builder: (context, state) => VerificationStatusScreen(
       applicantName: state.extra as String?,
     ),
+  ),
+  GoRoute(
+    path: AppRoutes.proSuspended,
+    name: AppRoutes.proSuspendedName,
+    builder: (context, state) => const SuspendedScreen(),
   ),
 ];
 
@@ -309,12 +314,12 @@ final _proOtherRoutes = [
   GoRoute(
     path: AppRoutes.proEditBankDetails,
     name: AppRoutes.proEditBankDetailsName,
-    builder: (context, state) => const BankDetailsScreen(),
+    builder: (context, state) => const PaymentDetailsScreen(),
   ),
   GoRoute(
     path: AppRoutes.proEditUPIDetails,
     name: AppRoutes.proEditUPIDetailsName,
-    builder: (context, state) => const UPIDetailsScreen(),
+    builder: (context, state) => const PaymentDetailsScreen(),
   ),
   GoRoute(
     path: AppRoutes.proEditSkills,

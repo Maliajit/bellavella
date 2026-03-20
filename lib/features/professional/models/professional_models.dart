@@ -304,6 +304,7 @@ class ProfessionalWallet {
   final double todayEarnings;
   final int totalJobs;
   final List<Transaction> transactions;
+  final List<Transaction> kitOrders; // We'll reuse Transaction model or create KitLog
 
   ProfessionalWallet({
     required this.balance,
@@ -317,6 +318,7 @@ class ProfessionalWallet {
     this.todayEarnings = 0,
     this.totalJobs = 0,
     required this.transactions,
+    this.kitOrders = const [],
   });
 
   factory ProfessionalWallet.fromJson(dynamic json) {
@@ -334,6 +336,12 @@ class ProfessionalWallet {
       transactionsList = (jsonTransactions['data'] as List).map((i) => Transaction.fromJson(i)).toList();
     }
 
+    List<Transaction> kitOrdersList = [];
+    final jsonKitOrders = json['kit_orders'];
+    if (jsonKitOrders is List) {
+      kitOrdersList = jsonKitOrders.map((i) => Transaction.fromJson(i)).toList();
+    }
+
     return ProfessionalWallet(
       balance: earnings,
       earningsBalance: earnings,
@@ -346,6 +354,7 @@ class ProfessionalWallet {
       todayEarnings: ParserUtil.safeParseDouble(json['today_earnings'] ?? 0),
       totalJobs: int.tryParse((json['total_jobs'] ?? json['total_bookings'])?.toString() ?? '0') ?? 0,
       transactions: transactionsList,
+      kitOrders: kitOrdersList,
     );
   }
 }

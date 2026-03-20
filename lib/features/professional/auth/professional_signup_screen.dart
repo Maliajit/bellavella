@@ -2,6 +2,7 @@ import 'dart:io';
 import '../services/professional_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,7 +21,25 @@ class ProfessionalSignupScreen extends StatefulWidget {
 
 class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
   bool _isLoading = false;
+  
+  // Validation Error Keys (for auto-scroll)
+  final _personalInfoKey = GlobalKey();
+  final _skillsKey = GlobalKey();
+  final _addressKey = GlobalKey();
+  final _idVerificationKey = GlobalKey();
+
+  // Image Error States (for visual feedback)
+  bool _aadharFrontError = false;
+  bool _aadharBackError = false;
+  bool _panPhotoError = false;
+  bool _certificateError = false;
+  bool _selfieError = false;
+  bool _skillsError = false;
+  bool _languagesError = false;
+
+  bool _showErrorTop = false;
   
   // Section A Controllers
   final _nameController = TextEditingController();
@@ -76,6 +95,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     _aadharController.dispose();
     _panController.dispose();
     _referralCodeController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -109,90 +129,140 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     }
   }
 
-  Future<void> _submitForm() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedSkills.isEmpty) {
-        _showErrorSnackBar('Please select at least one skill');
-        return;
-      }
-      if (_selectedLanguages.isEmpty) {
-        _showErrorSnackBar('Please select at least one language');
-        return;
-      }
-      
-      setState(() => _isLoading = true);
-      
-      try {
-        final response = await ProfessionalApiService.register(
-          mobile: widget.phoneNumber ?? '',
-          name: _nameController.text,
-          category: _selectedSkills.join(', '),
-          city: _cityController.text,
-          email: _emailController.text,
-          dob: _selectedDob != null ? DateFormat('yyyy-MM-dd').format(_selectedDob!) : null,
-          gender: _selectedGender,
-          experience: _selectedExperience,
-          languages: _selectedLanguages.join(', '),
-          address: _addressController.text,
-          pincode: _pincodeController.text,
-          state: _selectedState,
-          aadharNumber: _aadharController.text,
-          panNumber: _panController.text,
-          aadharFront: _aadharFront,
-          aadharBack: _aadharBack,
-          panPhoto: _panPhoto,
-          certificate: _certificatePhoto,
-          selfie: _liveSelfie,
-          referralCode: _referralCodeController.text.isNotEmpty ? _referralCodeController.text : null,
-        );
+  void _scrollToError(GlobalKey key) {
+    if (key.currentContext != null) {
+      Scrollable.ensureVisible(
+        key.currentContext!,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
 
-        if (mounted) {
-          if (response['success'] == true) {
-            final int coins = response['coins_awarded'] ?? 0;
-            if (coins > 0) {
-              await showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => AlertDialog(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
-                      const SizedBox(height: 16),
-                      Text('Congratulations!', 
-                        style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Text('You\'ve received $coins welcome coins!', 
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade600)),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        width: double.infinity,
-                        child: PrimaryButton(
-                          label: 'Awesome!', 
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            if (mounted) {
-              context.go('/professional/verification-status', extra: _nameController.text);
-            }
-          } else {
-            _showErrorSnackBar(response['message'] ?? 'Registration failed');
-          }
+  bool _validateImagesAndExtra() {
+    bool valid = true;
+    setState(() {
+      _aadharFrontError = _aadharFront == null;
+      _aadharBackError = _aadharBack == null;
+      _panPhotoError = _panPhoto == null;
+      _certificateError = _certificatePhoto == null;
+      _selfieError = _liveSelfie == null;
+      _skillsError = _selectedSkills.isEmpty;
+      _languagesError = _selectedLanguages.isEmpty;
+    });
+
+    if (_skillsError || _languagesError) {
+      if (valid) _scrollToError(_skillsKey);
+      valid = false;
+    }
+
+    if (_aadharFrontError || _aadharBackError || _panPhotoError || _certificateError || _selfieError) {
+      if (valid) _scrollToError(_idVerificationKey);
+      valid = false;
+    }
+
+    return valid;
+  }
+
+  Future<void> _submitForm() async {
+    FocusScope.of(context).unfocus();
+    
+    final bool isFormValid = _formKey.currentState?.validate() ?? false;
+    final bool isExtraValid = _validateImagesAndExtra();
+
+    if (!isFormValid || !isExtraValid) {
+      setState(() => _showErrorTop = true);
+      
+      if (!isFormValid) {
+        // Auto scroll to first form error
+        if (_nameController.text.isEmpty || _emailController.text.isEmpty || _dobController.text.isEmpty) {
+          _scrollToError(_personalInfoKey);
+        } else if (_addressController.text.isEmpty || _cityController.text.isEmpty || _pincodeController.text.length != 6) {
+          _scrollToError(_addressKey);
+        } else if (_aadharController.text.length != 12 || _panController.text.length != 10) {
+          _scrollToError(_idVerificationKey);
         }
-      } catch (e) {
-        if (mounted) {
-          _showErrorSnackBar('Error: ${e.toString()}');
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
       }
+      
+      _showErrorSnackBar('Please complete all required fields correctly');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _showErrorTop = false;
+    });
+    
+    try {
+      final response = await ProfessionalApiService.register(
+        mobile: widget.phoneNumber ?? '',
+        name: _nameController.text,
+        category: _selectedSkills.join(', '),
+        city: _cityController.text,
+        email: _emailController.text,
+        dob: _selectedDob != null ? DateFormat('yyyy-MM-dd').format(_selectedDob!) : null,
+        gender: _selectedGender,
+        experience: _selectedExperience,
+        languages: _selectedLanguages.join(', '),
+        address: _addressController.text,
+        pincode: _pincodeController.text,
+        state: _selectedState,
+        aadharNumber: _aadharController.text,
+        panNumber: _panController.text,
+        aadharFront: _aadharFront,
+        aadharBack: _aadharBack,
+        panPhoto: _panPhoto,
+        certificate: _certificatePhoto,
+        selfie: _liveSelfie,
+        referralCode: _referralCodeController.text.isNotEmpty ? _referralCodeController.text : null,
+      );
+
+      if (mounted) {
+        if (response['success'] == true) {
+          final int coins = response['coins_awarded'] ?? 0;
+          if (coins > 0) {
+            await showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.card_giftcard_rounded, color: AppTheme.primaryColor, size: 64),
+                    const SizedBox(height: 16),
+                    Text('Congratulations!', 
+                      style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Text('You\'ve received $coins welcome coins!', 
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(fontSize: 16, color: Colors.grey.shade600)),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: PrimaryButton(
+                        label: 'Awesome!', 
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (mounted) {
+            context.go('/professional/verification-status', extra: _nameController.text);
+          }
+        } else {
+          _showErrorSnackBar(response['message'] ?? 'Registration failed');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        _showErrorSnackBar('Error: ${e.toString()}');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -239,7 +309,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) => Container(
-        padding: EdgeInsets.symmetric(vertical: 24),
+        padding: const EdgeInsets.symmetric(vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -270,7 +340,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       child: Column(
         children: [
           Container(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
@@ -306,12 +376,34 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+        controller: _scrollController,
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_showErrorTop)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.errorColor.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: AppTheme.errorColor, size: 20),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Please complete all required fields',
+                        style: GoogleFonts.outfit(color: AppTheme.errorColor, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
               Text(
                 'Complete Your Profile',
                 style: GoogleFonts.outfit(
@@ -332,23 +424,22 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               ),
               const SizedBox(height: 32),
               
-              _buildSectionHeader('Personal Information', Icons.person_rounded),
+              _buildSectionHeader('Personal Information', Icons.person_rounded, _personalInfoKey),
               _buildCard([
-                _buildTextField('Full Name', _nameController, Icons.person_outline, (v) => v!.isEmpty ? 'Name required' : null),
+                _buildTextField('Full Name', _nameController, Icons.person_outline, (v) => (v == null || v.isEmpty) ? 'Full name is required' : null),
                 const SizedBox(height: 16),
                 _buildTextField('Email', _emailController, Icons.email_outlined, (v) {
-                  if (v!.isEmpty) return 'Email required';
-                  // ignore: valid_regexps
+                  if (v == null || v.isEmpty) return 'Email required';
                   if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(v)) {
                     return 'Enter a valid email (e.g., user@example.com)';
                   }
                   return null;
-                }, keyboardType: TextInputType.emailAddress),
+                }, keyboardType: TextInputType.emailAddress, autocorrect: false),
                 const SizedBox(height: 16),
                 GestureDetector(
                   onTap: () => _selectDate(context),
                   child: AbsorbPointer(
-                    child: _buildTextField('DOB', _dobController, Icons.calendar_today_outlined, (v) => v!.isEmpty ? 'DOB required' : null),
+                    child: _buildTextField('DOB', _dobController, Icons.calendar_today_outlined, (v) => (v == null || v.isEmpty) ? 'DOB required' : null),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -358,9 +449,17 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               ]),
               
               const SizedBox(height: 32),
-              _buildSectionHeader('Skills & Expertise', Icons.auto_awesome_rounded),
+              _buildSectionHeader('Skills & Expertise', Icons.auto_awesome_rounded, _skillsKey),
               _buildCard([
-                const Text('Skills', style: TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    const Text('Skills', style: TextStyle(fontWeight: FontWeight.bold)),
+                    if (_skillsError) const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Text('* Required', style: TextStyle(color: Colors.red, fontSize: 12)),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -383,7 +482,15 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 const SizedBox(height: 16),
                 _buildDropdown('Experience', _experienceLevels, _selectedExperience, (v) => setState(() => _selectedExperience = v)),
                 const SizedBox(height: 16),
-                const Text('Languages Known', style: TextStyle(fontWeight: FontWeight.bold)),
+                Row(
+                  children: [
+                    const Text('Languages Known', style: TextStyle(fontWeight: FontWeight.bold)),
+                    if (_languagesError) const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Text('* Required', style: TextStyle(color: Colors.red, fontSize: 12)),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -406,40 +513,48 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               ]),
               
               const SizedBox(height: 32),
-              _buildSectionHeader('Communication Address', Icons.home_rounded),
+              _buildSectionHeader('Communication Address', Icons.home_rounded, _addressKey),
               _buildCard([
-                _buildTextField('Address', _addressController, Icons.home_outlined, (v) => v!.isEmpty ? 'Address required' : null, maxLines: 3),
+                _buildTextField('Address', _addressController, Icons.home_outlined, (v) => (v == null || v.isEmpty) ? 'Address required' : null, maxLines: 3),
                 const SizedBox(height: 16),
-                _buildTextField('City', _cityController, Icons.location_city_outlined, (v) => v!.isEmpty ? 'City required' : null),
+                _buildTextField('City', _cityController, Icons.location_city_outlined, (v) => (v == null || v.isEmpty) ? 'City required' : null),
                 const SizedBox(height: 16),
                 _buildDropdown('State', _indianStates, _selectedState, (v) => setState(() => _selectedState = v)),
                 const SizedBox(height: 16),
                 _buildTextField('Pincode', _pincodeController, Icons.pin_drop_outlined, (v) {
-                  if (v!.isEmpty) return 'Pincode required';
+                  if (v == null || v.isEmpty) return 'Pincode required';
                   if (v.length != 6 || !RegExp(r'^[0-9]+$').hasMatch(v)) return 'Pincode must be 6 digits';
                   return null;
                 }, keyboardType: TextInputType.number, maxLength: 6),
               ]),
 
               const SizedBox(height: 32),
-              _buildSectionHeader('Identity Verification', Icons.verified_user_rounded),
+              _buildSectionHeader('Identity Verification', Icons.verified_user_rounded, _idVerificationKey),
               _buildCard([
                 _buildTextField(
                   'Aadhar Number', 
                   _aadharController, 
                   Icons.badge_outlined, 
-                  (v) => (v == null || v.length != 12) ? '12-digit Aadhar required' : null,
+                  (v) {
+                    if (v == null || v.isEmpty) return 'Aadhaar number is required';
+                    if (!RegExp(r'^[0-9]{12}$').hasMatch(v)) return 'Aadhaar must be exactly 12 digits';
+                    return null;
+                  },
                   keyboardType: TextInputType.number,
                   maxLength: 12,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(12),
+                  ],
                 ),
                 const SizedBox(height: 24),
                 const Text('Aadhar Card Photos', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _buildImagePickerTile('Front side', _aadharFront, 'aadhar_front')),
+                    Expanded(child: _buildImagePickerTile('Front side', _aadharFront, 'aadhar_front', isError: _aadharFrontError)),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildImagePickerTile('Back side', _aadharBack, 'aadhar_back')),
+                    Expanded(child: _buildImagePickerTile('Back side', _aadharBack, 'aadhar_back', isError: _aadharBackError)),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -447,17 +562,21 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   'PAN Number', 
                   _panController, 
                   Icons.credit_card_outlined, 
-                  (v) => (v == null || v.length != 10) ? '10-char PAN required' : null,
+                  (v) {
+                    if (v == null || v.isEmpty) return 'PAN number is required';
+                    if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(v)) return 'Invalid PAN format (ABCDE1234F)';
+                    return null;
+                  },
                   maxLength: 10,
+                  textCapitalization: TextCapitalization.characters,
                 ),
                 const SizedBox(height: 16),
-                const Text('PAN Card Photo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
-                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Photo', _panPhoto, 'pan'),),
+                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Photo', _panPhoto, 'pan', isError: _panPhotoError),),
                 const SizedBox(height: 24),
                 const Text('Professional Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
-                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Certificate', _certificatePhoto, 'certificate'),),
+                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Certificate', _certificatePhoto, 'certificate', isError: _certificateError),),
                 const SizedBox(height: 24),
                 const Text('Live Selfie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
@@ -470,6 +589,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                     _liveSelfie,
                     'selfie',
                     isSquare: true,
+                    isError: _selfieError,
                   ),
                 ),
 
@@ -488,13 +608,14 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Widget _buildSectionHeader(String title, IconData icon) {
+  Widget _buildSectionHeader(String title, IconData icon, GlobalKey key) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 16, top: 8),
+      key: key,
+      padding: const EdgeInsets.only(bottom: 16, top: 8),
       child: Row(
         children: [
           Container(
-            padding: EdgeInsets.all(10),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
@@ -518,7 +639,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   Widget _buildCard(List<Widget> children) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -535,13 +656,16 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, String? Function(String?) validator, {TextInputType? keyboardType, int maxLines = 1, int? maxLength}) {
+  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, String? Function(String?) validator, {TextInputType? keyboardType, int maxLines = 1, int? maxLength, List<TextInputFormatter>? inputFormatters, TextCapitalization textCapitalization = TextCapitalization.none, bool autocorrect = true}) {
     return TextFormField(
       controller: controller,
       validator: validator,
       keyboardType: keyboardType,
       maxLines: maxLines,
       maxLength: maxLength,
+      inputFormatters: inputFormatters,
+      textCapitalization: textCapitalization,
+      autocorrect: autocorrect,
       style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 15),
       decoration: InputDecoration(
         hintText: hint,
@@ -553,7 +677,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         counterText: '',
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
@@ -577,20 +701,20 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
     );
   }
 
-  Widget _buildImagePickerTile(String label, XFile? image, String type, {bool isSquare = false}) {
+  Widget _buildImagePickerTile(String label, XFile? image, String type, {bool isSquare = false, bool isError = false}) {
     return GestureDetector(
       onTap: () => image == null ? _showImageSourceSheet(type) : null,
       child: Container(
         height: isSquare ? 200 : 120,
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: isError ? AppTheme.errorColor.withValues(alpha: 0.05) : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: isError ? AppTheme.errorColor : Colors.grey.shade200, width: isError ? 1.5 : 1),
         ),
         child: image != null
             ? Stack(
@@ -613,7 +737,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                     child: GestureDetector(
                       onTap: () => _removeImage(type),
                       child: Container(
-                        padding: EdgeInsets.all(4),
+                        padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,

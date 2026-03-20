@@ -8,6 +8,7 @@ import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/services/realtime_job_service.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'notification_service.dart';
 
 class FirebaseMessagingService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -50,7 +51,7 @@ class FirebaseMessagingService {
     
     final String type = message.data['type'] ?? '';
     
-    if (type == 'booking_assigned') {
+    if (type == 'booking_assigned' || type == 'incoming_request') {
       final String bookingId = message.data['booking_id']?.toString() ?? '';
       if (bookingId.isNotEmpty && RealtimeJobService.shownBookings.contains(bookingId)) {
         debugPrint('🔔 FCM: Already showing booking $bookingId, skipping duplicate');
@@ -77,7 +78,7 @@ class FirebaseMessagingService {
     debugPrint('🔔 FCM Message Opened App: ${message.data}');
     final String type = message.data['type'] ?? '';
     
-    if (type == 'booking_assigned') {
+    if (type == 'booking_assigned' || type == 'incoming_request') {
       final String bookingId = message.data['booking_id']?.toString() ?? '';
       if (bookingId.isNotEmpty) RealtimeJobService.shownBookings.add(bookingId);
 
@@ -89,9 +90,11 @@ class FirebaseMessagingService {
   }
 }
 
-// Global background handler must be a top-level function
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('🔔 FCM Background Message: ${message.messageId}');
-  // Background logic (e.g. data syncing)
+  final String type = message.data['type'] ?? '';
+  if (type == 'incoming_request' || type == 'booking_assigned') {
+    await NotificationService.showIncomingCallNotification(message);
+  }
 }
