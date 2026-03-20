@@ -416,13 +416,19 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
 
   Widget _buildInfoRow(IconData icon, String label) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: AppTheme.primaryColor, size: 20),
           const SizedBox(width: 10),
-          Text(label, style: const TextStyle(color: AppTheme.greyText, fontSize: 16)),
+          Expanded(
+            child: Text(
+              label,
+              softWrap: true,
+              style: const TextStyle(color: AppTheme.greyText, fontSize: 16),
+            ),
+          ),
         ],
       ),
     );

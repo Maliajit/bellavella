@@ -22,7 +22,11 @@ class BookingScreen extends StatelessWidget {
           children: [
             _buildSectionHeader(context, 'Date & Time'),
             const SizedBox(height: 16),
-            _buildDateTimePicker(context, bookingData['booking_date'] ?? 'N/A', bookingData['booking_time'] ?? 'N/A'),
+            _buildDateTimePicker(
+              context,
+              _formatBookingDate(bookingData['booking_date']?.toString()),
+              bookingData['booking_time'] ?? 'N/A',
+            ),
             const SizedBox(height: 32),
             _buildSectionHeader(context, 'Delivery Address'),
             const SizedBox(height: 16),
@@ -80,6 +84,8 @@ class BookingScreen extends StatelessWidget {
   }
 
   Widget _buildAddressUI(BuildContext context) {
+    final address = bookingData['address']?.toString().trim();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -91,16 +97,21 @@ class BookingScreen extends StatelessWidget {
         children: [
           Icon(Icons.location_on_rounded, color: AppTheme.primaryColor),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Home Address', style: TextStyle(fontWeight: FontWeight.bold)),
-                Text('123, Rose Villa, Sector 5, Mumbai', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                const Text('Delivery Address', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  address != null && address.isNotEmpty
+                      ? address
+                      : 'Address unavailable',
+                  softWrap: true,
+                  style: const TextStyle(fontSize: 13, color: Colors.grey),
+                ),
               ],
             ),
           ),
-          TextButton(onPressed: () {}, child: const Text('Edit')),
         ],
       ),
     );
@@ -109,9 +120,19 @@ class BookingScreen extends StatelessWidget {
   Widget _buildServicesList() {
     final List<Map<String, String>> services = [];
     if (bookingData['service'] != null) {
+      final serviceName =
+          bookingData['display_name']?.toString() ??
+          bookingData['variant_name']?.toString() ??
+          bookingData['service_name']?.toString() ??
+          bookingData['service']['name']?.toString() ??
+          'Unknown Service';
+      final servicePrice =
+          bookingData['display_price']?.toString() ??
+          bookingData['service']['price']?.toString() ??
+          '0';
       services.add({
-        'name': bookingData['service']['name']?.toString() ?? 'Unknown Service',
-        'price': bookingData['service']['price']?.toString() ?? '0',
+        'name': serviceName,
+        'price': servicePrice,
         'qty': '1',
       });
     } else if (bookingData['package_snapshot'] != null ||
@@ -122,8 +143,9 @@ class BookingScreen extends StatelessWidget {
         ),
       );
       services.add({
-        'name': package.title,
-        'price': (package.displayPrice ?? 0).toString(),
+        'name': bookingData['display_name']?.toString() ?? package.title,
+        'price': (bookingData['display_price'] ?? package.displayPrice ?? 0)
+            .toString(),
         'qty': '1',
       });
     }
@@ -155,7 +177,7 @@ class BookingScreen extends StatelessWidget {
   }
 
   Widget _buildPriceSummary() {
-    final int total = bookingData['total_amount'] ?? 0;
+    final double total = _parseAmount(bookingData['total_amount']);
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -165,7 +187,11 @@ class BookingScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
-          _PriceRow(label: 'Total Amount', value: '₹$total', isTotal: true),
+          _PriceRow(
+            label: 'Total Amount',
+            value: '₹${total.toStringAsFixed(2)}',
+            isTotal: true,
+          ),
         ],
       ),
     );
@@ -181,10 +207,50 @@ class BookingScreen extends StatelessWidget {
         ],
       ),
       child: PrimaryButton(
-        label: 'View Tracking / Status',
+        label: 'View Status',
         onPressed: () => context.push('/client/booking-status/${bookingData['id']}'),
       ),
     );
+  }
+
+  String _formatBookingDate(String? rawDate) {
+    if (rawDate == null || rawDate.trim().isEmpty) {
+      return 'N/A';
+    }
+
+    final parsed = DateTime.tryParse(rawDate.trim());
+    if (parsed == null) {
+      return rawDate;
+    }
+
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
+  }
+
+  double _parseAmount(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+
+    if (value == null) {
+      return 0;
+    }
+
+    return double.tryParse(value.toString()) ?? 0;
   }
 }
 

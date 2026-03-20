@@ -419,7 +419,35 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                               break;
 
                             case 'active_booking':
-                              sectionWidget = const ActiveBookingBanner();
+                              if (section.items.isNotEmpty) {
+                                final booking =
+                                    section.items.first as Map<String, dynamic>;
+                                final bookingId =
+                                    booking['booking_id']?.toString() ??
+                                    booking['id']?.toString() ??
+                                    '';
+                                if (bookingId.isNotEmpty) {
+                                  sectionWidget = ActiveBookingBanner(
+                                    bookingId: bookingId,
+                                    status:
+                                        booking['status_label']?.toString() ??
+                                        section.title,
+                                    professionalName:
+                                        booking['professional_name']
+                                            ?.toString() ??
+                                        'Assigned professional',
+                                    imageUrl:
+                                        booking['professional_avatar']
+                                            ?.toString() ??
+                                        '',
+                                    progress:
+                                        (booking['progress'] is num)
+                                            ? (booking['progress'] as num)
+                                                .toDouble()
+                                            : 0.0,
+                                  );
+                                }
+                              }
                               break;
 
                             case 'trending_packages':

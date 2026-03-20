@@ -20,6 +20,12 @@ class ProfessionalBooking {
   final BookingStatus status;
   final String currentStep; // Added field
   final DateTime? serviceStartedAt;
+  final DateTime? acceptedAt;
+  final DateTime? assignedAt;
+  final DateTime? onTheWayAt;
+  final DateTime? arrivedAt;
+  final DateTime? completedAt;
+  final DateTime? cancelledAt;
   final double? lat;
   final double? lng;
   final String phone; // Customer's phone number for the Call button
@@ -35,6 +41,12 @@ class ProfessionalBooking {
     required this.status,
     this.currentStep = '', // Added to constructor
     this.serviceStartedAt,
+    this.acceptedAt,
+    this.assignedAt,
+    this.onTheWayAt,
+    this.arrivedAt,
+    this.completedAt,
+    this.cancelledAt,
     this.lat,
     this.lng,
     this.phone = '',
@@ -51,6 +63,12 @@ class ProfessionalBooking {
     BookingStatus? status,
     String? currentStep, // Added to copyWith
     DateTime? serviceStartedAt,
+    DateTime? acceptedAt,
+    DateTime? assignedAt,
+    DateTime? onTheWayAt,
+    DateTime? arrivedAt,
+    DateTime? completedAt,
+    DateTime? cancelledAt,
     double? lat,
     double? lng,
     String? phone,
@@ -66,6 +84,12 @@ class ProfessionalBooking {
       status: status ?? this.status,
       currentStep: currentStep ?? this.currentStep, // Added to copyWith return
       serviceStartedAt: serviceStartedAt ?? this.serviceStartedAt,
+      acceptedAt: acceptedAt ?? this.acceptedAt,
+      assignedAt: assignedAt ?? this.assignedAt,
+      onTheWayAt: onTheWayAt ?? this.onTheWayAt,
+      arrivedAt: arrivedAt ?? this.arrivedAt,
+      completedAt: completedAt ?? this.completedAt,
+      cancelledAt: cancelledAt ?? this.cancelledAt,
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       phone: phone ?? this.phone,
@@ -111,6 +135,12 @@ class ProfessionalBooking {
     status: BookingStatus.requested,
     currentStep: '', // Added to empty factory
     serviceStartedAt: null,
+    acceptedAt: null,
+    assignedAt: null,
+    onTheWayAt: null,
+    arrivedAt: null,
+    completedAt: null,
+    cancelledAt: null,
     lat: null,
     lng: null,
   );
@@ -174,11 +204,29 @@ class ProfessionalBooking {
       time: (json['slot'] ?? json['time'] ?? 'Asap').toString(),
       date: (json['booking_date'] ?? json['date'] ?? '').toString(),
       totalPrice: ParserUtil.safeParseDouble(json['price'] ?? json['total_price']),
-      address: (json['city'] ?? json['address'] ?? 'No address provided').toString(),
+      address: (json['address'] ?? json['city'] ?? 'No address provided').toString(),
       status: status,
       currentStep: (json['current_step'] ?? '').toString(), // Added to fromJson
       serviceStartedAt: json['service_started_at'] != null 
           ? DateTime.tryParse(json['service_started_at'].toString()) 
+          : null,
+      acceptedAt: json['accepted_at'] != null
+          ? DateTime.tryParse(json['accepted_at'].toString())
+          : null,
+      assignedAt: json['assigned_at'] != null
+          ? DateTime.tryParse(json['assigned_at'].toString())
+          : null,
+      onTheWayAt: json['on_the_way_at'] != null
+          ? DateTime.tryParse(json['on_the_way_at'].toString())
+          : null,
+      arrivedAt: json['arrived_at'] != null
+          ? DateTime.tryParse(json['arrived_at'].toString())
+          : null,
+      completedAt: json['completed_at'] != null
+          ? DateTime.tryParse(json['completed_at'].toString())
+          : null,
+      cancelledAt: json['cancelled_at'] != null
+          ? DateTime.tryParse(json['cancelled_at'].toString())
           : null,
       lat: ParserUtil.safeParseDouble(json['lat']),
       lng: ParserUtil.safeParseDouble(json['lng']),

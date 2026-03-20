@@ -1,12 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bellavella/core/utils/toast_util.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/services/api_service.dart';
-import '../../../../core/models/data_models.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 
 class LiveTrackingScreen extends StatefulWidget {
   final String bookingId;
@@ -17,359 +13,148 @@ class LiveTrackingScreen extends StatefulWidget {
 }
 
 class _LiveTrackingScreenState extends State<LiveTrackingScreen> {
-  // Mocking status updates
-  BookingStatus _currentStatus = BookingStatus.onTheWay;
-  final String _arrivalCode = "1234"; // Mock code for physical verification
-  final _paymentConfirmController = TextEditingController();
-
-  Timer? _timer;
-  GoogleMapController? _mapController;
-  LatLng? _proLocation;
-  bool _isTrackingAvailable = true;
-  final LatLng _clientLocation = const LatLng(23.0200, 72.5700); // Mock client location
+  bool _isLoading = true;
+  String? _errorMessage;
+  Booking? _booking;
 
   @override
   void initState() {
     super.initState();
-    _fetchLocation();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _fetchLocation());
+    _loadBooking();
   }
 
-  Future<void> _fetchLocation() async {
-    try {
-      final response = await ApiService.get('/client/bookings/${widget.bookingId}/tracking');
+  Future<void> _loadBooking() async {
+    final response = await ApiService.get('/client/bookings/${widget.bookingId}');
 
-      if (response['success'] == true) {
-        final data = response['data'] ?? {};
-        if (data['professional_lat'] != null && data['professional_lng'] != null) {
-          final lat = double.tryParse(data['professional_lat'].toString());
-          final lng = double.tryParse(data['professional_lng'].toString());
-          if (lat != null && lng != null) {
-            if (mounted) {
-              setState(() {
-                _proLocation = LatLng(lat, lng);
-                _isTrackingAvailable = true;
-              });
-              _mapController?.animateCamera(CameraUpdate.newLatLng(_proLocation!));
-            }
-            return;
-          }
-        }
-      }
-      
-      if (mounted) {
-        setState(() => _isTrackingAvailable = false);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isTrackingAvailable = false);
-      }
+    if (!mounted) return;
+
+    if (response['success'] == true) {
+      setState(() {
+        _booking = Booking.fromJson(response['data'] ?? {});
+        _errorMessage = null;
+        _isLoading = false;
+      });
+      return;
     }
-  }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _paymentConfirmController.dispose();
-    _mapController?.dispose();
-    super.dispose();
-  }
-
-  void _showPaymentEntryDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text('Payment Confirmation', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter the code shown on the professional\'s app to confirm payment.'),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _paymentConfirmController,
-              keyboardType: TextInputType.number,
-              maxLength: 4,
-              decoration: InputDecoration(
-                hintText: '4-digit Code',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              if (_paymentConfirmController.text == "1234") { // Mock check
-                Navigator.pop(context);
-                context.go('/client/home');
-                ToastUtil.showSuccess(context, 'Payment Confirmed! Service Completed.');
-              } else {
-                ToastUtil.showError(context, 'Invalid Code');
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+    setState(() {
+      _errorMessage = response['message']?.toString() ?? 'Unable to load booking.';
+      _isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Live Tracking', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        centerTitle: true,
+        title: const Text('Track Professional'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
           onPressed: () => context.pop(),
         ),
       ),
-      body: Stack(
-        children: [
-          // Mock Map Area
-          // Map Area
-          if (!_isTrackingAvailable)
-            Container(
-              color: Colors.grey.shade100,
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.location_off_outlined, size: 80, color: Colors.grey),
-                    SizedBox(height: 16),
-                    Text('Tracking unavailable', style: TextStyle(color: Colors.grey, fontSize: 18, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 120), // padding for bottom sheet
-                  ],
-                ),
-              ),
+      body: _isLoading
+          ? Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
             )
-          else
-            GoogleMap(
-              initialCameraPosition: CameraPosition(
-                target: _proLocation ?? _clientLocation,
-                zoom: 14.0,
-              ),
-              onMapCreated: (controller) => _mapController = controller,
-              markers: {
-                if (_proLocation != null)
-                  Marker(
-                    markerId: const MarkerId('pro'),
-                    position: _proLocation!,
-                    icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
-                    infoWindow: const InfoWindow(title: 'Professional'),
+          : _errorMessage != null
+              ? Center(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AppTheme.errorColor),
                   ),
-                Marker(
-                  markerId: const MarkerId('client'),
-                  position: _clientLocation,
-                  icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-                  infoWindow: const InfoWindow(title: 'You'),
-                ),
-              },
-              myLocationEnabled: false,
-              zoomControlsEnabled: false,
+                )
+              : _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    final booking = _booking;
+    final professional = booking?.professional;
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppTheme.secondaryColor),
             ),
-          
-          // Bottom Info Sheet
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.location_searching_rounded,
+                  size: 48,
+                  color: AppTheme.primaryColor,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Live tracking will appear here.',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  booking?.canTrackProfessional == true
+                      ? 'Tracking is enabled for this booking, but the live map rollout is not active yet.'
+                      : 'Tracking is not currently available for this booking.',
+                  style: const TextStyle(color: AppTheme.greyText),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (professional != null && professional.id.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, -5)),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildTrackInfo(),
-                  const Divider(height: 48),
-                  _buildProfessionalCard(),
-                  const SizedBox(height: 32),
-                  if (_currentStatus == BookingStatus.onTheWay)
-                    _buildArrivalCodeSection(),
-                  if (_currentStatus == BookingStatus.arrived || _currentStatus == BookingStatus.inProgress)
-                    ElevatedButton(
-                      onPressed: _showPaymentEntryDialog,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('Verify Payment (Offline)', style: TextStyle(color: Colors.white)),
-                    ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ),
-
-          // STATUS SIMULATOR (MOCK) - Moved to top layer
-          Positioned(
-            top: 20,
-            left: 20,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.8),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppTheme.secondaryColor),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildSimBtn('On Way', BookingStatus.onTheWay),
-                  _buildSimBtn('Arrived', BookingStatus.arrived),
-                  _buildSimBtn('Started', BookingStatus.inProgress),
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundImage: professional.photoUrl.isNotEmpty
+                        ? NetworkImage(professional.photoUrl)
+                        : null,
+                    child: professional.photoUrl.isEmpty
+                        ? const Icon(Icons.person_rounded)
+                        : null,
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          professional.name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          professional.phone.isEmpty
+                              ? 'Professional assigned'
+                              : professional.phone,
+                          style: const TextStyle(color: AppTheme.greyText),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTrackInfo() {
-    String statusText = "Professional is on the way";
-    String timeText = "Arriving in 8 mins";
-    IconData statusIcon = Icons.directions_bike;
-
-    if (_currentStatus == BookingStatus.arrived) {
-      statusText = "Professional has reached!";
-      timeText = "Ready to start";
-      statusIcon = Icons.location_on;
-    }
-
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(statusIcon, color: AppTheme.primaryColor),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(statusText, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18)),
-              Text(timeText, style: TextStyle(color: Colors.grey.shade600)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProfessionalCard() {
-    return Row(
-      children: [
-        const CircleAvatar(
-          radius: 28,
-          backgroundImage: NetworkImage('https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200'),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Elena Smith', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16)),
-              const Row(
-                children: [
-                  Icon(Icons.star, color: Colors.orange, size: 14),
-                  SizedBox(width: 4),
-                  Text('4.9 • Super Pro', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-            ],
-          ),
-        ),
-        _buildActionBtn(Icons.call_rounded, () {}),
-        const SizedBox(width: 12),
-        _buildActionBtn(Icons.chat_bubble_outline_rounded, () {}),
-      ],
-    );
-  }
-
-  Widget _buildActionBtn(IconData icon, VoidCallback onTap) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: AppTheme.accentColor, size: 20),
-        onPressed: onTap,
-      ),
-    );
-  }
-
-  Widget _buildArrivalCodeSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          const Text('Verification Code', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text(
-            _arrivalCode,
-            style: GoogleFonts.outfit(
-              fontSize: 32,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 8,
-              color: AppTheme.accentColor,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Show this code to the professional on arrival',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSimBtn(String label, BookingStatus status) {
-    final isSelected = _currentStatus == status;
-    return GestureDetector(
-      onTap: () => setState(() => _currentStatus = status),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.white.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
       ),
     );
   }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:bellavella/core/services/api_service.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
-import '../../../../core/widgets/base_widgets.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
+import 'package:bellavella/core/widgets/base_widgets.dart';
+import 'package:bellavella/features/client/booking/widgets/slot_picker_bottom_sheet.dart';
 
 class BookingStatusScreen extends StatefulWidget {
   final String bookingId;
@@ -14,8 +17,14 @@ class BookingStatusScreen extends StatefulWidget {
 
 class _BookingStatusScreenState extends State<BookingStatusScreen> {
   bool _isLoading = true;
+  bool _isRescheduling = false;
+  bool _isCancelling = false;
   String? _errorMessage;
-  Map<String, dynamic>? _bookingInfo;
+  Booking? _booking;
+
+  void _goToMyBookings() {
+    context.go('/client/my-bookings');
+  }
 
   @override
   void initState() {
@@ -25,12 +34,11 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
 
   Future<void> _fetchStatus() async {
     if (widget.bookingId.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Invalid booking ID';
-          _isLoading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Invalid booking ID';
+        _isLoading = false;
+      });
       return;
     }
 
@@ -38,145 +46,422 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
       final response = await ApiService.get('/client/bookings/${widget.bookingId}');
 
       if (response['success'] == true) {
-        if (mounted) {
-          setState(() {
-            _bookingInfo = response['data'] ?? {};
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _errorMessage = response['message'] ?? 'Failed to load status';
-            if (response['message'] == 'Unauthenticated.' ||
-                response['_auth_expired'] == true) {
-              _errorMessage = ApiService.sessionExpiredMessage;
-            }
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      if (mounted) {
+        if (!mounted) return;
         setState(() {
-          _errorMessage = 'Error: $e';
+          _booking = Booking.fromJson(response['data'] ?? {});
+          _errorMessage = null;
           _isLoading = false;
         });
+        return;
       }
+
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = response['message']?.toString() ?? 'Failed to load booking';
+        if (response['message'] == 'Unauthenticated.' ||
+            response['_auth_expired'] == true) {
+          _errorMessage = ApiService.sessionExpiredMessage;
+        }
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Error: $e';
+        _isLoading = false;
+      });
     }
+  }
+
+  Future<void> _cancelBooking() async {
+    if (_booking == null || _isCancelling) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Booking'),
+        content: const Text('This booking will be cancelled immediately.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep Booking'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel Booking'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    final response = await ApiService.post(
+      '/client/bookings/${widget.bookingId}/cancel',
+      <String, dynamic>{},
+    );
+
+    if (!mounted) return;
+    setState(() => _isCancelling = false);
+
+    if (response['success'] == true) {
+      ToastUtil.showSuccess(
+        context,
+        response['message']?.toString() ?? 'Booking cancelled.',
+      );
+      await _fetchStatus();
+      return;
+    }
+
+    ToastUtil.showError(
+      context,
+      response['message']?.toString() ?? 'Unable to cancel booking.',
+    );
+  }
+
+  Future<void> _openRescheduleSheet() async {
+    final booking = _booking;
+    if (booking == null || !booking.canReschedule || _isRescheduling) {
+      return;
+    }
+
+    final availableDates = List<DateTime>.generate(
+      8,
+      (index) => DateTime.now().add(Duration(days: index)),
+    );
+    final selection = await SlotPickerBottomSheet.show(
+      context: context,
+      title: 'Reschedule Booking',
+      subtitle: booking.rescheduleCutoffAt == null
+          ? 'Select a new date and time. You can reschedule only once.'
+          : 'Available until ${_formatDateTime(booking.rescheduleCutoffAt!)}. You can reschedule only once.',
+      dates: availableDates,
+      confirmLabel: 'Continue',
+    );
+
+    if (selection == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Reschedule'),
+        content: Text(
+          'Change booking to ${_formatDate(selection.date)} at ${selection.timeLabel}?\n\nYou can reschedule this booking only once.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Go Back'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRescheduling = true);
+    final response = await ApiService.post(
+      '/client/bookings/${widget.bookingId}/reschedule',
+      <String, dynamic>{
+          'new_date': _formatApiDate(selection.date),
+        'new_time_slot': selection.timeLabel,
+      },
+    );
+
+    if (!mounted) return;
+    setState(() => _isRescheduling = false);
+
+    if (response['success'] == true) {
+      ToastUtil.showSuccess(
+        context,
+        response['message']?.toString() ?? 'Booking rescheduled successfully.',
+      );
+      await _fetchStatus();
+      return;
+    }
+
+    ToastUtil.showError(
+      context,
+      response['message']?.toString() ?? 'Unable to reschedule booking.',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Booking Status'),
+        title: const Text('View Status'),
         leading: IconButton(
           icon: const Icon(Icons.close),
-          onPressed: () => context.go('/client/home'),
+          onPressed: _goToMyBookings,
         ),
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppTheme.primaryColor))
+          ? Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryColor),
+            )
           : _errorMessage != null
-              ? Center(child: Text(_errorMessage!, style: const TextStyle(color: AppTheme.errorColor)))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    children: [
-                      _buildStatusHeader(context),
-                      const SizedBox(height: 48),
-                      _buildTimeline(),
-                      const SizedBox(height: 48),
-                      _buildProfessionalInfo(context),
-                      const SizedBox(height: 32),
-                      PrimaryButton(
-                        label: 'Track Professional',
-                        onPressed: () => context.push('/client/live-tracking/${widget.bookingId}'),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => context.go('/client/home'),
-                        style: OutlinedButton.styleFrom(
-                          minimumSize: const Size(double.infinity, 56),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        child: const Text('Back to Home'),
-                      ),
-                    ],
+              ? Center(
+                  child: Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AppTheme.errorColor),
                   ),
-                ),
+                )
+              : _booking == null
+                  ? const SizedBox.shrink()
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildStatusHeader(_booking!),
+                          const SizedBox(height: 32),
+                          _buildScheduleCard(_booking!),
+                          const SizedBox(height: 32),
+                          _buildTimeline(_booking!),
+                          const SizedBox(height: 32),
+                          if (_booking!.status != BookingStatus.cancelled) ...[
+                            _buildProfessionalInfo(_booking!),
+                            const SizedBox(height: 24),
+                          ],
+                          if (_booking!.canTrackProfessional)
+                            PrimaryButton(
+                              label: 'Track Professional',
+                              onPressed: () => context.push(
+                                '/client/live-tracking/${widget.bookingId}',
+                              ),
+                            ),
+                          if (_booking!.canTrackProfessional)
+                            const SizedBox(height: 12),
+                          if (_booking!.canReschedule)
+                            SecondaryButton(
+                              label: 'Reschedule',
+                              onPressed: _isRescheduling ? null : _openRescheduleSheet,
+                              isLoading: _isRescheduling,
+                            ),
+                          if (_booking!.canReschedule)
+                            const SizedBox(height: 12),
+                          if (_booking!.canCancel)
+                            OutlinedButton(
+                              onPressed: _isCancelling ? null : _cancelBooking,
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(double.infinity, 50),
+                                foregroundColor: AppTheme.errorColor,
+                                side: const BorderSide(color: AppTheme.errorColor),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: _isCancelling
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    )
+                                  : const Text('Cancel Booking'),
+                            ),
+                          if (_booking!.canCancel)
+                            const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: _goToMyBookings,
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(double.infinity, 56),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text('Back to My Bookings'),
+                          ),
+                        ],
+                      ),
+                    ),
     );
   }
 
-  Widget _buildStatusHeader(BuildContext context) {
-    final statusStr = _bookingInfo?['status']?.toString().toLowerCase() ?? 'pending';
-    String titleStr = 'Booking Confirmed!';
-    if (statusStr == 'pending') titleStr = 'Booking Requested';
-    if (statusStr == 'completed') titleStr = 'Booking Completed!';
-    if (statusStr == 'cancelled') titleStr = 'Booking Cancelled';
-
-    final time = _bookingInfo?['booking_time']?.toString() ?? '--:--';
+  Widget _buildStatusHeader(Booking booking) {
+    final isCancelled = booking.status == BookingStatus.cancelled;
 
     return Column(
       children: [
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: statusStr == 'cancelled' ? Colors.red.shade50 : Colors.green.shade50,
+            color: isCancelled ? Colors.red.shade50 : Colors.green.shade50,
             shape: BoxShape.circle,
           ),
-          child: Icon(statusStr == 'cancelled' ? Icons.cancel_rounded : Icons.check_circle_rounded, 
-             color: statusStr == 'cancelled' ? Colors.red : Colors.green, size: 48),
+          child: Icon(
+            isCancelled ? Icons.cancel_rounded : Icons.check_circle_rounded,
+            color: isCancelled ? Colors.red : Colors.green,
+            size: 48,
+          ),
         ),
         const SizedBox(height: 16),
         Text(
-          titleStr,
+          _statusHeadline(booking),
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
         ),
         const SizedBox(height: 8),
         Text(
-          'Scheduled for $time',
+          booking.bookingTime.isEmpty
+              ? _formatDate(booking.dateTime)
+              : '${_formatDate(booking.dateTime)} at ${booking.bookingTime}',
           style: TextStyle(color: Colors.grey.shade600),
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
-  int _getStatusLevel(String status) {
-    switch (status) {
-      case 'pending': return 1;
-      case 'accepted': return 2;
-      case 'on the way':
-      case 'professional on the way': return 3;
-      case 'service started':
-      case 'started': return 4;
-      case 'completed': return 5;
-      default: return 1;
-    }
+  Widget _buildScheduleCard(Booking booking) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.secondaryColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Schedule',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 10),
+              Text(_formatDate(booking.dateTime)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.access_time_rounded, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 10),
+              Text(booking.bookingTime.isEmpty ? 'Slot pending' : booking.bookingTime),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
-  Widget _buildTimeline() {
-    final statusStr = _bookingInfo?['status']?.toString().toLowerCase() ?? 'pending';
-    if (statusStr == 'cancelled') {
-        return const Center(child: Text('This booking was cancelled.'));
+  Widget _buildTimeline(Booking booking) {
+    if (booking.status == BookingStatus.cancelled) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Lifecycle',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 16),
+          _TimelineItem(
+            title: 'Requested',
+            time: _formatOptionalDateTime(booking.requestedAt),
+            state: _TimelineState.completed,
+            isFirst: true,
+          ),
+          _TimelineItem(
+            title: 'Cancelled',
+            time: _formatOptionalDateTime(booking.cancelledAt),
+            state: _TimelineState.current,
+            isLast: true,
+          ),
+        ],
+      );
     }
-    
-    final level = _getStatusLevel(statusStr);
-    final timeStr = _bookingInfo?['booking_time']?.toString() ?? '--:--';
+
+    final steps = <_TimelineStep>[
+      _TimelineStep(
+        title: 'Requested',
+        timestamp: booking.requestedAt,
+        isReached: booking.requestedAt != null,
+      ),
+      _TimelineStep(
+        title: 'Accepted',
+        timestamp: booking.acceptedAt ?? booking.assignedAt,
+        isReached: booking.acceptedAt != null || booking.assignedAt != null,
+      ),
+      _TimelineStep(
+        title: 'On the Way',
+        timestamp: booking.onTheWayAt,
+        isReached: booking.onTheWayAt != null,
+      ),
+      _TimelineStep(
+        title: 'Started',
+        timestamp: booking.startedAt,
+        isReached: booking.startedAt != null,
+      ),
+      _TimelineStep(
+        title: 'Completed',
+        timestamp: booking.completedAt,
+        isReached: booking.completedAt != null,
+      ),
+    ];
+
+    final firstPendingIndex = steps.indexWhere((step) => !step.isReached);
+    final activeIndex = firstPendingIndex == -1 ? steps.length - 1 : firstPendingIndex;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _TimelineItem(title: 'Requested', time: timeStr, isCompleted: level > 1, isActive: level == 1, isFirst: true),
-        _TimelineItem(title: 'Accepted', time: '--:--', isCompleted: level > 2, isActive: level == 2),
-        _TimelineItem(title: 'On the way', time: '--:--', isCompleted: level > 3, isActive: level == 3),
-        _TimelineItem(title: 'Started', time: '--:--', isCompleted: level > 4, isActive: level == 4),
-        _TimelineItem(title: 'Completed', time: '--:--', isCompleted: level >= 5, isActive: level == 5, isLast: true),
+        const Text(
+          'Lifecycle',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 16),
+        for (var index = 0; index < steps.length; index++)
+          _TimelineItem(
+            title: steps[index].title,
+            time: _formatOptionalDateTime(steps[index].timestamp),
+            state: steps[index].isReached
+                ? (index == activeIndex && booking.completedAt == null
+                    ? _TimelineState.current
+                    : _TimelineState.completed)
+                : (index == activeIndex
+                    ? _TimelineState.current
+                    : _TimelineState.upcoming),
+            isFirst: index == 0,
+            isLast: index == steps.length - 1,
+          ),
       ],
     );
   }
 
-  Widget _buildProfessionalInfo(BuildContext context) {
+  Widget _buildProfessionalInfo(Booking booking) {
+    final professional = booking.professional;
+
+    if (professional == null || professional.id.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.secondaryColor),
+        ),
+        child: const Text(
+          'Waiting for professional assignment.',
+          style: TextStyle(fontSize: 14, color: Colors.grey),
+        ),
+      );
+    }
+
+    final subtitleParts = <String>[
+      if ((professional.city ?? '').isNotEmpty) professional.city!,
+      if (professional.rating > 0) professional.rating.toStringAsFixed(1),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -186,53 +471,135 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 28,
-            backgroundImage: NetworkImage('https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=200'),
+            backgroundImage: professional.photoUrl.isNotEmpty
+                ? NetworkImage(professional.photoUrl)
+                : null,
+            child: professional.photoUrl.isEmpty
+                ? const Icon(Icons.person_rounded)
+                : null,
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Elena Smith', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text('Pro Beautician • 4.9 ★', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  professional.name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  subtitleParts.isEmpty
+                      ? 'Professional assigned'
+                      : subtitleParts.join(' - '),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: professional.phone.isNotEmpty ? () {} : null,
             icon: Icon(Icons.call_rounded, color: AppTheme.primaryColor),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Icons.chat_bubble_outline_rounded, color: AppTheme.primaryColor),
           ),
         ],
       ),
     );
   }
+
+  String _statusHeadline(Booking booking) {
+    switch (booking.status) {
+      case BookingStatus.completed:
+        return 'Booking Completed';
+      case BookingStatus.cancelled:
+        return 'Booking Cancelled';
+      case BookingStatus.inProgress:
+        return 'Service In Progress';
+      case BookingStatus.onTheWay:
+        return 'Professional On The Way';
+      case BookingStatus.accepted:
+      case BookingStatus.assigned:
+        return 'Booking Accepted';
+      default:
+        return 'Booking Requested';
+    }
+  }
+
+  static String _formatDate(DateTime value) {
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${value.day} ${months[value.month - 1]} ${value.year}';
+  }
+
+  static String _formatDateTime(DateTime value) {
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final meridiem = value.hour >= 12 ? 'PM' : 'AM';
+    return '${_formatDate(value)} $hour:$minute $meridiem';
+  }
+
+  static String _formatApiDate(DateTime value) {
+    return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+
+  static String? _formatOptionalDateTime(DateTime? value) {
+    if (value == null) {
+      return null;
+    }
+
+    return _formatDateTime(value);
+  }
 }
+
+class _TimelineStep {
+  final String title;
+  final DateTime? timestamp;
+  final bool isReached;
+
+  const _TimelineStep({
+    required this.title,
+    required this.timestamp,
+    required this.isReached,
+  });
+}
+
+enum _TimelineState { completed, current, upcoming }
 
 class _TimelineItem extends StatelessWidget {
   final String title;
-  final String time;
-  final bool isCompleted;
-  final bool isActive;
+  final String? time;
+  final _TimelineState state;
   final bool isFirst;
   final bool isLast;
 
   const _TimelineItem({
     required this.title,
     required this.time,
-    this.isCompleted = false,
-    this.isActive = false,
+    required this.state,
     this.isFirst = false,
     this.isLast = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isCompleted = state == _TimelineState.completed;
+    final isCurrent = state == _TimelineState.current;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -242,34 +609,52 @@ class _TimelineItem extends StatelessWidget {
               width: 24,
               height: 24,
               decoration: BoxDecoration(
-                color: isCompleted ? Colors.green : (isActive ? AppTheme.primaryColor : Colors.grey.shade300),
+                color: isCompleted
+                    ? Colors.green
+                    : (isCurrent ? AppTheme.primaryColor : Colors.grey.shade300),
                 shape: BoxShape.circle,
-                border: isActive ? Border.all(color: AppTheme.primaryColor.withOpacity(0.3), width: 4) : null,
+                border: isCurrent
+                    ? Border.all(
+                        color: AppTheme.primaryColor.withOpacity(0.25),
+                        width: 4,
+                      )
+                    : null,
               ),
-              child: isCompleted ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+              child: isCompleted
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
             ),
             if (!isLast)
               Container(
                 width: 2,
-                height: 40,
+                height: 44,
                 color: isCompleted ? Colors.green : Colors.grey.shade200,
               ),
           ],
         ),
         const SizedBox(width: 20),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isActive || isCompleted ? AppTheme.accentColor : Colors.grey,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isCompleted || isCurrent
+                        ? AppTheme.accentColor
+                        : Colors.grey,
+                  ),
                 ),
-              ),
-              Text(time, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-            ],
+                if (time != null)
+                  Text(
+                    time!,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+              ],
+            ),
           ),
         ),
       ],

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
-import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 
 class ProfessionalActiveJobScreen extends StatefulWidget {
   final ProfessionalBooking? booking;
@@ -27,7 +26,6 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
         await ProfessionalApiService.jobComplete(booking.id);
       }
       if (mounted) {
-        // Clear the job from the controller — dashboard card disappears instantly
         DashboardController.instance.clearJob();
         context.go(AppRoutes.proDashboard);
       }
@@ -45,8 +43,13 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
   Widget build(BuildContext context) {
     final booking = widget.booking ?? DashboardController.instance.activeJob;
 
-    return Scaffold(
+    if (booking == null) {
+      return const Scaffold(
+        body: Center(child: Text('No active job')),
+      );
+    }
 
+    return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -59,7 +62,7 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
         title: Column(
           children: [
             Text(
-              "Active Job",
+              'Active Job',
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -67,20 +70,13 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
               ),
             ),
             const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.circle, size: 6, color: Colors.green),
-                const SizedBox(width: 4),
-                Text(
-                  "In Progress",
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green.shade600,
-                  ),
-                ),
-              ],
+            Text(
+              _statusLabel(booking.status),
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.primaryColor,
+              ),
             ),
           ],
         ),
@@ -89,18 +85,18 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
         child: Stack(
           children: [
             SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(24, 8, 24, 120),
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 120),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 2️⃣ Active Job Header Section
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Column(
                       children: [
                         Text(
-                          'Nikhil Sharma',
+                          booking.clientName,
+                          textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
@@ -109,7 +105,8 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Classic Haircut + Beard Styling',
+                          booking.serviceName,
+                          textAlign: TextAlign.center,
                           style: GoogleFonts.inter(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
@@ -118,7 +115,7 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Job ID: #BV-8821',
+                          'Job ID: #${booking.id}',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -128,186 +125,39 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 12),
-
-                  // 3️⃣ Job Timer Section
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          '00:12:35',
-                          style: GoogleFonts.inter(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.black87,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "Service in progress",
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // 4️⃣ Customer Details Card
-                  Text(
-                    "Customer Details",
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87,
-                    ),
+                  _summaryCard(
+                    title: 'Schedule',
+                    value: '${booking.date} at ${booking.time}',
+                    icon: Icons.calendar_today_rounded,
                   ),
                   const SizedBox(height: 16),
-                  Container(
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.grey.shade100),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.location_on_rounded, size: 20, color: Colors.blue),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Address',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.grey.shade500,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Flat 204, Sunrise Apts, Baner, Pune',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: () {},
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.green.shade50,
-                                foregroundColor: Colors.green.shade700,
-                                padding: EdgeInsets.all(12),
-                              ),
-                              icon: const Icon(Icons.phone_rounded, size: 20),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.notes_rounded, size: 16, color: Colors.grey.shade400),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  "Please use the side entrance. Doorbell is slightly broken, try knocking if no answer.",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade600,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // 5️⃣ Service Checklist Section
-                  Text(
-                    "Service Checklist",
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black87,
-                    ),
+                  _summaryCard(
+                    title: 'Service Location',
+                    value: booking.address,
+                    icon: Icons.location_on_rounded,
                   ),
                   const SizedBox(height: 16),
-                  _checklistItem("Classic Haircut", true),
-                  _checklistItem("Beard Trimming & Shaping", true),
-                  _checklistItem("Hair Wash & Conditioning", false),
-                  _checklistItem("Post-service Cleanup", false),
-
-                  const SizedBox(height: 32),
-
-                  // 7️⃣ Secondary Action
-                  Center(
-                    child: TextButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.report_problem_outlined, size: 16),
-                      label: Text(
-                        "Report Issue",
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.red.shade600,
-                        ),
-                      ),
-                    ),
+                  _summaryCard(
+                    title: 'Customer Contact',
+                    value: booking.phone.isEmpty ? 'Not available' : booking.phone,
+                    icon: Icons.call_rounded,
+                  ),
+                  const SizedBox(height: 16),
+                  _summaryCard(
+                    title: 'Current Step',
+                    value: booking.currentStep.isEmpty ? _statusLabel(booking.status) : booking.currentStep,
+                    icon: Icons.fact_check_outlined,
                   ),
                 ],
               ),
             ),
-
-            // 6️⃣ Primary Action Button
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: Container(
-                padding: EdgeInsets.fromLTRB(24, 20, 24, 32),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   boxShadow: [
@@ -325,14 +175,18 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.black,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(vertical: 20),
+                      padding: const EdgeInsets.symmetric(vertical: 20),
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     child: _isCompleting
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
                         : Text(
-                            "Complete Job",
+                            'Complete Job',
                             style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
                           ),
                   ),
@@ -345,49 +199,80 @@ class _ProfessionalActiveJobScreenState extends State<ProfessionalActiveJobScree
     );
   }
 
-  Widget _checklistItem(String title, bool isDone) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 12),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: isDone ? Colors.green.withValues(alpha: 0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDone ? Colors.green.withValues(alpha: 0.1) : Colors.grey.shade100,
+  Widget _summaryCard({
+    required String title,
+    required String value,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 20, color: AppTheme.primaryColor),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isDone ? Colors.green : Colors.grey.shade300,
-                  width: 2,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500,
+                  ),
                 ),
-                color: isDone ? Colors.green : Colors.transparent,
-              ),
-              child: Icon(
-                Icons.check_rounded,
-                size: 14,
-                color: isDone ? Colors.white : Colors.transparent,
-              ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: isDone ? FontWeight.w700 : FontWeight.w500,
-                color: isDone ? Colors.black87 : Colors.grey.shade600,
-                decoration: isDone ? TextDecoration.lineThrough : null,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  String _statusLabel(BookingStatus status) {
+    switch (status) {
+      case BookingStatus.accepted:
+        return 'Accepted';
+      case BookingStatus.onTheWay:
+        return 'On the way';
+      case BookingStatus.arrived:
+      case BookingStatus.scanKit:
+        return 'At location';
+      case BookingStatus.inProgress:
+        return 'In progress';
+      case BookingStatus.paymentPending:
+        return 'Awaiting payment';
+      case BookingStatus.completed:
+        return 'Completed';
+      case BookingStatus.cancelled:
+        return 'Cancelled';
+      case BookingStatus.assigned:
+        return 'Assigned';
+      default:
+        return 'Requested';
+    }
   }
 }

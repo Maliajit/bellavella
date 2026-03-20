@@ -3,21 +3,19 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 
 class ActiveBookingBanner extends StatelessWidget {
+  final String bookingId;
   final String status;
   final String professionalName;
-  final String distance;
-  final String eta;
   final String imageUrl;
   final double progress;
 
   const ActiveBookingBanner({
     super.key,
-    this.status = 'Live Tracker 📍',
-    this.professionalName = 'Elena',
-    this.distance = '1.2km away',
-    this.eta = '4 min',
-    this.imageUrl = 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=200',
-    this.progress = 0.75,
+    required this.bookingId,
+    this.status = 'View Status',
+    this.professionalName = 'Assigned professional',
+    this.imageUrl = '',
+    this.progress = 0.0,
   });
 
   @override
@@ -25,7 +23,7 @@ class ActiveBookingBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: InkWell(
-        onTap: () => context.push('/client/booking-status'),
+        onTap: () => context.push('/client/booking-status/$bookingId'),
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -45,7 +43,7 @@ class ActiveBookingBanner extends StatelessWidget {
               Stack(
                 alignment: Alignment.center,
                 children: [
-                   SizedBox(
+                  SizedBox(
                     width: 55,
                     height: 55,
                     child: CircularProgressIndicator(
@@ -57,8 +55,9 @@ class ActiveBookingBanner extends StatelessWidget {
                   ),
                   CircleAvatar(
                     radius: 22,
-                    backgroundImage: NetworkImage(imageUrl),
+                    backgroundImage: imageUrl.isNotEmpty ? NetworkImage(imageUrl) : null,
                     backgroundColor: Colors.grey.shade200,
+                    child: imageUrl.isEmpty ? const Icon(Icons.person_rounded) : null,
                   ),
                 ],
               ),
@@ -77,27 +76,13 @@ class ActiveBookingBanner extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$professionalName is $distance',
+                      professionalName,
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  eta,
-                  style: TextStyle(
-                    color: AppTheme.primaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
+              Icon(Icons.chevron_right_rounded, color: AppTheme.primaryColor),
             ],
           ),
         ),

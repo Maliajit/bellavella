@@ -100,7 +100,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppTheme.accentColor),
+            icon: Icon(Icons.arrow_back, color: AppTheme.accentColor),
             onPressed: () => context.go('/client/home'),
           ),
           title: const Text(
@@ -201,9 +201,19 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
 
         final List<Map<String, String>> services = [];
         if (booking['service'] != null) {
+          final serviceName =
+              booking['display_name']?.toString() ??
+              booking['variant_name']?.toString() ??
+              booking['service_name']?.toString() ??
+              booking['service']['name']?.toString() ??
+              'Unknown Service';
+          final servicePrice =
+              booking['display_price']?.toString() ??
+              booking['service']['price']?.toString() ??
+              '0';
           services.add({
-            'name': booking['service']['name']?.toString() ?? 'Unknown Service',
-            'price': booking['service']['price']?.toString() ?? '0',
+            'name': serviceName,
+            'price': servicePrice,
             'qty': '1',
           });
         } else if (booking['package_snapshot'] != null ||
@@ -214,8 +224,9 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
             ),
           );
           services.add({
-            'name': package.title,
-            'price': (package.displayPrice ?? 0).toString(),
+            'name': booking['display_name']?.toString() ?? package.title,
+            'price': (booking['display_price'] ?? package.displayPrice ?? 0)
+                .toString(),
             'qty': '1',
           });
         }
@@ -226,7 +237,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
           status: displayStatus,
           statusColor: statusColor,
           statusBgColor: statusBgColor,
-          date: booking['booking_date']?.toString() ?? 'N/A',
+          date: _formatBookingDate(booking['booking_date']?.toString()),
           time: booking['booking_time']?.toString() ?? 'N/A',
           services: services,
           total: booking['total_amount']?.toString() ?? '0',
@@ -390,38 +401,43 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _showCancelConfirmation(context),
-                          icon: const Icon(Icons.cancel_outlined, size: 18),
-                          label: const Text('Cancel Booking'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor,
-                            side: BorderSide(color: AppTheme.primaryColor),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          ).copyWith(
-                            overlayColor: WidgetStateProperty.resolveWith<Color?>(
-                              (Set<WidgetState> states) {
-                                if (states.contains(WidgetState.hovered)) {
-                                  return AppTheme.primaryColor.withOpacity(0.04);
-                                }
-                                if (states.contains(WidgetState.focused) || states.contains(WidgetState.pressed)) {
-                                  return AppTheme.primaryColor.withOpacity(0.12);
-                                }
-                                return null;
-                              },
+                      if (bookingData['can_cancel'] == true)
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _showCancelConfirmation(
+                              context,
+                              bookingData['id']?.toString() ?? '',
+                            ),
+                            icon: const Icon(Icons.cancel_outlined, size: 18),
+                            label: const Text('Cancel Booking'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: BorderSide(color: AppTheme.primaryColor),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            ).copyWith(
+                              overlayColor: WidgetStateProperty.resolveWith<Color?>(
+                                (Set<WidgetState> states) {
+                                  if (states.contains(WidgetState.hovered)) {
+                                    return AppTheme.primaryColor.withOpacity(0.04);
+                                  }
+                                  if (states.contains(WidgetState.focused) || states.contains(WidgetState.pressed)) {
+                                    return AppTheme.primaryColor.withOpacity(0.12);
+                                  }
+                                  return null;
+                                },
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
+                      if (bookingData['can_cancel'] == true)
+                        const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => context.push('/client/booking-status/${bookingData['id']}'),
-                          icon: const Icon(Icons.directions_bike_outlined, size: 18),
-                          label: const Text('Track Professional'),
+                          icon: const Icon(Icons.fact_check_outlined, size: 18),
+                          label: const Text('View Status'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primaryColor,
                             foregroundColor: Colors.white,
@@ -555,7 +571,35 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
     );
   }
 
-  void _showCancelConfirmation(BuildContext context) {
+  String _formatBookingDate(String? rawDate) {
+    if (rawDate == null || rawDate.trim().isEmpty) {
+      return 'N/A';
+    }
+
+    final parsed = DateTime.tryParse(rawDate.trim());
+    if (parsed == null) {
+      return rawDate;
+    }
+
+    const months = <String>[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return '${parsed.day} ${months[parsed.month - 1]} ${parsed.year}';
+  }
+
+  void _showCancelConfirmation(BuildContext context, String bookingId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -580,9 +624,25 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
               child: const Text('No'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(context);
-                ToastUtil.showSuccess(context, 'Order cancelled successfully');
+                final response = await ApiService.post(
+                  '/client/bookings/$bookingId/cancel',
+                  <String, dynamic>{},
+                );
+                if (!context.mounted) return;
+                if (response['success'] == true) {
+                  ToastUtil.showSuccess(
+                    context,
+                    response['message']?.toString() ?? 'Booking cancelled successfully',
+                  );
+                  _fetchBookings();
+                  return;
+                }
+                ToastUtil.showError(
+                  context,
+                  response['message']?.toString() ?? 'Unable to cancel booking',
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
