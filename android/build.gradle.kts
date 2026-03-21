@@ -51,6 +51,19 @@ subprojects {
             }
         }
 
+        // Third-party Android library lint can fail on bundled Kotlin metadata
+        // even when the app itself compiles. Keep app lint enabled, but avoid
+        // plugin subprojects blocking release builds on their own lint tasks.
+        if (project.plugins.hasPlugin("com.android.library")) {
+            project.tasks.matching {
+                it.name == "lintVitalAnalyzeRelease" ||
+                    it.name == "lintVitalReportRelease" ||
+                    it.name == "lintVitalRelease"
+            }.configureEach {
+                enabled = false
+            }
+        }
+
         project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java)?.compilerOptions?.jvmTarget?.set(
             org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
         )

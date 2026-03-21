@@ -9,21 +9,9 @@ class AppConfig {
   static bool get isProfessional => type == AppType.professional;
 
   // API Configuration
-  // IMPORTANT: 10.0.2.2 is for Android Emulators
-  // For Web, we use 127.0.0.1 (safer for CORS than 'localhost')
-  // Since nothing is on port 8000, we are using port 80 (XAMPP default)
+  // Use the laptop's LAN IP so Android/iOS devices on the same network can reach Laravel.
   static String get baseUrl {
-    String host;
-    if (kIsWeb) {
-      // Chrome/Web: 192.168.1.6 (PC IP) ensures better origin matching than localhost/127.0.0.1
-      host = 'http://192.168.1.6:8000';
-    } else {
-      // Android/ios: 192.168.1.6 (PC IP) works for both Emulator and Real Device
-      host = 'http://192.168.1.6:8000';
-    }
-
-    // Assuming we use php artisan serve -> port 8000 -> /api
-    final url = '$host/api';
+    const url = 'http://192.168.1.15:8000/api';
 
     debugPrint('AppConfig: Resolved baseUrl: $url');
     return url;
