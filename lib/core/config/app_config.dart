@@ -9,9 +9,18 @@ class AppConfig {
   static bool get isProfessional => type == AppType.professional;
 
   // API Configuration
+<<<<<<< Updated upstream
   // Use the laptop's LAN IP so Android/iOS devices on the same network can reach Laravel.
   static String get baseUrl {
     const url = 'http://192.168.1.15:8000/api';
+=======
+  // IMPORTANT: 10.0.2.2 is for Android Emulators
+  // For Web, we use 127.0.0.1 (safer for CORS than 'localhost')
+  static String get baseUrl {
+    final url = kIsWeb
+        ? 'http://127.0.0.1:8000/api'
+        : 'http://10.0.2.2:8000/api';
+>>>>>>> Stashed changes
 
     debugPrint('AppConfig: Resolved baseUrl: $url');
     return url;
