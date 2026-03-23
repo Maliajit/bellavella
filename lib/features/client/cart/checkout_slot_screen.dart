@@ -27,7 +27,7 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
   
   Map<String, dynamic> _slotsData = {};
   List<String> _categoriesToBook = [];
-  final Map<String, String?> _selectedCategorySlots = {};
+  String? _selectedSlot;
 
   @override
   void initState() {
@@ -170,7 +170,7 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
       title: category,
       subtitle: 'Service will take approx. $defaultDuration',
       dates: dates,
-      initialSelectionKey: _selectedCategorySlots[category],
+      initialSelectionKey: _selectedSlot,
     );
 
     if (selection == null || !mounted) {
@@ -178,7 +178,7 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
     }
 
     setState(() {
-      _selectedCategorySlots[category] = selection.selectionKey;
+      _selectedSlot = selection.selectionKey;
     });
     if (onConfirm != null) {
       onConfirm();
@@ -233,12 +233,12 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
         final dayName = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][time.weekday - 1];
         final monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][time.month - 1];
         final selectionKey = "$dayName, $monthName ${selectedDate.day} at $timeLabel";
-        final isSelected = _selectedCategorySlots[category] == selectionKey;
+        final isSelected = _selectedSlot == selectionKey;
 
         return GestureDetector(
           onTap: () {
             setModalState(() {
-              _selectedCategorySlots[category] = selectionKey;
+              _selectedSlot = selectionKey;
             });
           },
           child: Stack(
@@ -353,8 +353,8 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
   }
 
   void _proceedToReview() {
-    if (_selectedCategorySlots.length < _categoriesToBook.length) {
-       ToastUtil.showError(context, 'Please select a slot for all categories.');
+    if (_selectedSlot == null || _selectedSlot!.trim().isEmpty) {
+       ToastUtil.showError(context, 'Please select a slot to continue.');
        return;
     }
 
@@ -369,7 +369,8 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
       'latitude': widget.addressData['latitude'],
       'longitude': widget.addressData['longitude'],
       'sourceType': widget.addressData['sourceType'],
-      'slots': _selectedCategorySlots,
+      'slot': _selectedSlot,
+      'categories': _categoriesToBook,
     };
 
     context.push('/client/checkout-review', extra: combinedData);
@@ -399,29 +400,60 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
                   ? Center(child: Text("Cart is empty.", style: GoogleFonts.outfit()))
                   : ListView(
                       padding: const EdgeInsets.all(20),
-                      children: _categoriesToBook.map((category) {
-                        final isSelected = _selectedCategorySlots.containsKey(category);
-                        final slotInfo = _selectedCategorySlots[category];
-                        
-                        final catData = _slotsData[category] ?? {};
-                        final defaultDuration = category.toLowerCase().contains("salon") ? '1 hr & 30 mins' : '1 hr & 20 mins';
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 15),
-                          child: _buildSlotServiceCard(
-                            category,
-                            'Service will take approx. $defaultDuration',
-                            isSelected: isSelected,
-                            selectedSlot: slotInfo,
-                            onSelect: () => _showDetailedSlotPicker(
-                              context,
-                              category,
-                              defaultDuration,
-                              catData['available_dates']
-                            ),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
                           ),
-                        );
-                      }).toList(),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'This checkout supports one slot for the entire order.',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _categoriesToBook.isEmpty
+                                    ? 'All cart items will use the same booking slot.'
+                                    : 'Applies to: ${_categoriesToBook.join(', ')}',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 14,
+                                  color: Colors.grey.shade700,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _buildSlotServiceCard(
+                          'Select booking slot',
+                          'All items in this checkout will be scheduled together',
+                          isSelected: _selectedSlot != null && _selectedSlot!.isNotEmpty,
+                          selectedSlot: _selectedSlot,
+                          onSelect: () {
+                            final slotSource = _categoriesToBook.isNotEmpty
+                                ? _categoriesToBook.first
+                                : 'Booking';
+                            final slotData = _categoriesToBook.isNotEmpty
+                                ? (_slotsData[_categoriesToBook.first] ?? {})
+                                : {};
+                            _showDetailedSlotPicker(
+                              context,
+                              slotSource,
+                              '1 hr & 20 mins',
+                              slotData['available_dates'],
+                            );
+                          },
+                        ),
+                      ],
                     ),
       bottomNavigationBar: _isLoading || _errorMessage != null || _categoriesToBook.isEmpty
           ? null 
@@ -432,11 +464,11 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
                 border: Border(top: BorderSide(color: Colors.grey.shade200)),
               ),
               child: ElevatedButton(
-                onPressed: _selectedCategorySlots.length == _categoriesToBook.length
+                onPressed: _selectedSlot != null && _selectedSlot!.isNotEmpty
                     ? _proceedToReview
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _selectedCategorySlots.length == _categoriesToBook.length ? pinkPrimary : const Color(0xFFEEEEEE),
+                  backgroundColor: _selectedSlot != null && _selectedSlot!.isNotEmpty ? pinkPrimary : const Color(0xFFEEEEEE),
                   minimumSize: const Size(double.infinity, 55),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
@@ -446,7 +478,7 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
                   style: GoogleFonts.outfit(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: _selectedCategorySlots.length == _categoriesToBook.length ? Colors.white : Colors.grey.shade400,
+                    color: _selectedSlot != null && _selectedSlot!.isNotEmpty ? Colors.white : Colors.grey.shade400,
                   ),
                 ),
               ),

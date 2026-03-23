@@ -6,6 +6,7 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/core/models/data_models.dart';
 
 class ProfessionalActiveJobScreen extends StatefulWidget {
   final ProfessionalBooking? booking;

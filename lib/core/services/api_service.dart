@@ -10,6 +10,18 @@ import '../router/client_router.dart';
 import '../router/professional_router.dart';
 import 'token_manager.dart';
 
+class _ApiAuthExpiredException implements Exception {
+  const _ApiAuthExpiredException([this.decodedResponse]);
+
+  final Map<String, dynamic>? decodedResponse;
+}
+
+class _ApiSuspendedException implements Exception {
+  const _ApiSuspendedException([this.decodedResponse]);
+
+  final Map<String, dynamic>? decodedResponse;
+}
+
 class ApiService {
   static String get _baseUrl => AppConfig.baseUrl;
   static Completer<bool>? _refreshCompleter;
@@ -40,6 +52,33 @@ class ApiService {
     }
 
     return headers;
+  }
+
+  static String _normalizeEndpoint(String endpoint) {
+    final trimmed = endpoint.trim();
+    if (trimmed.isEmpty) {
+      return '';
+    }
+    return trimmed.startsWith('/') ? trimmed : '/$trimmed';
+  }
+
+  static Uri _buildUri(String endpoint) {
+    if (endpoint.startsWith('http')) {
+      return Uri.parse(endpoint);
+    }
+    
+    final baseUri = Uri.parse(_baseUrl);
+    final endpointUri = Uri.parse(endpoint);
+    
+    final normalizedEndpointPath = _normalizeEndpoint(endpointUri.path);
+    final combinedPath =
+        '${baseUri.path}$normalizedEndpointPath'.replaceAll(RegExp(r'/+'), '/');
+
+    return baseUri.replace(
+      path: combinedPath,
+      query: endpointUri.hasQuery ? endpointUri.query : null,
+      fragment: endpointUri.hasFragment ? endpointUri.fragment : null,
+    );
   }
 
   static void _logRequest(
@@ -140,7 +179,8 @@ class ApiService {
         return completer.future;
       }
 
-      final url = '$_baseUrl$_refreshEndpoint';
+      final uri = _buildUri(_refreshEndpoint);
+      final url = uri.toString();
       final headers = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -151,7 +191,7 @@ class ApiService {
         'ApiService: refreshing token via endpoint=$_refreshEndpoint key=$_activeTokenKeyName',
       );
       _logRequest('POST', url, headers);
-      final response = await http.post(Uri.parse(url), headers: headers);
+      final response = await http.post(uri, headers: headers);
       final decodedResponse = _decodeResponseBody(response);
       _logResponse('POST', url, response, decodedResponse);
 
@@ -228,30 +268,71 @@ class ApiService {
 
   static Future<http.Response> _sendJsonRequest(
     String method,
-    String url,
+    Uri uri,
     Map<String, String> headers, [
     Map<String, dynamic>? body,
   ]) {
     switch (method) {
       case 'POST':
-        return http.post(Uri.parse(url), headers: headers, body: jsonEncode(body));
+        return http.post(uri, headers: headers, body: jsonEncode(body));
       case 'PUT':
-        return http.put(Uri.parse(url), headers: headers, body: jsonEncode(body));
+        return http.put(uri, headers: headers, body: jsonEncode(body));
       case 'PATCH':
-        return http.patch(Uri.parse(url), headers: headers, body: jsonEncode(body));
+        return http.patch(uri, headers: headers, body: jsonEncode(body));
       case 'DELETE':
-        return http.delete(Uri.parse(url), headers: headers);
+        return http.delete(uri, headers: headers);
       default:
-        return http.get(Uri.parse(url), headers: headers);
+        return http.get(uri, headers: headers);
     }
   }
 
   static Future<Map<String, dynamic>> _unauthorizedResponse(
     Map<String, dynamic> decodedResponse,
-    int statusCode,
   ) async {
     await _handleAuthFailure();
-    throw Exception("UNAUTHENTICATED");
+    throw _ApiAuthExpiredException(decodedResponse);
+  }
+
+  static Map<String, dynamic> _authExpiredResponse([
+    Map<String, dynamic>? decodedResponse,
+  ]) {
+    final rawMessage = decodedResponse?['message']?.toString();
+    return {
+      'success': false,
+      'message':
+          rawMessage == null || rawMessage.isEmpty || rawMessage == 'Unauthenticated.'
+              ? sessionExpiredMessage
+              : rawMessage,
+      '_auth_expired': true,
+      '_http_status': 401,
+    };
+  }
+
+  static Map<String, dynamic> _suspendedResponse([
+    Map<String, dynamic>? decodedResponse,
+  ]) {
+    return {
+      'success': false,
+      'message':
+          decodedResponse?['message']?.toString() ??
+          'Your account has been suspended. Please contact support.',
+      'status': 'suspended',
+      '_account_suspended': true,
+      '_http_status': 403,
+    };
+  }
+
+  static Map<String, dynamic> _forbiddenResponse([
+    Map<String, dynamic>? decodedResponse,
+  ]) {
+    return {
+      'success': false,
+      'message':
+          decodedResponse?['message']?.toString() ??
+          'You do not have permission to perform this action.',
+      '_forbidden': true,
+      '_http_status': 403,
+    };
   }
 
   static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
@@ -281,11 +362,12 @@ class ApiService {
     bool hasRetriedAfterRefresh = false,
   }) async {
     try {
-      final url = '$_baseUrl$endpoint';
+      final uri = _buildUri(endpoint);
+      final url = uri.toString();
       final headers = _headers;
       _logRequest('MULTIPART POST', url, headers);
 
-      final request = http.MultipartRequest('POST', Uri.parse(url));
+      final request = http.MultipartRequest('POST', uri);
       request.headers.addAll(headers);
       
       request.fields.addAll(fields);
@@ -307,27 +389,36 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
       final decodedResponse = _decodeResponseBody(response);
       _logResponse('MULTIPART POST', url, response, decodedResponse);
-      if (response.statusCode == 401 &&
-          _canAttemptRefresh(endpoint, headers, hasRetriedAfterRefresh)) {
-        final refreshed = await _refreshAccessToken();
-        if (refreshed) {
-          return multipart(
-            endpoint,
-            fields,
-            files,
-            hasRetriedAfterRefresh: true,
-          );
+      if (response.statusCode == 401) {
+        if (_canAttemptRefresh(endpoint, headers, hasRetriedAfterRefresh)) {
+          final refreshed = await _refreshAccessToken();
+          if (refreshed) {
+            return multipart(
+              endpoint,
+              fields,
+              files,
+              hasRetriedAfterRefresh: true,
+            );
+          }
         }
-        return _unauthorizedResponse(decodedResponse, response.statusCode);
+        return _unauthorizedResponse(decodedResponse);
       }
 
       if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
         await _handleSuspendedAccount();
-        throw Exception("ACCOUNT_SUSPENDED");
+        throw _ApiSuspendedException(decodedResponse);
+      }
+
+      if (response.statusCode == 403) {
+        return _forbiddenResponse(decodedResponse);
       }
 
       decodedResponse['_http_status'] = response.statusCode;
       return decodedResponse;
+    } on _ApiAuthExpiredException catch (e) {
+      return _authExpiredResponse(e.decodedResponse);
+    } on _ApiSuspendedException catch (e) {
+      return _suspendedResponse(e.decodedResponse);
     } catch (e) {
       return {'success': false, 'message': 'Network error: ${e.toString()}'};
     }
@@ -337,33 +428,43 @@ class ApiService {
     String method,
     String endpoint, [
     Map<String, dynamic>? body,
-    bool _hasRetriedAfterRefresh = false,
+    bool hasRetriedAfterRefresh = false,
   ]) async {
     try {
-      final url = '$_baseUrl$endpoint';
+      final uri = _buildUri(endpoint);
+      final url = uri.toString();
       final headers = _headers;
       _logRequest(method, url, headers, body);
 
-      final response = await _sendJsonRequest(method, url, headers, body);
+      final response = await _sendJsonRequest(method, uri, headers, body);
       final decodedResponse = _decodeResponseBody(response);
       _logResponse(method, url, response, decodedResponse);
 
-      if (response.statusCode == 401 &&
-          _canAttemptRefresh(endpoint, headers, _hasRetriedAfterRefresh)) {
-        final refreshed = await _refreshAccessToken();
-        if (refreshed) {
-          return _request(method, endpoint, body, true);
+      if (response.statusCode == 401) {
+        if (_canAttemptRefresh(endpoint, headers, hasRetriedAfterRefresh)) {
+          final refreshed = await _refreshAccessToken();
+          if (refreshed) {
+            return _request(method, endpoint, body, true);
+          }
         }
-        return _unauthorizedResponse(decodedResponse, response.statusCode);
+        return _unauthorizedResponse(decodedResponse);
       }
 
       if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
         await _handleSuspendedAccount();
-        throw Exception("ACCOUNT_SUSPENDED");
+        throw _ApiSuspendedException(decodedResponse);
+      }
+
+      if (response.statusCode == 403) {
+        return _forbiddenResponse(decodedResponse);
       }
 
       decodedResponse['_http_status'] = response.statusCode;
       return decodedResponse;
+    } on _ApiAuthExpiredException catch (e) {
+      return _authExpiredResponse(e.decodedResponse);
+    } on _ApiSuspendedException catch (e) {
+      return _suspendedResponse(e.decodedResponse);
     } catch (e) {
       return {'success': false, 'message': 'Network error: ${e.toString()}'};
     }

@@ -2,7 +2,7 @@ import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:image_picker/image_picker.dart';
 
-class ClientApiService {
+class ClientProfileApiService {
   static const String _prefix = '/client';
 
   /// Fetch the profile of the currently authenticated customer.
@@ -14,10 +14,17 @@ class ClientApiService {
     throw Exception(response['message'] ?? 'Failed to load profile');
   }
 
-  /// Update profile text fields only (name, email, date_of_birth).
-  static Future<Map<String, dynamic>> updateProfile(
-    Map<String, dynamic> data,
-  ) async {
+  /// Update profile text fields only.
+  static Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    String? email,
+    String? dateOfBirth,
+  }) async {
+    final data = <String, dynamic>{
+      'name': name,
+      if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+      if (dateOfBirth != null && dateOfBirth != 'Select Date') 'date_of_birth': dateOfBirth,
+    };
     return await ApiService.post('$_prefix/profile/update', data);
   }
 
@@ -84,8 +91,8 @@ class ClientApiService {
   }
 
   /// Fetch user's referral code and stats.
-  static Future<Map<String, dynamic>> getReferralData() async {
-    final response = await ApiService.get('$_prefix/referral-code');
+  static Future<Map<String, dynamic>> getReferralStats() async {
+    final response = await ApiService.get('$_prefix/referrals');
     if (response['success'] == true) {
       return response['data'] as Map<String, dynamic>;
     }
@@ -93,9 +100,24 @@ class ClientApiService {
   }
 
   /// Add a new address.
-  static Future<Map<String, dynamic>> addAddress(
-    Map<String, dynamic> addressData,
-  ) async {
+  static Future<Map<String, dynamic>> addAddress({
+    required String label,
+    required String houseNumber,
+    required String address,
+    required String city,
+    required String pincode,
+    required String phone,
+    String? landmark,
+  }) async {
+    final addressData = {
+      'label': label,
+      'house_number': houseNumber,
+      'address': address,
+      if (landmark != null && landmark.trim().isNotEmpty) 'landmark': landmark.trim(),
+      'city': city,
+      'pincode': pincode,
+      'phone': phone,
+    };
     final response = await ApiService.post('$_prefix/addresses', addressData);
     if (response['success'] == true) {
       return response['data'] as Map<String, dynamic>;
@@ -104,10 +126,25 @@ class ClientApiService {
   }
 
   /// Update an existing address.
-  static Future<Map<String, dynamic>> updateAddress(
-    String addressId,
-    Map<String, dynamic> addressData,
-  ) async {
+  static Future<Map<String, dynamic>> updateAddress({
+    required String addressId,
+    required String label,
+    required String houseNumber,
+    required String address,
+    required String city,
+    required String pincode,
+    required String phone,
+    String? landmark,
+  }) async {
+    final addressData = {
+      'label': label,
+      'house_number': houseNumber,
+      'address': address,
+      if (landmark != null && landmark.trim().isNotEmpty) 'landmark': landmark.trim(),
+      'city': city,
+      'pincode': pincode,
+      'phone': phone,
+    };
     // RESTful update via PATCH to satisfy apiResource routes
     final response = await ApiService.patch(
       '$_prefix/addresses/$addressId',

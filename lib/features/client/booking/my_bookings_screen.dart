@@ -456,8 +456,7 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                      width: double.infinity,
                      child: ElevatedButton(
                         onPressed: () {
-                          // TODO: Navigate to service booking and pre-select items
-                          // e.g. context.push('/client/book-again', extra: services);
+                          ToastUtil.showSuccess(context, 'Rebooking functionality is coming soon.');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryColor,

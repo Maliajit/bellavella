@@ -331,10 +331,6 @@ class ProfessionalApiService {
     });
   }
 
-  static Future<Map<String, dynamic>> uploadPortfolio(Map<String, dynamic> data) async {
-    return await ApiService.post('$_prefix/portfolio/upload', data);
-  }
-
   // --- Kit Store ---
   static Future<List<pro_models.KitProductModel>> getKitProducts() async {
     final response = await ApiService.get('/professional/kit-products');

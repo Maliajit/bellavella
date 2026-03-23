@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/models/data_models.dart';
-import 'services/client_api_service.dart';
+import 'services/client_profile_api_service.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 
 class EditProfileScreen extends StatefulWidget {
@@ -47,7 +47,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _loadProfile() async {
     try {
-      final profile = await ClientApiService.getProfile();
+      final profile = await ClientProfileApiService.getProfile();
       if (mounted) {
         setState(() {
           _profile       = profile;
@@ -135,7 +135,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _isUploading      = true;
       });
 
-      final response = await ClientApiService.uploadAvatar(file);
+      final response = await ClientProfileApiService.uploadAvatar(file);
 
       if (!mounted) return;
 
@@ -210,13 +210,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _saveChanges() async {
     setState(() => _isSaving = true);
     try {
-      final data = <String, dynamic>{
-        'name':          _nameController.text.trim(),
-        if (_emailController.text.isNotEmpty) 'email': _emailController.text.trim(),
-        if (_dateOfBirth != 'Select Date') 'date_of_birth': _dateOfBirth,
-      };
-
-      final response = await ClientApiService.updateProfile(data);
+      final response = await ClientProfileApiService.updateProfile(name: _nameController.text.trim(), email: _emailController.text.trim(), dateOfBirth: _dateOfBirth);
       if (!mounted) return;
 
       if (response['success'] == true) {
@@ -459,4 +453,5 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 }
+
 

@@ -44,7 +44,7 @@ class _ProfessionalKitStoreScreenState extends State<ProfessionalKitStoreScreen>
       
       if (!mounted) return;
       setState(() {
-        _kits = products.map((p) => KitProductModel.fromJson(p)).toList();
+        _kits = products;
         _currentKits = stats.kitCount;
         _isLoading = false;
       });

@@ -1,5 +1,5 @@
 import 'package:bellavella/core/utils/parser_util.dart';
-import 'package:bellavella/core/config/app_config.dart';
+import 'package:bellavella/core/utils/media_url.dart';
 
 class Category {
   final String id;
@@ -51,7 +51,9 @@ class Service {
       price: ParserUtil.safeParseDouble(json['price']),
       duration: (json['duration'] ?? '').toString(),
       includedItems: (json['included_items'] as List? ?? []).map((e) => e.toString()).toList(),
-      imageUrl: (json['image_url'] ?? '').toString(),
+      imageUrl: resolveMediaUrl(
+        json['image_url']?.toString() ?? json['image']?.toString(),
+      ),
     );
   }
 }
@@ -137,7 +139,7 @@ class Customer {
       name: json['name'] ?? '',
       email: json['email'],
       mobile: json['mobile'] ?? '',
-      avatar: json['avatar'],
+      avatar: resolveNullableMediaUrl(json['avatar']?.toString()),
       dateOfBirth: json['date_of_birth'],
       status: json['status'] ?? 'Active',
       joined: json['joined'] ?? json['created_at'],
@@ -222,17 +224,9 @@ class Professional {
           .toList();
     }
 
-    String rawAvatar = (json['avatar'] ?? json['photo_url'] ?? '').toString();
-    if (rawAvatar.isNotEmpty) {
-      if (rawAvatar.contains('/storage/') || rawAvatar.startsWith('storage/')) {
-        final cleanPath = rawAvatar.split('/storage/').last;
-        rawAvatar = '${AppConfig.baseUrl}/images/$cleanPath';
-      } else if (!rawAvatar.startsWith('http')) {
-        final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
-        if (!rawAvatar.startsWith('/')) rawAvatar = '/$rawAvatar';
-        rawAvatar = '$hostUrl$rawAvatar';
-      }
-    }
+    final rawAvatar = resolveMediaUrl(
+      json['avatar']?.toString() ?? json['photo_url']?.toString(),
+    );
 
     return Professional(
       id: json['id']?.toString() ?? '',
@@ -271,19 +265,7 @@ class Professional {
   }
 
   static String? _resolveDocUrl(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    if (raw.startsWith('http')) return raw;
-    
-    // Normalize path: remove public/ or storage/ if they exist at the start to avoid duplication
-    String path = raw;
-    if (path.startsWith('public/')) path = path.substring(7);
-    if (path.startsWith('/public/')) path = path.substring(8);
-    if (path.startsWith('storage/')) path = path.substring(8);
-    if (path.startsWith('/storage/')) path = path.substring(9);
-    if (path.startsWith('/')) path = path.substring(1);
-
-    final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
-    return '${AppConfig.baseUrl}/images/$path';
+    return resolveNullableMediaUrl(raw);
   }
 }
 

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
@@ -888,7 +889,10 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   }
 
   Widget _errView() {
-    final isAuthError = _error?.contains("UNAUTHENTICATED") ?? false;
+    final errorText = _error ?? '';
+    final isAuthError =
+        errorText.contains(ApiService.sessionExpiredMessage) ||
+        errorText.contains('Unauthenticated.');
     
     return Center(
       child: Column(

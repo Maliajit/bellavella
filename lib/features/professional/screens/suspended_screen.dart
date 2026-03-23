@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:bellavella/core/utils/toast_util.dart';
 
 class SuspendedScreen extends StatelessWidget {
   const SuspendedScreen({super.key});
@@ -24,7 +24,7 @@ class SuspendedScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Icon(
-                    LucideIcons.ban,
+                    Icons.block_rounded,
                     size: 50,
                     color: Colors.red.shade600,
                   ),
@@ -55,7 +55,7 @@ class SuspendedScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // TODO: Implement contact support action
+                    ToastUtil.showSuccess(context, 'Support channel coming soon. Please email support@bellavella.com.');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,

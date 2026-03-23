@@ -1,13 +1,8 @@
-import 'package:bellavella/core/config/app_config.dart';
+import 'package:bellavella/core/utils/media_url.dart';
 import 'package:bellavella/core/utils/parser_util.dart';
 
 String _resolveImageUrl(String? rawImage) {
-  if (rawImage == null || rawImage.isEmpty || rawImage.startsWith('http')) {
-    return rawImage ?? '';
-  }
-
-  final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
-  return '$hostUrl/storage/$rawImage';
+  return resolveMediaUrl(rawImage);
 }
 
 String _normalizeLevel(String? level, {String fallback = 'service'}) {
@@ -853,7 +848,9 @@ class ReviewUser {
     return ReviewUser(
       id: json['id'] ?? 0,
       name: json['name'] ?? 'User',
-      avatar: json['avatar'],
+      avatar: resolveNullableMediaUrl(
+        json['avatar']?.toString() ?? json['customer_avatar']?.toString(),
+      ),
     );
   }
 }
@@ -881,8 +878,16 @@ class ReviewData {
       createdAt: DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       user:
           json['customer'] != null
-              ? ReviewUser.fromJson(json['customer'])
-              : null,
+              ? ReviewUser.fromJson(
+                  Map<String, dynamic>.from(json['customer'] as Map),
+                )
+              : ((json['customer_name'] != null || json['customer_avatar'] != null)
+                  ? ReviewUser.fromJson({
+                      'id': json['customer_id'],
+                      'name': json['customer_name'],
+                      'avatar': json['customer_avatar'],
+                    })
+                  : null),
     );
   }
 }

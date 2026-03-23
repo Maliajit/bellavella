@@ -4,7 +4,7 @@ import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:bellavella/features/client/profile/manage_address_screen.dart';
-import 'package:bellavella/features/client/profile/services/client_api_service.dart'
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart'
     as profile_api;
 import 'package:bellavella/features/client/profile/update_address_screen.dart';
 import 'package:flutter/foundation.dart';
@@ -79,7 +79,7 @@ class _CheckoutAddressScreenState extends State<CheckoutAddressScreen> {
     });
 
     try {
-      final response = await profile_api.ClientApiService.getAddresses();
+      final response = await profile_api.ClientProfileApiService.getAddresses();
       final addresses = response
           .map((item) => Address.fromJson(item as Map<String, dynamic>))
           .toList();

@@ -10,7 +10,6 @@ import 'package:bellavella/features/client/services/controllers/service_provider
 import 'package:bellavella/features/client/services/client_api_service.dart';
 import 'package:bellavella/features/client/services/models/service_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
-import 'package:bellavella/features/client/services/widgets/category_screen_skeleton.dart';
 
 class ClientCategoryScreen extends StatefulWidget {
   final String? categorySlug;
@@ -143,10 +142,7 @@ class _ClientCategoryScreenState extends State<ClientCategoryScreen> {
       body: Consumer<ServiceProvider>(
         builder: (context, sp, _) {
           if (sp.isLoading && sp.categoryPageData == null) {
-            return const CategoryScreenSkeleton(
-              categoryCount: 4,
-              carouselCount: 2,
-            );
+            return const Center(child: CircularProgressIndicator());
           }
           if (_screenError != null) {
             return Center(child: Text('Error: $_screenError'));

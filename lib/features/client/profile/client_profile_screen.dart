@@ -6,7 +6,7 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 import '../../../core/models/data_models.dart';
 import '../../../core/services/token_manager.dart';
-import 'services/client_api_service.dart';
+import 'services/client_profile_api_service.dart';
 
 class ClientProfileScreen extends StatefulWidget {
   const ClientProfileScreen({super.key});
@@ -68,9 +68,9 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
     try {
       // Fetch profile, wallet, and addresses in parallel
       final results = await Future.wait([
-        ClientApiService.getProfile(),
-        ClientApiService.getWallet(),
-        ClientApiService.getAddresses(),
+        ClientProfileApiService.getProfile(),
+        ClientProfileApiService.getWallet(),
+        ClientProfileApiService.getAddresses(),
       ]);
 
       if (mounted) {

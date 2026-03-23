@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/home_models.dart';
 import '../services/home_location_service.dart';
 import 'package:bellavella/core/services/api_service.dart';
-import 'package:bellavella/features/client/profile/services/client_api_service.dart'
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart'
     as client_profile_api;
 
 class HomeProvider extends ChangeNotifier {
@@ -43,7 +43,7 @@ class HomeProvider extends ChangeNotifier {
 
   Future<void> fetchWalletBalance() async {
     try {
-      final data = await client_profile_api.ClientApiService.getWallet();
+      final data = await client_profile_api.ClientProfileApiService.getWallet();
       final balance = data['balance'];
       _walletBalance = balance is num
           ? balance.toInt()

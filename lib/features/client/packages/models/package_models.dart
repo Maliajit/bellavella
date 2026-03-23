@@ -1,13 +1,8 @@
-import 'package:bellavella/core/config/app_config.dart';
+import 'package:bellavella/core/utils/media_url.dart';
 import 'package:bellavella/core/utils/parser_util.dart';
 
 String _resolvePackageImageUrl(String? rawImage) {
-  if (rawImage == null || rawImage.isEmpty || rawImage.startsWith('http')) {
-    return rawImage ?? '';
-  }
-
-  final hostUrl = AppConfig.baseUrl.replaceAll(RegExp(r'/api.*'), '');
-  return '$hostUrl/storage/$rawImage';
+  return resolveMediaUrl(rawImage);
 }
 
 class PackageContextRef {

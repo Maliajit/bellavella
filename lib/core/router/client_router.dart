@@ -7,7 +7,6 @@ import '../../features/client/auth/onboarding_screen.dart';
 import '../../features/client/auth/client_otp_verify_screen.dart';
 import '../../features/client/auth/client_location_picker_screen.dart';
 import '../../features/client/home/client_home_screen.dart';
-import '../../features/client/services/service_detail_screen.dart';
 import '../../features/client/booking/booking_screen.dart';
 import '../../features/client/booking/booking_status_screen.dart';
 import '../../features/client/booking/my_bookings_screen.dart';
@@ -214,12 +213,6 @@ final _featureRoutes = [
     builder: (context, state) => ClientServiceTypesScreen(
       category: state.pathParameters['category'] ?? 'General',
     ),
-  ),
-  GoRoute(
-    path: AppRoutes.clientServiceDetail,
-    name: AppRoutes.clientServiceDetailName,
-    builder: (context, state) =>
-        ServiceDetailScreen(serviceId: state.pathParameters['id'] ?? ''),
   ),
   GoRoute(
     path: AppRoutes.clientCart,

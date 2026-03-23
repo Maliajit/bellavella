@@ -1,4 +1,4 @@
-import 'package:bellavella/features/client/profile/services/client_api_service.dart';
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
 import 'package:flutter/material.dart';
 
 import 'package:bellavella/core/theme/app_theme.dart';
@@ -25,7 +25,7 @@ class _RateUsScreenState extends State<RateUsScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      await ClientApiService.submitAppFeedback(_rating, _feedbackController.text);
+      await ClientProfileApiService.submitAppFeedback(_rating, _feedbackController.text);
       ToastUtil.showSuccess(context, 'Thank you for your feedback!');
       Navigator.pop(context);
     } catch (e) {

@@ -4,37 +4,86 @@ enum AppType { client, professional }
 
 class AppConfig {
   static AppType? type;
+  static const String _apiBaseUrlDefine = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.1.6:8000/api');
+  static const String _razorpayKeyDefine = String.fromEnvironment(
+    'RAZORPAY_KEY_ID',
+  );
+  static const String _googleMapsApiKeyDefine = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+  );
 
   static bool get isClient => type == AppType.client;
   static bool get isProfessional => type == AppType.professional;
 
-  // API Configuration
-<<<<<<< Updated upstream
-  // Use the laptop's LAN IP so Android/iOS devices on the same network can reach Laravel.
   static String get baseUrl {
-    const url = 'http://192.168.1.15:8000/api';
-=======
-  // IMPORTANT: 10.0.2.2 is for Android Emulators
-  // For Web, we use 127.0.0.1 (safer for CORS than 'localhost')
-  static String get baseUrl {
-    final url = kIsWeb
-        ? 'http://127.0.0.1:8000/api'
-        : 'http://10.0.2.2:8000/api';
->>>>>>> Stashed changes
-
+    final url = _normalizedApiBaseUrl;
     debugPrint('AppConfig: Resolved baseUrl: $url');
     return url;
   }
 
-  // Get flavor from environment
+  static String get host {
+    final parsed = Uri.tryParse(_normalizedApiBaseUrl);
+    return parsed?.host ?? 'localhost';
+  }
+
+  static int get port {
+    final parsed = Uri.tryParse(_normalizedApiBaseUrl);
+    return parsed?.port ?? 8000;
+  }
+
+  static String get origin {
+    final uri = Uri.parse(baseUrl);
+    return uri.replace(path: '', query: '', fragment: '').toString();
+  }
+
   static String get flavor => const String.fromEnvironment('APP_FLAVOR');
 
-  // Public client-side keys only. Secrets must stay on the backend.
-  static String get razorpayKeyId => const String.fromEnvironment(
-    'RAZORPAY_KEY_ID',
-    defaultValue: 'rzp_test_S7dlJIqMvrpcaj',
-  );
+  static String get razorpayKeyId {
+    if (_razorpayKeyDefine.isEmpty) {
+      throw StateError(
+        'Missing RAZORPAY_KEY_ID. Pass it with --dart-define=RAZORPAY_KEY_ID=...',
+      );
+    }
+    return _razorpayKeyDefine;
+  }
 
-  static String get googleMapsApiKey =>
-      const String.fromEnvironment('GOOGLE_MAPS_API_KEY');
+  static String get googleMapsApiKey => _googleMapsApiKeyDefine;
+
+  static String get _normalizedApiBaseUrl {
+    final raw = _sanitizeApiBaseUrl(_apiBaseUrlDefine);
+    if (raw.isEmpty) {
+      throw StateError(
+        'Missing API_BASE_URL. Pass it with --dart-define=API_BASE_URL=http://host:8000/api',
+      );
+    }
+
+    final parsed = Uri.tryParse(raw);
+    if (parsed == null || !parsed.hasScheme || parsed.host.isEmpty) {
+      throw StateError('Invalid API_BASE_URL: $raw');
+    }
+
+    final normalizedPath = parsed.path.endsWith('/')
+        ? parsed.path.substring(0, parsed.path.length - 1)
+        : parsed.path;
+
+    return parsed.replace(path: normalizedPath, query: '', fragment: '').toString();
+  }
+
+  static String _sanitizeApiBaseUrl(String raw) {
+    var sanitized = raw.trim();
+    while (sanitized.endsWith('/')) {
+      sanitized = sanitized.substring(0, sanitized.length - 1);
+    }
+    while (
+        sanitized.endsWith('?') ||
+        sanitized.endsWith('#') ||
+        sanitized.endsWith('/?') ||
+        sanitized.endsWith('/#')) {
+      sanitized = sanitized.substring(0, sanitized.length - 1);
+      while (sanitized.endsWith('/')) {
+        sanitized = sanitized.substring(0, sanitized.length - 1);
+      }
+    }
+    return sanitized;
+  }
 }

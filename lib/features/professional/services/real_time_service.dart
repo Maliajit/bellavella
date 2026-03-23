@@ -25,9 +25,9 @@ class RealTimeService {
 
     debugPrint('🔌 RealTimeService: Initializing for professional $professionalId');
 
-    // Reverb local configuration
-    final String host = '127.0.0.1'; 
-    final int port = 8080;
+    // Reverb configuration - dynamically loaded from AppConfig
+    final String host = AppConfig.host;
+    final int port = 8080; // Reverb WebSockets port
     
     final options = PusherOptions(
       host: host,

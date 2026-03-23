@@ -1,5 +1,5 @@
 import 'package:bellavella/core/models/data_models.dart';
-import 'package:bellavella/features/client/profile/services/client_api_service.dart';
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -63,22 +63,29 @@ class _UpdateAddressScreenState extends State<UpdateAddressScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final addressData = {
-        'label': _selectedLabel,
-        'house_number': _houseController.text,
-        'address': _areaController.text, // Area/Street/Society
-        'landmark': _landmarkController.text,
-        'city': _cityController.text,
-        'pincode': _pincodeController.text,
-        'phone': _phoneController.text,
-      };
-
       if (widget.address != null) {
         // Update existing address
-        await ClientApiService.updateAddress(widget.address!.id, addressData);
+        await ClientProfileApiService.updateAddress(
+          addressId: widget.address!.id,
+          label: _selectedLabel,
+          houseNumber: _houseController.text,
+          address: _areaController.text,
+          landmark: _landmarkController.text,
+          city: _cityController.text,
+          pincode: _pincodeController.text,
+          phone: _phoneController.text,
+        );
       } else {
         // Add new address
-        await ClientApiService.addAddress(addressData);
+        await ClientProfileApiService.addAddress(
+          label: _selectedLabel,
+          houseNumber: _houseController.text,
+          address: _areaController.text,
+          landmark: _landmarkController.text,
+          city: _cityController.text,
+          pincode: _pincodeController.text,
+          phone: _phoneController.text,
+        );
       }
 
       if (mounted) {

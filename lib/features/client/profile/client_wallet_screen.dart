@@ -1,5 +1,5 @@
 import 'package:bellavella/core/models/data_models.dart';
-import 'package:bellavella/features/client/profile/services/client_api_service.dart';
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -30,7 +30,7 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
         _error = null;
       });
 
-      final walletData = await ClientApiService.getWallet();
+      final walletData = await ClientProfileApiService.getWallet();
       setState(() {
         _wallet = Wallet.fromJson(walletData);
         _isLoading = false;

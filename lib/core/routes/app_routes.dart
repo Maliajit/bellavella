@@ -15,7 +15,6 @@ class AppRoutes {
   static const String clientServiceHierarchy = '/client/service-hierarchy/:nodeKey';
   static const String clientCategoryDetail = '/client/category-detail/:name';
   static const String clientServiceTypes = '/client/service-types/:category';
-  static const String clientServiceDetail = '/client/service-detail/:id';
   static const String clientCart = '/client/cart';
   static const String clientBooking = '/client/booking';
   static const String clientBookingStatus = '/client/booking-status/:bookingId';
@@ -99,7 +98,6 @@ class AppRoutes {
   static const String clientServiceHierarchyName = 'clientServiceHierarchy';
   static const String clientCategoryDetailName = 'clientCategoryDetail';
   static const String clientServiceTypesName = 'clientServiceTypes';
-  static const String clientServiceDetailName = 'clientServiceDetail';
   static const String clientCartName = 'clientCart';
   static const String clientBookingName = 'clientBooking';
   static const String clientBookingStatusName = 'clientBookingStatus';

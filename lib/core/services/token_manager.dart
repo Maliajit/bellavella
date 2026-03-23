@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 
@@ -10,7 +11,11 @@ class TokenManager {
   static const String _onboardingCompleteKey = 'onboarding_complete';
   static const String _addressKey = 'current_address';
   static const String _subAddressKey = 'current_sub_address';
-  
+
+  static final FlutterSecureStorage _secureStorage =
+      const FlutterSecureStorage();
+  static SharedPreferences? _prefs;
+
   static String? _clientToken;
   static String? _professionalToken;
   static String? _adminToken;
@@ -19,10 +24,13 @@ class TokenManager {
   static String? _currentSubAddress;
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _clientToken = prefs.getString(_clientTokenKey);
-    _professionalToken = prefs.getString(_professionalTokenKey);
-    _adminToken = prefs.getString(_adminTokenKey);
+    final prefs = await _sharedPrefs;
+    _clientToken = await _readTokenWithMigration(_clientTokenKey, prefs);
+    _professionalToken = await _readTokenWithMigration(
+      _professionalTokenKey,
+      prefs,
+    );
+    _adminToken = await _readTokenWithMigration(_adminTokenKey, prefs);
     _onboardingComplete = prefs.getBool(_onboardingCompleteKey) ?? false;
     _currentAddress = prefs.getString(_addressKey);
     _currentSubAddress = prefs.getString(_subAddressKey);
@@ -36,6 +44,60 @@ class TokenManager {
       'TokenManager: init client=${_clientToken != null}, '
       'professional=${_professionalToken != null}, admin=${_adminToken != null}',
     );
+  }
+
+  static Future<SharedPreferences> get _sharedPrefs async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
+
+  static Future<String?> _readTokenWithMigration(
+    String key,
+    SharedPreferences prefs,
+  ) async {
+    String? token;
+
+    try {
+      token = await _secureStorage.read(key: key);
+    } catch (e) {
+      debugPrint('TokenManager: secure read failed for $key -> $e');
+    }
+
+    final legacyToken = prefs.getString(key);
+    if ((token == null || token.isEmpty) &&
+        legacyToken != null &&
+        legacyToken.isNotEmpty) {
+      try {
+        await _secureStorage.write(key: key, value: legacyToken);
+        token = legacyToken;
+        debugPrint('TokenManager: migrated token key=$key to secure storage');
+      } catch (e) {
+        debugPrint('TokenManager: secure migration failed for $key -> $e');
+        token = legacyToken;
+      }
+    }
+
+    if (legacyToken != null) {
+      await prefs.remove(key);
+    }
+
+    return token;
+  }
+
+  static Future<void> _writeToken(String key, String token) async {
+    await _secureStorage.write(key: key, value: token);
+    final prefs = await _sharedPrefs;
+    if (prefs.containsKey(key)) {
+      await prefs.remove(key);
+    }
+  }
+
+  static Future<void> _deleteToken(String key) async {
+    await _secureStorage.delete(key: key);
+    final prefs = await _sharedPrefs;
+    if (prefs.containsKey(key)) {
+      await prefs.remove(key);
+    }
   }
 
   // Token Management
@@ -65,8 +127,7 @@ class TokenManager {
 
   static Future<void> saveClientToken(String token) async {
     _clientToken = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_clientTokenKey, token);
+    await _writeToken(_clientTokenKey, token);
     debugPrint('TokenManager: wrote token key=$_clientTokenKey');
   }
 
@@ -79,15 +140,13 @@ class TokenManager {
 
   static Future<void> clearClientToken() async {
     _clientToken = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_clientTokenKey);
+    await _deleteToken(_clientTokenKey);
     debugPrint('TokenManager: cleared token key=$_clientTokenKey');
   }
 
   static Future<void> saveProfessionalToken(String token) async {
     _professionalToken = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_professionalTokenKey, token);
+    await _writeToken(_professionalTokenKey, token);
     debugPrint('TokenManager: wrote token key=$_professionalTokenKey');
   }
 
@@ -100,15 +159,13 @@ class TokenManager {
 
   static Future<void> clearProfessionalToken() async {
     _professionalToken = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_professionalTokenKey);
+    await _deleteToken(_professionalTokenKey);
     debugPrint('TokenManager: cleared token key=$_professionalTokenKey');
   }
 
   static Future<void> saveAdminToken(String token) async {
     _adminToken = token;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_adminTokenKey, token);
+    await _writeToken(_adminTokenKey, token);
     debugPrint('TokenManager: wrote token key=$_adminTokenKey');
   }
 
@@ -121,8 +178,7 @@ class TokenManager {
 
   static Future<void> clearAdminToken() async {
     _adminToken = null;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_adminTokenKey);
+    await _deleteToken(_adminTokenKey);
     debugPrint('TokenManager: cleared token key=$_adminTokenKey');
   }
 
@@ -147,7 +203,7 @@ class TokenManager {
 
   static Future<void> setOnboardingComplete(bool complete) async {
     _onboardingComplete = complete;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _sharedPrefs;
     await prefs.setBool(_onboardingCompleteKey, complete);
   }
 
@@ -159,7 +215,7 @@ class TokenManager {
   static Future<void> setLocation(String address, String subAddress) async {
     _currentAddress = address;
     _currentSubAddress = subAddress;
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await _sharedPrefs;
     await prefs.setString(_addressKey, address);
     await prefs.setString(_subAddressKey, subAddress);
   }

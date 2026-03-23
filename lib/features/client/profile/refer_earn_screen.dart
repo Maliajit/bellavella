@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
-import '../services/client_api_service.dart';
+import 'services/client_profile_api_service.dart';
 
 class ReferEarnScreen extends StatefulWidget {
   const ReferEarnScreen({super.key});
@@ -30,7 +30,7 @@ class _ReferEarnScreenState extends State<ReferEarnScreen> {
       _errorMessage = null;
     });
     try {
-      final stats = await ClientApiService.getReferralStats();
+      final stats = await ClientProfileApiService.getReferralStats();
       if (mounted) {
         setState(() {
           _stats = stats;

@@ -1,4 +1,5 @@
 import 'package:bellavella/core/widgets/skeleton_box.dart';
+import 'package:bellavella/core/config/app_config.dart';
 import 'package:flutter/material.dart';
 
 /// A reusable network image widget with built-in:
@@ -33,13 +34,38 @@ class AppNetworkImage extends StatelessWidget {
     return image;
   }
 
+  String _resolvedUrl() {
+    if (url == null || url!.isEmpty) return '';
+    var u = url!;
+    
+    // In local development, the backend might return URLs with its own local IP
+    // like 192.168.1.x or 127.0.0.1 from the .env APP_URL. We need to replace
+    // these with the AppConfig.origin to ensure the emulator/web app can reach them.
+    if (u.startsWith('http')) {
+      final uri = Uri.tryParse(u);
+      if (uri != null && (uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host.startsWith('192.168.') || uri.host == '10.0.2.2')) {
+        final originUri = Uri.parse(AppConfig.origin);
+        u = uri.replace(
+          scheme: originUri.scheme,
+          host: originUri.host,
+          port: originUri.port,
+        ).toString();
+      }
+    } else if (u.startsWith('/')) {
+      u = '${AppConfig.origin}$u';
+    }
+    
+    return u;
+  }
+
   Widget _buildImage() {
-    if (url == null || url!.isEmpty) {
+    final effectiveUrl = _resolvedUrl();
+    if (effectiveUrl.isEmpty) {
       return _placeholder();
     }
 
     return Image.network(
-      url!,
+      effectiveUrl,
       width: width,
       height: height,
       fit: fit,

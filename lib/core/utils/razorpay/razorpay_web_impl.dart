@@ -20,7 +20,7 @@ class RazorpayWebServiceImpl implements RazorpayService {
   void open(Map<String, dynamic> options) {
     // Modify options for Web (handler instead of events)
     final webOptions = Map<String, dynamic>.from(options);
-    webOptions['handler'] = js.allowInterop((response) {
+    webOptions['handler'] = js.JsFunction.withThis((_, response) {
       // Create data map from JS object if possible, or just pass an empty map/null
       // The 4th argument 'data' is expected to be a Map.
       _onSuccess(PaymentSuccessResponse(

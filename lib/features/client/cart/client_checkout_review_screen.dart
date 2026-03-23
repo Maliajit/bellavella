@@ -308,9 +308,8 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     try {
       final String fullAddress = _composeCheckoutAddress();
       
-      final Map<String, String?> slots = widget.checkoutData['slots'];
-      final String? firstSlotStr = slots.values.firstWhere((element) => element != null, orElse: () => null);
-      final parsedSlot = _parseSlot(firstSlotStr);
+      final String? slotStr = widget.checkoutData['slot']?.toString();
+      final parsedSlot = _parseSlot(slotStr);
 
       final Map<String, dynamic> requestData = {
         'address': fullAddress,
@@ -424,7 +423,11 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     final fullAddress = widget.checkoutData['fullAddress'] as String;
     final houseNumber = widget.checkoutData['houseNumber'] as String;
     final landmark = widget.checkoutData['landmark'] as String;
-    final slots = widget.checkoutData['slots'] as Map<String, String?>;
+    final slot = widget.checkoutData['slot'] as String?;
+    final categories = (widget.checkoutData['categories'] as List? ?? const [])
+        .map((item) => item?.toString() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -520,7 +523,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                           ),
                           const SizedBox(width: 15),
                           Text(
-                            'Scheduled Sessions',
+                            'Scheduled Slot',
                             style: GoogleFonts.outfit(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -529,7 +532,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                         ],
                       ),
                       const SizedBox(height: 20),
-                      ...slots.entries.map((entry) => Container(
+                      Container(
                         margin: const EdgeInsets.only(bottom: 15),
                         padding: const EdgeInsets.all(15),
                         decoration: BoxDecoration(
@@ -544,27 +547,30 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    entry.key,
+                                    slot ?? 'No slot selected',
                                     style: GoogleFonts.outfit(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    entry.value ?? 'No slot selected',
-                                    style: GoogleFonts.outfit(
                                       color: pinkPrimary,
-                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  if (categories.isNotEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Applies to: ${categories.join(', ')}',
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.grey.shade700,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
                             Icon(Icons.edit_outlined, color: Colors.grey.shade400, size: 20),
                           ],
                         ),
-                      )),
+                      ),
                     ],
                   ),
                 ),

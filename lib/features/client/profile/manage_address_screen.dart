@@ -1,5 +1,5 @@
 import 'package:bellavella/core/models/data_models.dart';
-import 'package:bellavella/features/client/profile/services/client_api_service.dart';
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
@@ -31,7 +31,7 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
         _error = null;
       });
 
-      final addressesData = await ClientApiService.getAddresses();
+      final addressesData = await ClientProfileApiService.getAddresses();
       setState(() {
         _addresses = addressesData
             .map((e) => Address.fromJson(e as Map<String, dynamic>))
@@ -234,7 +234,7 @@ class _ManageAddressScreenState extends State<ManageAddressScreen> {
 
   Future<void> _deleteAddress(Address address) async {
     try {
-      final success = await ClientApiService.deleteAddress(address.id);
+      final success = await ClientProfileApiService.deleteAddress(address.id);
       if (success) {
         ToastUtil.showSuccess(context, 'Address deleted successfully');
         _loadAddresses(); // Refresh the list
