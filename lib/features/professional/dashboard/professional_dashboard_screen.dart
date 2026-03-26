@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -13,10 +12,10 @@ import 'package:bellavella/features/professional/services/professional_api_servi
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
-import './widgets/booking_request_dialog.dart';
 import './widgets/job_card.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/services/realtime_job_service.dart';
+import 'package:bellavella/features/professional/screens/kit_store/kit_store_screen.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
   const ProfessionalDashboardScreen({super.key});
@@ -36,9 +35,14 @@ class _ProfessionalDashboardScreenState
   final ScrollController _scrollController = ScrollController();
   bool _hasActiveJob = false;
   int _kitCount = 0;
-  double _walletCash = 0;
+  bool _isOnline = false;
+  int _remainingSeconds = 0;
+  double _shiftProgress = 0;
+  int _totalShiftSeconds = 28800;
   String? _lastNotificationId;
   Timer? _pollingTimer;
+  Timer? _countdownTimer;
+  Timer? _syncTimer;
   late AnimationController _radarController;
 
   @override
@@ -108,15 +112,23 @@ class _ProfessionalDashboardScreenState
     try {
       final stats = await ProfessionalApiService.getDashboardStats();
       if (mounted) {
+        // stats is non-nullable
         setState(() {
-          _stats = stats;
-          _isLoading = false;
-          // A job is "active" if it's accepted or in progress (not assigned/completed/cancelled)
-          _hasActiveJob = stats.recentBookings.any((b) => b.isActive);
-          
+          _isOnline = stats.isOnline;
           _kitCount = stats.kitCount;
-          _walletCash = stats.walletBalance; 
+          _remainingSeconds = stats.remainingSeconds;
+          _shiftProgress = stats.shiftProgress;
+          _totalShiftSeconds = stats.shiftDuration * 60;
+          if (_totalShiftSeconds <= 0) _totalShiftSeconds = 28800;
+          _isLoading = false;
         });
+        
+        // Ensure timer is running if online
+        if (_isOnline && _remainingSeconds > 0) {
+          _startCountdown();
+        } else { // If not online OR remaining seconds <= 0
+          _stopTimers();
+        }
 
         // Seed the DashboardController on app start / re-open so the
         // Job Card appears immediately without waiting for stats API.
@@ -208,11 +220,7 @@ class _ProfessionalDashboardScreenState
   // Notification checking logic removed in favor of FirebaseMessagingService
 
   Future<void> _toggleAvailability(bool value) async {
-    // Going online requires ₹1500 wallet balance
-    if (value && _walletCash < 1500) {
-      _showRequirementsError("Minimum ₹1500 wallet balance required to go online.");
-      return;
-    }
+    // Going online requires at least 5 kits
     // Going online requires at least 5 kits
     if (value && _kitCount < 5) {
       _showRequirementsError("Minimum 5 kits required to go online.");
@@ -227,9 +235,12 @@ class _ProfessionalDashboardScreenState
   @override
   void dispose() {
     _pollingTimer?.cancel();
+    _countdownTimer?.cancel();
+    _syncTimer?.cancel();
     _radarController.dispose();
     _scrollController.dispose();
     _confettiController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -241,11 +252,116 @@ class _ProfessionalDashboardScreenState
     }
   }
 
-  bool get _isOnline => mounted ? context.watch<ProfessionalProfileController>().isOnline : false;
+  // bool get _isOnline => mounted ? context.watch<ProfessionalProfileController>().isOnline : false; // Replaced by local _isOnline state
 
   void _startHeartbeat() {
-    // Heartbeat logic now moved to ProfessionalProfileController
     _fetchDashboardData(isSilent: true);
+    _startSyncTimer();
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    if (_remainingSeconds <= 0) return;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        if (mounted) {
+          setState(() {
+            _remainingSeconds--;
+            // Recalculate progress locally for smoothness
+            if (_shiftProgress < 1.0 && _totalShiftSeconds > 0) {
+              _shiftProgress += (1.0 / _totalShiftSeconds); 
+            }
+          });
+        }
+      } else {
+        _stopTimers();
+        _fetchDashboardData(); // Hard sync when timer hits zero
+      }
+    });
+  }
+
+  void _stopTimers() {
+    _countdownTimer?.cancel();
+    _syncTimer?.cancel();
+  }
+
+
+  void _startSyncTimer() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _fetchDashboardData(isSilent: true);
+    });
+  }
+
+  String _formatRemainingTime(int seconds) {
+    if (seconds <= 0) return "Ending";
+    final d = Duration(seconds: seconds);
+    int h = d.inHours;
+    int m = d.inMinutes.remainder(60);
+
+    if (h > 0) return "${h}h ${m}m";
+    if (m > 0) return "${m}m";
+    return "${seconds}s";
+  }
+
+  Color _getBadgeColor(int seconds) {
+    if (seconds > 3600) return Colors.green;
+    if (seconds > 900) return Colors.orange;
+    return Colors.red;
+  }
+
+  Widget _buildShiftBadge() {
+    if (!_isOnline || _remainingSeconds <= 0) return const SizedBox.shrink();
+
+    String timeStr = _formatRemainingTime(_remainingSeconds);
+    Color badgeColor = _getBadgeColor(_remainingSeconds);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: badgeColor.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: badgeColor.withOpacity(0.3), width: 1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.timer_outlined, size: 14, color: badgeColor),
+              const SizedBox(width: 4),
+              Text(
+                timeStr,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: badgeColor,
+                ),
+              ),
+            ],
+          ),
+          if (_shiftProgress > 0) ...[
+            const SizedBox(height: 4),
+            Container(
+              width: 60,
+              height: 3,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                color: badgeColor.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(2),
+              ),
+              child: LinearProgressIndicator(
+                value: _shiftProgress,
+                backgroundColor: Colors.transparent,
+                valueColor: AlwaysStoppedAnimation<Color>(badgeColor),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   @override
@@ -338,13 +454,21 @@ class _ProfessionalDashboardScreenState
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      profileController.isOnline ? 'Available for bookings' : 'Currently Offline',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: profileController.isOnline ? Colors.green.shade600 : Colors.grey.shade500,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          profileController.isOnline ? 'Available for bookings' : 'Currently Offline',
+                          style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: profileController.isOnline ? Colors.green.shade600 : Colors.grey.shade500,
+                          ),
+                        ),
+                        if (profileController.isOnline) ...[
+                          const SizedBox(width: 8),
+                          _buildShiftBadge(),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -810,101 +934,6 @@ class _ProfessionalDashboardScreenState
   }
 
 
-  void _showRequirementsError(String message) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64, height: 64,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFF2D6F).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.lock_outline_rounded, color: Color(0xFFFF2D6F), size: 30),
-              ),
-              const SizedBox(height: 16),
-              Text('Go Online Requirement',
-                style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF111827)),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
-              ),
-              const SizedBox(height: 5),
-              Text(
-                'Current: ₹${_walletCash.toStringAsFixed(0)} | $_kitCount Kits',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF374151)),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFFED7AA)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.shopping_bag_outlined, color: Color(0xFFF97316), size: 18),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Purchase a kit to get started and activate your professional account.',
-                        style: GoogleFonts.poppins(fontSize: 11.5, color: const Color(0xFF9A3412), fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text('Cancel', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280), fontWeight: FontWeight.w600)),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        context.push(AppRoutes.proKitStore);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF2D6F),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      child: Text('Buy Kit', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.white)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
   Widget _buildReferralBanner() {
     return GestureDetector(
       onTap: () => context.pushNamed(AppRoutes.proReferEarnName),
@@ -963,5 +992,69 @@ class _ProfessionalDashboardScreenState
         ),
       ),
     );
+  }
+  void _showRequirementsError(String message) {
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (ctx) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 32),
+                ),
+                const SizedBox(height: 20),
+                Text('Go Online Requirement',
+                  style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF111827)),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
+                ),
+                const SizedBox(height: 15),
+                Text(
+                  'Current Status: $_kitCount / 5 Kits',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const KitStoreScreen()));
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text('Buy Kit', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Maybe Later', style: GoogleFonts.poppins(color: const Color(0xFF6B7280), fontWeight: FontWeight.w500)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 }

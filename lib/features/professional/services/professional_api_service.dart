@@ -1,10 +1,12 @@
+import 'package:bellavella/core/models/data_models.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
-import 'package:bellavella/features/professional/models/professional_models.dart';
-import 'package:bellavella/core/models/data_models.dart';
-import 'package:image_picker/image_picker.dart';
 
 class ProfessionalApiService {
   static const String _prefix = '/professional';
@@ -351,7 +353,7 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to create kit payment order');
   }
 
-  /// Step 2: Verify Razorpay Payment Signature on Backend
+  /// Step 2: Verify Razorpay Payment Signature on Backend (Ultimate Hardening)
   static Future<Map<String, dynamic>> verifyKitPayment({
     required int kitProductId,
     required int quantity,
@@ -359,18 +361,47 @@ class ProfessionalApiService {
     required String razorpayOrderId,
     required String razorpaySignature,
   }) async {
-    final response = await ApiService.post('/professional/payment/verify', {
+    final Map<String, dynamic> body = {
       'kit_product_id': kitProductId,
       'quantity': quantity,
       'razorpay_payment_id': razorpayPaymentId,
       'razorpay_order_id': razorpayOrderId,
       'razorpay_signature': razorpaySignature,
-    });
+    };
+
+    final String idempotencyKey = await _getPersistentKey('purchase_kit_online');
+    final String hash = sha256.convert(utf8.encode(jsonEncode(body))).toString();
+
+    // Add to body since ApiService doesn't support custom headers
+    body['idempotency_key'] = idempotencyKey;
+    body['idempotency_hash'] = hash;
+
+    final response = await ApiService.post(
+      '/professional/payment/verify',
+      body,
+    );
 
     if (response['success'] == true && response['data'] != null) {
+      await _clearPersistentKey('purchase_kit_online');
       return response['data'];
     }
     throw Exception(response['message'] ?? 'Payment verification failed');
+  }
+
+  // --- Persistent Idempotency Helpers ---
+  static Future<String> _getPersistentKey(String action) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? key = prefs.getString('idempotency_$action');
+    if (key == null) {
+      key = DateTime.now().millisecondsSinceEpoch.toString() + '_' + action;
+      await prefs.setString('idempotency_$action', key);
+    }
+    return key;
+  }
+
+  static Future<void> _clearPersistentKey(String action) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('idempotency_$action');
   }
 
   // --- Wallet Deposit ---
@@ -404,12 +435,27 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Deposit verification failed');
   }
 
-  /// Legacy / Wallet Order
+  /// Legacy / Wallet Order (Ultimate Hardening)
   static Future<Map<String, dynamic>> placeKitOrder(int productId, int quantity) async {
-    final response = await ApiService.post('/professional/orders', {
+    final Map<String, dynamic> body = {
       'kit_product_id': productId,
       'quantity': quantity,
-    });
+    };
+
+    final String idempotencyKey = await _getPersistentKey('purchase_kit_wallet');
+    final String hash = sha256.convert(utf8.encode(jsonEncode(body))).toString();
+
+    body['idempotency_key'] = idempotencyKey;
+    body['idempotency_hash'] = hash;
+
+    final response = await ApiService.post(
+      '/professional/orders',
+      body,
+    );
+
+    if (response['success'] == true) {
+      await _clearPersistentKey('purchase_kit_wallet');
+    }
     return response;
   }
 

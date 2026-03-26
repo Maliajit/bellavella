@@ -20,6 +20,14 @@ class AppConfig {
   static String get baseUrl {
     final raw = _sanitizeApiBaseUrl(_apiBaseUrlDefine);
     if (raw.isEmpty) {
+      if (kDebugMode) {
+        // Fallback for local development
+        if (kIsWeb) {
+          return 'http://localhost:8000/api';
+        }
+        // For Android Emulator, use 10.0.2.2
+        return 'http://10.0.2.2:8000/api';
+      }
       throw StateError(
         'Missing API_BASE_URL. Pass it with --dart-define=API_BASE_URL=http://host:8000/api',
       );
@@ -66,6 +74,9 @@ class AppConfig {
 
   static String get razorpayKeyId {
     if (_razorpayKeyDefine.isEmpty) {
+      if (kDebugMode) {
+        return 'rzp_test_S7dlJIqMvrpcaj'; // Default test key for local development
+      }
       throw StateError(
         'Missing RAZORPAY_KEY_ID. Pass it with --dart-define=RAZORPAY_KEY_ID=...',
       );
