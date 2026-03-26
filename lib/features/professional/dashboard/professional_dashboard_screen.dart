@@ -305,6 +305,14 @@ class _ProfessionalDashboardScreenState
     return "${seconds}s";
   }
 
+  String _formatRemainingTimeDigital(int totalSeconds) {
+    if (totalSeconds <= 0) return "00:00:00";
+    final h = totalSeconds ~/ 3600;
+    final m = (totalSeconds % 3600) ~/ 60;
+    final s = totalSeconds % 60;
+    return "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  }
+
   Color _getBadgeColor(int seconds) {
     if (seconds > 3600) return Colors.green;
     if (seconds > 900) return Colors.orange;
@@ -520,18 +528,58 @@ class _ProfessionalDashboardScreenState
         margin: const EdgeInsets.symmetric(horizontal: 24),
         child: _isOnline 
           ? Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(12),
+                color: Colors.green.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.green.withOpacity(0.1), width: 1),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle_outline_rounded, size: 14, color: Colors.green),
-                  const SizedBox(width: 8),
-                  Text(
-                    "You’re now visible to customers.",
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700),
+                  Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, size: 14, color: Colors.green),
+                      const SizedBox(width: 8),
+                      Text(
+                        "You’re now visible to customers.",
+                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.green.withOpacity(0.05)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.access_time_filled_rounded, size: 14, color: Colors.green.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatRemainingTimeDigital(_remainingSeconds),
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "remaining",
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
