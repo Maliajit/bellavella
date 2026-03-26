@@ -35,9 +35,9 @@ class _ProfessionalJobsScreenState extends State<ProfessionalJobsScreen> {
       final requests = await ProfessionalApiService.getBookingRequests();
       if (mounted) {
         setState(() {
-          // Filter for pending/requested status if needed, 
-          // but assuming getBookingRequests returns available ones for this screen.
-          _requests = requests.where((r) => r.status == BookingStatus.requested).toList();
+          // The API returns List<pro_models.ProfessionalBooking>
+          final List<pro_models.ProfessionalBooking> typedRequests = requests;
+          _requests = typedRequests.where((r) => r.status == BookingStatus.requested).toList();
           _isLoading = false;
         });
       }

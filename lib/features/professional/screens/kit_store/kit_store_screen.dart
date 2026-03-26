@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/config/app_config.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
 import 'widgets/kit_store_header.dart';
+import 'package:provider/provider.dart';
+import '../../controllers/professional_profile_controller.dart';
 import 'widgets/kit_store_banner.dart';
 import 'widgets/kit_product_card.dart';
 import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
-import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/widgets/success_dialog.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:ui';
+
+enum PurchaseState { idle, creatingOrder, processingPayment, verifying, success, failed }
 
 class KitStoreScreen extends StatefulWidget {
   const KitStoreScreen({super.key});
@@ -24,26 +28,28 @@ class KitStoreScreen extends StatefulWidget {
 
 class _KitStoreScreenState extends State<KitStoreScreen> {
   int _currentKits = 0;
+  double _walletBalance = 0.0;
   String _searchQuery = '';
   List<KitProductModel> _kits = [];
   bool _isLoading = true;
   String? _errorMessage;
-  bool _isProcessing = false;
+  PurchaseState _purchaseState = PurchaseState.idle;
+  bool _isDialogOpen = false;
   final TextEditingController _searchCtrl = TextEditingController();
   rzp_helper.RazorpayService? _razorpayService;
   
-  // Selected kit for Razorpay callback
-   KitProductModel? _selectedKitForRZP;
+  KitProductModel? _selectedKitForRZP;
   int _selectedQtyForRZP = 1;
 
   List<KitProductModel> get _filteredKits {
     if (_searchQuery.isEmpty) return _kits;
     final q = _searchQuery.toLowerCase();
-    return _kits.where((k) =>
-        k.name.toLowerCase().contains(q) ||
-        (k.category ?? '').toLowerCase().contains(q) ||
-        k.description.toLowerCase().contains(q)
-    ).toList();
+    return _kits.where((k) {
+      final name = k.name.toLowerCase();
+      final category = (k.category).toLowerCase();
+      final description = k.description.toLowerCase();
+      return name.contains(q) || category.contains(q) || description.contains(q);
+    }).toList();
   }
 
   @override
@@ -51,6 +57,14 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
     super.initState();
     _fetchKits();
     _initRazorpay();
+    _autoResumePending();
+  }
+
+  Future<void> _autoResumePending() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.containsKey('idempotency_purchase_kit_online')) {
+       debugPrint('🔄 Found pending online kit purchase, attempting auto-resume...');
+    }
   }
 
   void _initRazorpay() {
@@ -74,10 +88,13 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
     try {
       final products = await ProfessionalApiService.getKitProducts();
       final stats = await ProfessionalApiService.getDashboardStats();
+      final wallet = await ProfessionalApiService.getWallet();
+      
       if (!mounted) return;
       setState(() {
         _kits = products;
         _currentKits = stats.kitCount;
+        _walletBalance = wallet.totalBalance;
         _isLoading = false;
       });
     } catch (e) {
@@ -90,18 +107,15 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
     }
   }
 
-  // --- Razorpay Methods ---
-  
   void _openRazorpay(KitProductModel kit, int qty) async {
     HapticFeedback.mediumImpact();
     setState(() {
-      _isProcessing = true;
+      _purchaseState = PurchaseState.creatingOrder;
       _selectedKitForRZP = kit;
       _selectedQtyForRZP = qty;
     });
 
     try {
-      // Step 1: Create Order on Backend
       final orderData = await ProfessionalApiService.createKitPaymentOrder(kit.id, qty);
       
       if (orderData['is_mock'] == true) {
@@ -116,6 +130,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
           },
           onSuccess: _onPaymentSuccess,
           onFailure: (failure) {
+            setState(() => _purchaseState = PurchaseState.failed);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(failure.message ?? 'Payment Cancelled'), backgroundColor: Colors.red),
             );
@@ -132,15 +147,16 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
         'amount': amountPaise,
         'name': 'Bella Villa',
         'description': '${kit.name} × $qty',
-        'order_id': razorpayOrderId, // MUST pass order_id for signature verification
+        'order_id': razorpayOrderId,
         'prefill': {'contact': '', 'email': ''},
         'theme': {'color': '#FF2D6F'},
       };
 
       _razorpayService?.open(options);
+      setState(() => _purchaseState = PurchaseState.processingPayment);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isProcessing = false);
+      setState(() => _purchaseState = PurchaseState.failed);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Order Creation Failed: $e'), backgroundColor: Colors.red));
     }
   }
@@ -148,8 +164,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   void _onPaymentSuccess(PaymentSuccessResponse response) async {
     if (_selectedKitForRZP == null) return;
     
-    // Step 2: Verify Payment Signature on Backend
-    setState(() => _isProcessing = true);
+    setState(() => _purchaseState = PurchaseState.verifying);
     try {
       final res = await ProfessionalApiService.verifyKitPayment(
         kitProductId: _selectedKitForRZP!.id,
@@ -160,28 +175,78 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
       );
       
       if (!mounted) return;
-      setState(() => _isProcessing = false);
-      _fetchKits(); // Refresh inventory count
+      setState(() {
+        _purchaseState = PurchaseState.success;
+        _currentKits += _selectedQtyForRZP;
+      });
 
-      final orderId = res['id']?.toString() ?? 'N/A';
-      context.pushReplacementNamed(
-        AppRoutes.proKitPaymentSuccessName,
-        extra: {
-          'orderId': orderId,
-          'amount': _selectedKitForRZP!.price * _selectedQtyForRZP,
-          'kitName': _selectedKitForRZP!.name,
-          'paymentId': response.paymentId ?? '',
-        },
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showSuccessDialog("Online Payment Successful", _selectedKitForRZP!.name, _selectedQtyForRZP);
+        }
+      });
+      _fetchKits();
+      setState(() => _purchaseState = PurchaseState.idle);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isProcessing = false);
+      setState(() => _purchaseState = PurchaseState.failed);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Payment Verification Failed: $e'), backgroundColor: Colors.red));
     }
   }
 
+  void _payWithWallet(KitProductModel kit, int qty) async {
+    HapticFeedback.heavyImpact();
+    setState(() => _purchaseState = PurchaseState.verifying);
+    
+    try {
+      final res = await ProfessionalApiService.placeKitOrder(kit.id, qty);
+      
+      if (res['success'] == true) {
+        if (!mounted) return;
+        setState(() {
+          _purchaseState = PurchaseState.success;
+          _walletBalance -= (kit.price * qty);
+          _currentKits += qty;
+        });
+        
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _showSuccessDialog("Purchase Successful", kit.name, qty);
+          }
+        });
+        _fetchKits();
+        setState(() => _purchaseState = PurchaseState.idle);
+      } else {
+        throw Exception(res['message'] ?? 'Wallet purchase failed');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _purchaseState = PurchaseState.failed);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Wallet Payment Failed: $e'), backgroundColor: Colors.red));
+    }
+  }
+
+  void _showSuccessDialog(String title, String kitName, int qty) {
+     if (_isDialogOpen) return;
+     _isDialogOpen = true;
+
+     showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => SuccessDialog(
+        title: title,
+        message: 'You have successfully purchased $qty × $kitName. It will be assigned to your inventory shortly.',
+        onPressed: () {
+          _isDialogOpen = false;
+          Navigator.of(dialogCtx, rootNavigator: true).pop();
+          context.read<ProfessionalProfileController>().fetchProfile();
+        },
+      ),
+    ).then((_) => _isDialogOpen = false);
+  }
+
   void _onPaymentError(PaymentFailureResponse response) {
-    setState(() => _isProcessing = false);
+    setState(() => _purchaseState = PurchaseState.failed);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Payment failed: ${response.message}'), backgroundColor: Colors.red),
@@ -189,139 +254,161 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   }
 
   void _onExternalWallet(ExternalWalletResponse response) {
-    setState(() => _isProcessing = false);
+    setState(() => _purchaseState = PurchaseState.idle);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7F9),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _fetchKits,
-          color: AppTheme.primaryColor,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            slivers: [
-              // Header with live search
-              SliverToBoxAdapter(
-                child: KitStoreHeader(
-                  searchController: _searchCtrl,
-                  onSearchChanged: (q) => setState(() => _searchQuery = q),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _fetchKits,
+              color: AppTheme.primaryColor,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
                 ),
-              ),
-
-              // Hero Banner
-              SliverToBoxAdapter(
-                child: KitStoreBanner(
-                  kitCount: _currentKits,
-                  onManage: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Inventory management coming soon!'),
-                        behavior: SnackBarBehavior.floating,
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              // Loading state
-              if (_isLoading)
-                SliverFillRemaining(
-                  child: Center(
-                    child: CircularProgressIndicator(color: AppTheme.primaryColor),
-                  ),
-                )
-              // Error state
-              else if (_errorMessage != null)
-                SliverFillRemaining(
-                  child: _buildErrorState(),
-                )
-              // Empty state (no kits in DB)
-              else if (_kits.isEmpty)
-                const SliverFillRemaining(
-                  child: _EmptyState(),
-                )
-              else ...[
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-                // Results count / search indicator
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      children: [
-                        if (_searchQuery.isNotEmpty)
-                          Expanded(
-                            child: RichText(
-                              text: TextSpan(children: [
-                                TextSpan(
-                                  text: '${_filteredKits.length} results for ',
-                                  style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF9CA3AF)),
-                                ),
-                                TextSpan(
-                                  text: '"$_searchQuery"',
-                                  style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF111827)),
-                                ),
-                              ]),
-                            ),
-                          )
-                        else
-                          Text(
-                            '${_filteredKits.length} Products',
-                            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF111827)),
-                          ),
-                        const Spacer(),
-                        Text('Tap to view details', style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF9CA3AF))),
-                      ],
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: KitStoreHeader(
+                      searchController: _searchCtrl,
+                      onSearchChanged: (q) => setState(() => _searchQuery = q),
                     ),
                   ),
-                ),
 
-                // No search results
-                if (_filteredKits.isEmpty && _searchQuery.isNotEmpty)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                  SliverToBoxAdapter(
+                    child: KitStoreBanner(
+                      kitCount: _currentKits,
+                      onManage: () {},
+                    ),
+                  ),
+
+                  if (_isLoading)
+                    SliverFillRemaining(
+                      child: Center(
+                        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+                      ),
+                    )
+                  else if (_errorMessage != null)
+                    SliverFillRemaining(
+                      child: _buildErrorState(),
+                    )
+                  else if (_kits.isEmpty)
+                    const SliverFillRemaining(
+                      child: _EmptyState(),
+                    )
+                  else ...[
+                    const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 8),
+                      sliver: SliverToBoxAdapter(
+                        child: Row(
                           children: [
-                            const Text('🔍', style: TextStyle(fontSize: 48)),
-                            const SizedBox(height: 16),
-                            Text('No kits found', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
-                            const SizedBox(height: 6),
-                            Text('Try a different keyword', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF9CA3AF))),
+                            if (_searchQuery.isNotEmpty)
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(children: [
+                                    TextSpan(
+                                      text: '${_filteredKits.length} results for ',
+                                      style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF9CA3AF)),
+                                    ),
+                                    TextSpan(
+                                      text: '"$_searchQuery"',
+                                      style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF111827)),
+                                    ),
+                                  ]),
+                                ),
+                              )
+                            else
+                              Text(
+                                '${_filteredKits.length} Products',
+                                style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFF111827)),
+                              ),
+                            const Spacer(),
+                            Text('Tap to view details', style: GoogleFonts.poppins(fontSize: 11, color: const Color(0xFF9CA3AF))),
                           ],
                         ),
                       ),
                     ),
-                  )
-                else
-                  // Kit cards
-                  SliverPadding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    sliver: SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final kit = _filteredKits[index];
-                          return KitProductCard(
-                            kit: kit,
-                            onBuy: () => _showBuySheet(kit),
-                            onViewDetails: () => _showDetailsSheet(kit),
-                          );
-                        },
-                        childCount: _filteredKits.length,
-                      ),
-                    ),
-                  ),
-              ],
 
-              // Bottom spacer for nav bar
-              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                    if (_filteredKits.isEmpty && _searchQuery.isNotEmpty)
+                      SliverFillRemaining(
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(32),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Text('🔍', style: TextStyle(fontSize: 48)),
+                                const SizedBox(height: 16),
+                                Text('No kits found', style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
+                                const SizedBox(height: 6),
+                                Text('Try a different keyword', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF9CA3AF))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        sliver: SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final kit = _filteredKits[index];
+                              return KitProductCard(
+                                kit: kit,
+                                onBuy: () => _showBuySheet(kit),
+                                onViewDetails: () => _showDetailsSheet(kit),
+                              );
+                            },
+                            childCount: _filteredKits.length,
+                          ),
+                        ),
+                      ),
+                  ],
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                ],
+              ),
+            ),
+          ),
+          if (_purchaseState != PurchaseState.idle && _purchaseState != PurchaseState.failed)
+            _buildPurchaseOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPurchaseOverlay() {
+    String message = "Processing...";
+    if (_purchaseState == PurchaseState.creatingOrder) message = "Initiating Order...";
+    if (_purchaseState == PurchaseState.processingPayment) message = "Awaiting Payment...";
+    if (_purchaseState == PurchaseState.verifying) message = "Securing Transaction...";
+
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: Container(
+        color: Colors.black.withOpacity(0.5),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 20),
+              Text(
+                message,
+                style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Please do not close the app",
+                style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -451,28 +538,82 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
                   Text('₹${total.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.primaryColor)),
                 ]),
                 const SizedBox(height: 24),
+
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFF3F4F6)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle),
+                        child: Icon(Icons.account_balance_wallet_rounded, color: Colors.green.shade600, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Wallet Balance', style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF6B7280))),
+                            Text('₹${_walletBalance.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
+                          ],
+                        ),
+                      ),
+                      if (_walletBalance < total)
+                        Text('Insufficient', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red.shade400)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
                 
-                // Direct Razorpay Button
                 SizedBox(
                   width: double.infinity,
                   height: 54,
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: (_purchaseState != PurchaseState.idle || _walletBalance < total) ? null : () async {
                       Navigator.pop(sheetCtx);
-                      _openRazorpay(kit, qty);
+                      await Future.delayed(const Duration(milliseconds: 150));
+                      if (mounted) _payWithWallet(kit, qty);
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF111827),
+                      backgroundColor: Colors.green.shade600,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: const Color(0xFFE5E7EB),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      elevation: 0,
+                    ),
+                    child: _purchaseState == PurchaseState.verifying 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text('Pay with Wallet', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: OutlinedButton(
+                    onPressed: _purchaseState != PurchaseState.idle ? null : () async {
+                      Navigator.pop(sheetCtx);
+                      await Future.delayed(const Duration(milliseconds: 150));
+                      if (mounted) _openRazorpay(kit, qty);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF111827), width: 1.5),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       elevation: 0,
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.flash_on_rounded, color: Colors.amber, size: 18),
+                        const Icon(Icons.credit_card_rounded, color: Color(0xFF111827), size: 18),
                         const SizedBox(width: 8),
-                        Text('Proceed to Pay ₹${total.toStringAsFixed(0)}', 
-                          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                        Text('Pay Online (Razorpay)', 
+                          style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
                       ],
                     ),
                   ),
@@ -506,57 +647,23 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
   }
 }
 
-// ─── Empty State ───────────────────────────────────────────────────────────────
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: const Center(
-                child: Text('📦', style: TextStyle(fontSize: 56)),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'No kits available right now',
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF111827),
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'New kits will be added soon.\nCheck back later.',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                color: const Color(0xFF9CA3AF),
-                height: 1.6,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+      child: Padding(padding: EdgeInsets.all(40), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(width: 120, height: 120, decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(30)), child: const Center(child: Text('📦', style: TextStyle(fontSize: 56)))),
+        const SizedBox(height: 24),
+        Text('No kits available right now', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w700, color: const Color(0xFF111827)), textAlign: TextAlign.center),
+        const SizedBox(height: 8),
+        Text('New kits will be added soon.\nCheck back later.', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF9CA3AF), height: 1.6), textAlign: TextAlign.center),
+      ]))
     );
   }
 }
 
-// ─── Details Bottom Sheet ──────────────────────────────────────────────────────
 class _DetailsSheet extends StatelessWidget {
   final KitProductModel kit;
   final VoidCallback onBuy;
@@ -566,198 +673,45 @@ class _DetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(height: 12),
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE5E7EB),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    kit.image,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 80,
-                      height: 80,
-                      color: const Color(0xFFF3F4F6),
-                      child: const Center(child: Text('💼', style: TextStyle(fontSize: 32))),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        kit.name,
-                        style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF111827),
-                        ),
-                      ),
-                      Text(
-                        (kit.category ?? 'General').toUpperCase(),
-                        style: GoogleFonts.poppins(
-                          fontSize: 10,
-                          color: const Color(0xFF9CA3AF),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '₹${kit.price.toStringAsFixed(0)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Divider(height: 1, indent: 24, endIndent: 24),
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 12),
+        Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 24),
+        Padding(padding: EdgeInsets.symmetric(horizontal: 24), child: Row(children: [
+          ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.network(kit.image, width: 80, height: 80, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(width: 80, height: 80, color: const Color(0xFFF3F4F6), child: const Center(child: Text('💼', style: TextStyle(fontSize: 32)))))),
+          const SizedBox(width: 16),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(kit.name, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
+            Text((kit.category).toUpperCase(), style: GoogleFonts.poppins(fontSize: 10, color: const Color(0xFF9CA3AF), fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+            const SizedBox(height: 4),
+            Text('₹${kit.price.toStringAsFixed(0)}', style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w900, color: AppTheme.primaryColor)),
+          ])),
+        ])),
+        const SizedBox(height: 20),
+        const Divider(height: 1, indent: 24, endIndent: 24),
+        const SizedBox(height: 16),
+        Padding(padding: EdgeInsets.symmetric(horizontal: 24), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Description', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
+          const SizedBox(height: 6),
+          Text(kit.description.isNotEmpty ? kit.description : 'A premium quality professional kit designed for beauty service providers.', style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280), height: 1.6)),
           const SizedBox(height: 16),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Description',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF111827),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  kit.description.isNotEmpty
-                      ? kit.description
-                      : 'A premium quality professional kit designed for beauty service providers.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    color: const Color(0xFF6B7280),
-                    height: 1.6,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    _statChip(
-                      icon: Icons.inventory_2_outlined,
-                      label: 'Stock: ${kit.stock}',
-                      color: kit.stock > 5
-                          ? const Color(0xFF10B981)
-                          : kit.stock > 0
-                              ? const Color(0xFFF59E0B)
-                              : const Color(0xFFEF4444),
-                    ),
-                    const SizedBox(width: 10),
-                    if (kit.isPremium == true)
-                      _statChip(
-                        icon: Icons.star_rounded,
-                        label: 'Premium',
-                        color: const Color(0xFF8B5CF6),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: kit.stock > 0 ? onBuy : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      kit.stock > 0 ? 'Buy Now' : 'Out of Stock',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Center(
-                    child: Text(
-                      'Close',
-                      style: GoogleFonts.poppins(
-                        color: const Color(0xFF9CA3AF),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ],
-      ),
+          Row(children: [
+            _statChip(icon: Icons.inventory_2_outlined, label: 'Stock: ${kit.stock}', color: kit.stock > 5 ? const Color(0xFF10B981) : kit.stock > 0 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+            const SizedBox(width: 10),
+            if (kit.isPremium == true) _statChip(icon: Icons.star_rounded, label: 'Premium', color: const Color(0xFF8B5CF6)),
+          ]),
+          const SizedBox(height: 24),
+          SizedBox(width: double.infinity, height: 52, child: ElevatedButton(onPressed: kit.stock > 0 ? onBuy : null, style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)), elevation: 0), child: Text(kit.stock > 0 ? 'Buy Now' : 'Out of Stock', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)))),
+          const SizedBox(height: 8),
+          TextButton(onPressed: () => Navigator.pop(context), child: Center(child: Text('Close', style: GoogleFonts.poppins(color: const Color(0xFF9CA3AF), fontWeight: FontWeight.w600)))),
+          const SizedBox(height: 16),
+        ])),
+      ]),
     );
   }
 
-  Widget _statChip({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
+  Widget _statChip({required IconData icon, required String label, required Color color}) {
+    return Container(padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)), child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(icon, size: 14, color: color), const SizedBox(width: 5), Text(label, style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: color))]));
   }
 }

@@ -246,6 +246,10 @@ class ProfessionalDashboardStats {
   final double distanceToJob;
   final String? activeJobStatus;
   final bool isOnline;
+  final int remainingSeconds;
+  final double shiftProgress;
+  final int shiftDuration;
+  final String? sessionId;
   final List<ProfessionalBooking> recentBookings;
 
   ProfessionalDashboardStats({
@@ -259,6 +263,10 @@ class ProfessionalDashboardStats {
     required this.distanceToJob,
     this.activeJobStatus,
     this.isOnline = false,
+    this.remainingSeconds = 0,
+    this.shiftProgress = 0,
+    this.shiftDuration = 480,
+    this.sessionId,
     required this.recentBookings,
   });
 
@@ -287,6 +295,10 @@ class ProfessionalDashboardStats {
       distanceToJob: ParserUtil.safeParseDouble(json['distance_to_job']),
       activeJobStatus: json['status']?.toString(),
       isOnline: json['is_online'] == true,
+      remainingSeconds: int.tryParse(json['remaining_seconds']?.toString() ?? '0') ?? 0,
+      shiftProgress: ParserUtil.safeParseDouble(json['shift_progress']),
+      shiftDuration: int.tryParse(json['shift_duration']?.toString() ?? '480') ?? 480,
+      sessionId: json['session_id']?.toString(),
       recentBookings: bookingsList,
     );
   }
