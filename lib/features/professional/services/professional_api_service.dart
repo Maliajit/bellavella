@@ -73,6 +73,7 @@ class ProfessionalApiService {
     XFile? aadharBack,
     XFile? panPhoto,
     XFile? certificate,
+    XFile? lightBill,
     XFile? selfie,
     String? referralCode,
   }) async {
@@ -99,6 +100,7 @@ class ProfessionalApiService {
       if (aadharBack != null) 'aadhar_back': aadharBack,
       if (panPhoto != null) 'pan_photo': panPhoto,
       if (certificate != null) 'certificate': certificate,
+      if (lightBill != null) 'light_bill': lightBill,
       if (selfie != null) 'selfie': selfie,
     };
 

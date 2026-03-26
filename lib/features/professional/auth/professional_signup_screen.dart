@@ -10,6 +10,31 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../../../core/widgets/base_widgets.dart';
 
+class _DobInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final trimmed = digits.length > 8 ? digits.substring(0, 8) : digits;
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < trimmed.length; i++) {
+      buffer.write(trimmed[i]);
+      if ((i == 1 || i == 3) && i != trimmed.length - 1) {
+        buffer.write('/');
+      }
+    }
+
+    final formatted = buffer.toString();
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
 class ProfessionalSignupScreen extends StatefulWidget {
   final String? phoneNumber;
   final String? referralCode;
@@ -35,9 +60,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   bool _aadharBackError = false;
   bool _panPhotoError = false;
   bool _certificateError = false;
+  bool _lightBillError = false;
   bool _selfieError = false;
   bool _skillsError = false;
   bool _languagesError = false;
+  bool _termsError = false;
 
   bool _showErrorTop = false;
   
@@ -58,9 +85,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   
   // Section C Controllers
   final _addressController = TextEditingController();
-  final _cityController = TextEditingController();
   final _pincodeController = TextEditingController();
   String? _selectedState;
+  String? _selectedCity;
+  String? _selectedArea;
+  bool _isTermsAccepted = false;
 
   // Section D: ID Verification
   final _aadharController = TextEditingController();
@@ -69,16 +98,44 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   XFile? _aadharBack;
   XFile? _panPhoto;
   XFile? _certificatePhoto;
+  XFile? _lightBillPhoto;
   XFile? _liveSelfie;
 
   final List<String> _experienceLevels = ['Fresher', '0–1 Year', '1–3 Years', '3–5 Years', '5+ Years'];
-  final List<String> _indianStates = ['Gujarat', 'Maharashtra', 'Rajasthan', 'Madhya Pradesh', 'Delhi', 'Karnataka'];
+  final List<String> _experienceOptions = ['Fresher', '0-1 Year', '1-3 Years', '3-5 Years', '5+ Years'];
+  final Map<String, Map<String, List<String>>> _locationOptions = const {
+    'Gujarat': {
+      'Ahmedabad': ['Navrangpura', 'Maninagar', 'Bopal'],
+      'Surat': ['Adajan', 'Vesu', 'Katargam'],
+    },
+    'Maharashtra': {
+      'Mumbai': ['Andheri', 'Borivali', 'Powai'],
+      'Pune': ['Kothrud', 'Wakad', 'Hinjewadi'],
+    },
+    'Rajasthan': {
+      'Jaipur': ['Malviya Nagar', 'Vaishali Nagar', 'Mansarovar'],
+      'Udaipur': ['Hiran Magri', 'Sector 14', 'Shobhagpura'],
+    },
+    'Madhya Pradesh': {
+      'Indore': ['Vijay Nagar', 'Palasia', 'Bhawarkuan'],
+      'Bhopal': ['Arera Colony', 'Kolar Road', 'MP Nagar'],
+    },
+    'Delhi': {
+      'New Delhi': ['Lajpat Nagar', 'Dwarka', 'Saket'],
+      'North Delhi': ['Model Town', 'Rohini', 'Civil Lines'],
+    },
+    'Karnataka': {
+      'Bengaluru': ['Indiranagar', 'Whitefield', 'Jayanagar'],
+      'Mysuru': ['VV Mohalla', 'Kuvempunagar', 'Nazarbad'],
+    },
+  };
 
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
+    _selectedGender = 'Female';
     if (widget.referralCode != null) {
       _referralCodeController.text = widget.referralCode!;
     }
@@ -90,7 +147,6 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     _emailController.dispose();
     _dobController.dispose();
     _addressController.dispose();
-    _cityController.dispose();
     _pincodeController.dispose();
     _aadharController.dispose();
     _panController.dispose();
@@ -99,34 +155,66 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime now = DateTime.now();
-    final DateTime lastDateAllowed = DateTime(now.year - 18, now.month, now.day);
-    
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: lastDateAllowed,
-      firstDate: DateTime(1950),
-      lastDate: lastDateAllowed,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppTheme.primaryColor,
-              onPrimary: Colors.white,
-              onSurface: AppTheme.accentColor,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        _selectedDob = picked;
-        _dobController.text = DateFormat('dd/MM/yyyy').format(picked);
-      });
+  List<String> get _availableStates => _locationOptions.keys.toList();
+
+  List<String> get _availableCities {
+    if (_selectedState == null) return const [];
+    return _locationOptions[_selectedState!]!.keys.toList();
+  }
+
+  List<String> get _availableAreas {
+    if (_selectedState == null || _selectedCity == null) return const [];
+    return _locationOptions[_selectedState!]![_selectedCity!] ?? const [];
+  }
+
+  void _handleDobChanged(String value) {
+    if (value.length != 10) {
+      if (_selectedDob != null) {
+        setState(() => _selectedDob = null);
+      }
+      return;
     }
+
+    try {
+      final parsed = DateFormat('dd/MM/yyyy').parseStrict(value);
+      if (_isAtLeast18(parsed)) {
+        if (_selectedDob != parsed) {
+          setState(() => _selectedDob = parsed);
+        }
+      } else if (_selectedDob != null) {
+        setState(() => _selectedDob = null);
+      }
+    } catch (_) {
+      if (_selectedDob != null) {
+        setState(() => _selectedDob = null);
+      }
+    }
+  }
+
+  bool _isAtLeast18(DateTime dob) {
+    final now = DateTime.now();
+    final cutoff = DateTime(now.year - 18, now.month, now.day);
+    return !dob.isAfter(cutoff);
+  }
+
+  String? _validateDob(String? value) {
+    final input = value?.trim() ?? '';
+    if (input.isEmpty) return 'DOB required';
+    if (!RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(input)) {
+      return 'Use dd/mm/yyyy format';
+    }
+
+    try {
+      final parsed = DateFormat('dd/MM/yyyy').parseStrict(input);
+      if (!_isAtLeast18(parsed)) {
+        return 'Professional must be at least 18 years old';
+      }
+      _selectedDob = parsed;
+    } catch (_) {
+      return 'Enter a valid date';
+    }
+
+    return null;
   }
 
   void _scrollToError(GlobalKey key) {
@@ -146,9 +234,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       _aadharBackError = _aadharBack == null;
       _panPhotoError = _panPhoto == null;
       _certificateError = _certificatePhoto == null;
+      _lightBillError = _lightBillPhoto == null;
       _selfieError = _liveSelfie == null;
       _skillsError = _selectedSkills.isEmpty;
       _languagesError = _selectedLanguages.isEmpty;
+      _termsError = !_isTermsAccepted;
     });
 
     if (_skillsError || _languagesError) {
@@ -156,8 +246,12 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       valid = false;
     }
 
-    if (_aadharFrontError || _aadharBackError || _panPhotoError || _certificateError || _selfieError) {
+    if (_aadharFrontError || _aadharBackError || _panPhotoError || _certificateError || _lightBillError || _selfieError) {
       if (valid) _scrollToError(_idVerificationKey);
+      valid = false;
+    }
+
+    if (_termsError) {
       valid = false;
     }
 
@@ -177,7 +271,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         // Auto scroll to first form error
         if (_nameController.text.isEmpty || _emailController.text.isEmpty || _dobController.text.isEmpty) {
           _scrollToError(_personalInfoKey);
-        } else if (_addressController.text.isEmpty || _cityController.text.isEmpty || _pincodeController.text.length != 6) {
+        } else if (_addressController.text.isEmpty || _selectedState == null || _selectedCity == null || _selectedArea == null || _pincodeController.text.length != 6) {
           _scrollToError(_addressKey);
         } else if (_aadharController.text.length != 12 || _panController.text.length != 10) {
           _scrollToError(_idVerificationKey);
@@ -194,27 +288,33 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     });
     
     try {
+      final combinedAddress = [
+        _addressController.text.trim(),
+        if (_selectedArea != null && _selectedArea!.trim().isNotEmpty) _selectedArea!.trim(),
+      ].join(', ');
+
       final response = await ProfessionalApiService.register(
         mobile: widget.phoneNumber ?? '',
-        name: _nameController.text,
+        name: _nameController.text.trim(),
         category: _selectedSkills.join(', '),
-        city: _cityController.text,
-        email: _emailController.text,
+        city: _selectedCity ?? '',
+        email: _emailController.text.trim(),
         dob: _selectedDob != null ? DateFormat('yyyy-MM-dd').format(_selectedDob!) : null,
         gender: _selectedGender,
         experience: _selectedExperience,
         languages: _selectedLanguages.join(', '),
-        address: _addressController.text,
-        pincode: _pincodeController.text,
+        address: combinedAddress,
+        pincode: _pincodeController.text.trim(),
         state: _selectedState,
-        aadharNumber: _aadharController.text,
-        panNumber: _panController.text,
+        aadharNumber: _aadharController.text.trim(),
+        panNumber: _panController.text.trim(),
         aadharFront: _aadharFront,
         aadharBack: _aadharBack,
         panPhoto: _panPhoto,
         certificate: _certificatePhoto,
+        lightBill: _lightBillPhoto,
         selfie: _liveSelfie,
-        referralCode: _referralCodeController.text.isNotEmpty ? _referralCodeController.text : null,
+        referralCode: _referralCodeController.text.trim().isNotEmpty ? _referralCodeController.text.trim() : null,
       );
 
       if (mounted) {
@@ -284,6 +384,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         else if (type == 'aadhar_back') _aadharBack = image;
         else if (type == 'pan') _panPhoto = image;
         else if (type == 'certificate') _certificatePhoto = image;
+        else if (type == 'light_bill') _lightBillPhoto = image;
         else if (type == 'selfie') _liveSelfie = image;
       });
     }
@@ -295,6 +396,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       else if (type == 'aadhar_back') _aadharBack = null;
       else if (type == 'pan') _panPhoto = null;
       else if (type == 'certificate') _certificatePhoto = null;
+      else if (type == 'light_bill') _lightBillPhoto = null;
       else if (type == 'selfie') _liveSelfie = null;
     });
   }
@@ -436,14 +538,17 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   return null;
                 }, keyboardType: TextInputType.emailAddress, autocorrect: false),
                 const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () => _selectDate(context),
-                  child: AbsorbPointer(
-                    child: _buildTextField('DOB', _dobController, Icons.calendar_today_outlined, (v) => (v == null || v.isEmpty) ? 'DOB required' : null),
-                  ),
+                _buildTextField(
+                  'DOB (dd/mm/yyyy)',
+                  _dobController,
+                  Icons.edit_calendar_outlined,
+                  _validateDob,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [_DobInputFormatter()],
+                  onChanged: _handleDobChanged,
                 ),
                 const SizedBox(height: 16),
-                _buildDropdown('Gender', ['Male', 'Female', 'Other'], _selectedGender, (v) => setState(() => _selectedGender = v)),
+                _buildDropdown('Gender', const ['Female'], _selectedGender, (v) => setState(() => _selectedGender = v)),
                 const SizedBox(height: 16),
                 _buildTextField('Referral Code (Optional)', _referralCodeController, Icons.card_giftcard_rounded, (v) => null),
               ]),
@@ -480,7 +585,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   }).toList(),
                 ),
                 const SizedBox(height: 16),
-                _buildDropdown('Experience', _experienceLevels, _selectedExperience, (v) => setState(() => _selectedExperience = v)),
+                _buildDropdown('Experience', _experienceOptions, _selectedExperience, (v) => setState(() => _selectedExperience = v)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -517,9 +622,32 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               _buildCard([
                 _buildTextField('Address', _addressController, Icons.home_outlined, (v) => (v == null || v.isEmpty) ? 'Address required' : null, maxLines: 3),
                 const SizedBox(height: 16),
-                _buildTextField('City', _cityController, Icons.location_city_outlined, (v) => (v == null || v.isEmpty) ? 'City required' : null),
+                _buildDropdown('State', _availableStates, _selectedState, (v) => setState(() {
+                  _selectedState = v;
+                  _selectedCity = null;
+                  _selectedArea = null;
+                })),
                 const SizedBox(height: 16),
-                _buildDropdown('State', _indianStates, _selectedState, (v) => setState(() => _selectedState = v)),
+                _buildDropdown(
+                  'City',
+                  _availableCities,
+                  _selectedCity,
+                  _selectedState == null ? null : (v) => setState(() {
+                    _selectedCity = v;
+                    _selectedArea = null;
+                  }),
+                  enabled: _selectedState != null,
+                  emptyLabel: 'Select state first',
+                ),
+                const SizedBox(height: 16),
+                _buildDropdown(
+                  'Area',
+                  _availableAreas,
+                  _selectedArea,
+                  _selectedCity == null ? null : (v) => setState(() => _selectedArea = v),
+                  enabled: _selectedCity != null,
+                  emptyLabel: 'Select city first',
+                ),
                 const SizedBox(height: 16),
                 _buildTextField('Pincode', _pincodeController, Icons.pin_drop_outlined, (v) {
                   if (v == null || v.isEmpty) return 'Pincode required';
@@ -578,9 +706,21 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 const SizedBox(height: 12),
                 SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Certificate', _certificatePhoto, 'certificate', isError: _certificateError),),
                 const SizedBox(height: 24),
+                const Text('Light Bill Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text('Upload a recent light bill image for address verification', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: _buildImagePickerTile('Upload Light Bill', _lightBillPhoto, 'light_bill', isError: _lightBillError),
+                ),
+                const SizedBox(height: 24),
                 const Text('Live Selfie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text('Capture a clear photo of your face', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(
+                  'Capture a clear photo with white plain background only. Otherwise request will be rejected.',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -594,6 +734,68 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 ),
 
               ]),
+              const SizedBox(height: 20),
+              Theme(
+                data: Theme.of(context).copyWith(
+                  unselectedWidgetColor: _termsError ? AppTheme.errorColor : const Color(0xFF555555),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: Checkbox(
+                        value: _isTermsAccepted,
+                        onChanged: (value) => setState(() {
+                          _isTermsAccepted = value ?? false;
+                          if (_isTermsAccepted) _termsError = false;
+                        }),
+                        activeColor: AppTheme.primaryColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        side: BorderSide(
+                          color: _termsError ? AppTheme.errorColor : const Color(0xFF555555),
+                          width: 1.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _isTermsAccepted = !_isTermsAccepted;
+                          if (_isTermsAccepted) _termsError = false;
+                        }),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'I agree to Terms & Conditions',
+                              style: GoogleFonts.outfit(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: _termsError ? AppTheme.errorColor : const Color(0xFF7A7A7A),
+                              ),
+                            ),
+                            if (_termsError)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Please accept Terms & Conditions',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.errorColor,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               
               const SizedBox(height: 48),
               PrimaryButton(
@@ -656,10 +858,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, String? Function(String?) validator, {TextInputType? keyboardType, int maxLines = 1, int? maxLength, List<TextInputFormatter>? inputFormatters, TextCapitalization textCapitalization = TextCapitalization.none, bool autocorrect = true}) {
+  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, String? Function(String?) validator, {TextInputType? keyboardType, int maxLines = 1, int? maxLength, List<TextInputFormatter>? inputFormatters, TextCapitalization textCapitalization = TextCapitalization.none, bool autocorrect = true, ValueChanged<String>? onChanged}) {
     return TextFormField(
       controller: controller,
       validator: validator,
+      onChanged: onChanged,
       keyboardType: keyboardType,
       maxLines: maxLines,
       maxLength: maxLength,
@@ -682,14 +885,14 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Widget _buildDropdown(String hint, List<String> items, String? value, Function(String?) onChanged) {
+  Widget _buildDropdown(String hint, List<String> items, String? value, ValueChanged<String?>? onChanged, {bool enabled = true, String? emptyLabel}) {
     return DropdownButtonFormField<String>(
-      value: value,
+      value: items.contains(value) ? value : null,
       items: items.map((e) => DropdownMenuItem(value: e, child: Text(e, style: GoogleFonts.outfit(fontWeight: FontWeight.w500)))).toList(),
-      onChanged: onChanged,
+      onChanged: enabled && items.isNotEmpty ? onChanged : null,
       validator: (v) => v == null ? '$hint required' : null,
       decoration: InputDecoration(
-        hintText: 'Select $hint',
+        hintText: items.isEmpty ? (emptyLabel ?? 'No $hint available') : 'Select $hint',
         hintStyle: GoogleFonts.outfit(color: const Color(0xFF7A7A7A), fontWeight: FontWeight.w400),
         prefixIcon: Icon(
           hint == 'Gender' ? Icons.people_outline : hint == 'Experience' ? Icons.work_outline : Icons.map_outlined, 
@@ -700,6 +903,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         fillColor: const Color(0xFFF9FAFB),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
