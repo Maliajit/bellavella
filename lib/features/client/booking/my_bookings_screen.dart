@@ -6,6 +6,7 @@ import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/features/client/packages/models/package_models.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
+import 'package:bellavella/features/client/booking/widgets/booking_cancel_reason_sheet.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -21,6 +22,22 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   List<dynamic> _upcoming = [];
   List<dynamic> _completed = [];
   List<dynamic> _cancelled = [];
+
+  void _moveBookingToCancelled(String bookingId) {
+    final upcomingIndex = _upcoming.indexWhere(
+      (booking) => booking['id']?.toString() == bookingId,
+    );
+    if (upcomingIndex == -1) {
+      return;
+    }
+
+    final updatedBooking = Map<String, dynamic>.from(
+      _upcoming.removeAt(upcomingIndex) as Map,
+    );
+    updatedBooking['status'] = 'cancelled';
+    updatedBooking['can_cancel'] = false;
+    _cancelled.insert(0, updatedBooking);
+  }
 
   @override
   void initState() {
@@ -435,7 +452,11 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                         const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => context.push('/client/booking-status/${bookingData['id']}'),
+                          onPressed: () async {
+                            await context.push('/client/booking-status/${bookingData['id']}');
+                            if (!mounted) return;
+                            _fetchBookings();
+                          },
                           icon: const Icon(Icons.fact_check_outlined, size: 18),
                           label: const Text('View Status'),
                           style: ElevatedButton.styleFrom(
@@ -599,63 +620,38 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
   }
 
   void _showCancelConfirmation(BuildContext context, String bookingId) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
-            'Cancel Booking?',
-            style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.accentColor),
-          ),
-          content: const Text(
-            'Are you sure you want to cancel this booking? This action cannot be undone.',
-            style: TextStyle(color: AppTheme.greyText, fontSize: 14, height: 1.4),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                foregroundColor: AppTheme.greyText,
-                textStyle: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-              child: const Text('No'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                final response = await ApiService.post(
-                  '/client/bookings/$bookingId/cancel',
-                  <String, dynamic>{},
-                );
-                if (!context.mounted) return;
-                if (response['success'] == true) {
-                  ToastUtil.showSuccess(
-                    context,
-                    response['message']?.toString() ?? 'Booking cancelled successfully',
-                  );
-                  _fetchBookings();
-                  return;
-                }
-                ToastUtil.showError(
-                  context,
-                  response['message']?.toString() ?? 'Unable to cancel booking',
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              ),
-              child: const Text('Yes, Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-          ],
+    BookingCancelReasonSheet.show(context).then((selection) async {
+      if (selection == null || !mounted) return;
+
+      if (selection.code == 'reschedule') {
+        context.push('/client/booking-status/$bookingId');
+        return;
+      }
+
+      final response = await ApiService.post(
+        '/client/bookings/$bookingId/cancel',
+        <String, dynamic>{
+          'reason_code': selection.code,
+          if (selection.note != null) 'reason_note': selection.note,
+        },
+      );
+
+      if (!mounted) return;
+      if (response['success'] == true) {
+        setState(() {
+          _moveBookingToCancelled(bookingId);
+        });
+        ToastUtil.showSuccess(
+          context,
+          response['message']?.toString() ?? 'Booking cancelled successfully',
         );
-      },
-    );
+        return;
+      }
+      ToastUtil.showError(
+        context,
+        response['message']?.toString() ?? 'Unable to cancel booking',
+      );
+    });
   }
   Widget _buildLoginGate() {
     return Container(

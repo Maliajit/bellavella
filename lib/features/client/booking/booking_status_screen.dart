@@ -6,6 +6,7 @@ import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:bellavella/core/widgets/base_widgets.dart';
 import 'package:bellavella/features/client/booking/widgets/slot_picker_bottom_sheet.dart';
+import 'package:bellavella/features/client/booking/widgets/booking_cancel_reason_sheet.dart';
 
 class BookingStatusScreen extends StatefulWidget {
   final String bookingId;
@@ -23,7 +24,8 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
   Booking? _booking;
 
   void _goToMyBookings() {
-    context.go('/client/my-bookings');
+    final refreshToken = DateTime.now().millisecondsSinceEpoch;
+    context.go('/client/my-bookings?refresh=$refreshToken');
   }
 
   @override
@@ -76,30 +78,21 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
   Future<void> _cancelBooking() async {
     if (_booking == null || _isCancelling) return;
 
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Booking'),
-        content: const Text('This booking will be cancelled immediately.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Keep Booking'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Cancel Booking'),
-          ),
-        ],
-      ),
-    );
+    final selection = await BookingCancelReasonSheet.show(context);
+    if (selection == null || !mounted) return;
 
-    if (confirmed != true || !mounted) return;
+    if (selection.code == 'reschedule') {
+      await _openRescheduleSheet();
+      return;
+    }
 
     setState(() => _isCancelling = true);
     final response = await ApiService.post(
       '/client/bookings/${widget.bookingId}/cancel',
-      <String, dynamic>{},
+      <String, dynamic>{
+        'reason_code': selection.code,
+        if (selection.note != null) 'reason_note': selection.note,
+      },
     );
 
     if (!mounted) return;
@@ -110,7 +103,7 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
         context,
         response['message']?.toString() ?? 'Booking cancelled.',
       );
-      await _fetchStatus();
+      _goToMyBookings();
       return;
     }
 
@@ -220,6 +213,12 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildStatusHeader(_booking!),
+                          if (_booking!.status == BookingStatus.cancelled &&
+                              ((_booking!.cancelReasonCode ?? '').isNotEmpty ||
+                                  (_booking!.cancelReasonNote ?? '').isNotEmpty)) ...[
+                            const SizedBox(height: 24),
+                            _buildCancellationReasonCard(_booking!),
+                          ],
                           const SizedBox(height: 32),
                           _buildScheduleCard(_booking!),
                           const SizedBox(height: 32),
@@ -350,6 +349,58 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
               Text(booking.bookingTime.isEmpty ? 'Slot pending' : booking.bookingTime),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCancellationReasonCard(Booking booking) {
+    final title = _cancelReasonLabel(booking.cancelReasonCode);
+    final note = (booking.cancelReasonNote ?? '').trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Colors.red.shade400),
+              const SizedBox(width: 10),
+              const Text(
+                'Cancellation Reason',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          if (title != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              note,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade700,
+                height: 1.45,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -525,6 +576,27 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
         return 'Booking Accepted';
       default:
         return 'Booking Requested';
+    }
+  }
+
+  String? _cancelReasonLabel(String? code) {
+    switch (code) {
+      case 'changed_plan':
+        return 'My plan changed';
+      case 'mistake':
+        return 'I booked by mistake';
+      case 'other_service':
+        return 'I found another service';
+      case 'trust_issue':
+        return 'I am not comfortable with the booking';
+      case 'price':
+        return 'Price is too high';
+      case 'reschedule':
+        return 'I want to reschedule instead';
+      case 'other':
+        return 'Other';
+      default:
+        return null;
     }
   }
 

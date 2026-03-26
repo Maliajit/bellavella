@@ -12,6 +12,7 @@ import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/services/api_service.dart';
 
 import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
+import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
 import 'controllers/cart_provider.dart';
 import '../services/client_api_service.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
@@ -30,6 +31,15 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
   String _selectedPaymentMethod = 'online'; // Default
   RazorpayService? _razorpayService;
   int? _lastOrderId; // Store order id for verification
+  int? _lastConfirmedPayablePaise;
+  int? _previewPayablePaise;
+  int? _previewDiscountPaise;
+  bool _isPreviewLoading = false;
+  String? _previewError;
+  StateSetter? _paymentSheetSetState;
+  bool _useWalletCoins = false;
+  bool _isWalletLoading = false;
+  int _walletBalanceCoins = 0;
 
   @override
   void initState() {
@@ -39,6 +49,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
 
   @override
   void dispose() {
+    _paymentSheetSetState = null;
     _razorpayService?.clear();
     super.dispose();
   }
@@ -91,6 +102,32 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     // Handle external wallet
   }
 
+  Future<void> _loadWalletBalance() async {
+    if (_isWalletLoading) return;
+
+    setState(() => _isWalletLoading = true);
+    _paymentSheetSetState?.call(() {});
+    try {
+      final walletData = await ClientProfileApiService.getWallet();
+      if (!mounted) return;
+
+      setState(() {
+        _walletBalanceCoins = walletData['balance'] is num
+            ? (walletData['balance'] as num).toInt()
+            : int.tryParse(walletData['balance']?.toString() ?? '') ?? 0;
+        _isWalletLoading = false;
+      });
+      _paymentSheetSetState?.call(() {});
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _walletBalanceCoins = 0;
+        _isWalletLoading = false;
+      });
+      _paymentSheetSetState?.call(() {});
+    }
+  }
+
   // Helper to parse the slot string (e.g., "Mon, Mar 10 at 10:00 AM")
   Map<String, String> _parseSlot(String? slotStr) {
     if (slotStr == null || !slotStr.contains(' at ')) {
@@ -118,8 +155,96 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     }
   }
 
+  Map<String, dynamic> _buildCheckoutRequestData(CartProvider cartProvider) {
+    final String fullAddress = _composeCheckoutAddress();
+    final String? slotStr = widget.checkoutData['slot']?.toString();
+    final parsedSlot = _parseSlot(slotStr);
+
+    final Map<String, dynamic> requestData = {
+      'address': fullAddress,
+      'address_id': widget.checkoutData['addressId'],
+      'city': widget.checkoutData['city'],
+      'latitude': widget.checkoutData['latitude'],
+      'longitude': widget.checkoutData['longitude'],
+      'scheduled_date': parsedSlot['date'],
+      'scheduled_slot': parsedSlot['time'],
+      'payment_method': _selectedPaymentMethod,
+      'coupon_code': cartProvider.appliedOffer?['code'],
+      'tip_amount_paise': (cartProvider.tip * 100).toInt(),
+    };
+
+    final checkoutCoinsUsed = _selectedCoinsToUse(cartProvider);
+    if (checkoutCoinsUsed > 0) {
+      requestData['coins_used'] = checkoutCoinsUsed;
+    }
+
+    return requestData;
+  }
+
+  int _selectedCoinsToUse(CartProvider cartProvider) {
+    if (!_useWalletCoins) {
+      return 0;
+    }
+
+    final localMaxOrderCoins = cartProvider.totalAmount.floor();
+    if (localMaxOrderCoins <= 0) {
+      return 0;
+    }
+
+    return _walletBalanceCoins.clamp(0, localMaxOrderCoins);
+  }
+
+  Future<void> _refreshCheckoutPreview(CartProvider cartProvider) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isPreviewLoading = true;
+      _previewError = null;
+    });
+    _paymentSheetSetState?.call(() {});
+
+    try {
+      final response =
+          await ClientApiService.previewCheckoutCart(_buildCheckoutRequestData(cartProvider));
+
+      if (!mounted) return;
+
+      if (response['success'] == true && response['data'] is Map<String, dynamic>) {
+        final data = Map<String, dynamic>.from(response['data'] as Map);
+        final totalDiscountPaise = _parsePaise(data['total_discount_paise']) ?? 0;
+        final walletRedeemedPaise = _parsePaise(data['wallet_redeemed_paise']) ?? 0;
+        setState(() {
+          _previewPayablePaise = _parsePaise(data['total_paise']);
+          _previewDiscountPaise = totalDiscountPaise + walletRedeemedPaise;
+          _previewError = null;
+          _isPreviewLoading = false;
+        });
+        _paymentSheetSetState?.call(() {});
+      } else {
+        setState(() {
+          _previewPayablePaise = null;
+          _previewDiscountPaise = null;
+          _previewError =
+              response['message']?.toString() ?? 'Unable to preview payable amount.';
+          _isPreviewLoading = false;
+        });
+        _paymentSheetSetState?.call(() {});
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _previewPayablePaise = null;
+        _previewDiscountPaise = null;
+        _previewError = 'Unable to preview payable amount.';
+        _isPreviewLoading = false;
+      });
+      _paymentSheetSetState?.call(() {});
+    }
+  }
+
   void _showPaymentBottomSheet(BuildContext context) {
     final cartProvider = context.read<CartProvider>();
+    var initialPreviewRequested = false;
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
 
     showModalBottomSheet(
@@ -129,6 +254,14 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
       builder: (BuildContext ctx) {
         return StatefulBuilder(
           builder: (BuildContext ctx, StateSetter setModalState) {
+            _paymentSheetSetState = setModalState;
+            if (!initialPreviewRequested) {
+              initialPreviewRequested = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                _loadWalletBalance();
+                _refreshCheckoutPreview(cartProvider);
+              });
+            }
             return Container(
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
@@ -151,13 +284,16 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx),
+                        onPressed: () {
+                          _paymentSheetSetState = null;
+                          Navigator.pop(ctx);
+                        },
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   
-                  // Total Payable
+                  // Payable Summary
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -168,25 +304,76 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Total Payable',
+                          _isPreviewLoading
+                              ? 'Calculating Payable'
+                              : _lastConfirmedPayablePaise != null
+                                  ? 'Final Payable'
+                                  : _previewPayablePaise != null
+                                      ? 'Discounted Payable'
+                                      : 'Estimated Payable',
                           style: GoogleFonts.outfit(
                             fontSize: 16,
                             color: Colors.black87,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Text(
-                          currencyFormat.format(cartProvider.totalAmount),
-                          style: GoogleFonts.outfit(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFFFF4891), // pinkPrimary
-                          ),
-                        ),
+                        _isPreviewLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFFFF4891),
+                                ),
+                              )
+                            : Text(
+                                _lastConfirmedPayablePaise != null
+                                    ? _formatPaise(_lastConfirmedPayablePaise!)
+                                    : _previewPayablePaise != null
+                                        ? _formatPaise(_previewPayablePaise!)
+                                        : currencyFormat.format(cartProvider.totalAmount),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFFFF4891), // pinkPrimary
+                                ),
+                              ),
                       ],
                     ),
                   ),
+                  if (!_isPreviewLoading && (_previewDiscountPaise ?? 0) > 0) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Checkout savings: ${_formatPaise(_previewDiscountPaise!)}',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green.shade700,
+                      ),
+                    ),
+                  ],
+                  if (!_isPreviewLoading && _previewError != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      _previewError!,
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: Colors.red.shade400,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Text(
+                    _paymentHintText(),
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                      height: 1.4,
+                    ),
+                  ),
                   const SizedBox(height: 24),
+                  _buildWalletUsageCard(cartProvider, setModalState),
+                  const SizedBox(height: 16),
                   
                   // Payment Options
                   _buildPaymentOption(
@@ -194,7 +381,10 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                     icon: Icons.credit_card,
                     value: 'online',
                     groupValue: _selectedPaymentMethod,
-                    onChanged: (val) => setModalState(() => _selectedPaymentMethod = val!),
+                    onChanged: (val) {
+                      setModalState(() => _selectedPaymentMethod = val!);
+                      _refreshCheckoutPreview(cartProvider);
+                    },
                   ),
                   const SizedBox(height: 12),
                   _buildPaymentOption(
@@ -202,23 +392,17 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                     icon: Icons.money,
                     value: 'cod',
                     groupValue: _selectedPaymentMethod,
-                    onChanged: (val) => setModalState(() => _selectedPaymentMethod = val!),
+                    onChanged: (val) {
+                      setModalState(() => _selectedPaymentMethod = val!);
+                      _refreshCheckoutPreview(cartProvider);
+                    },
                   ),
-                  const SizedBox(height: 12),
-                  _buildPaymentOption(
-                    title: 'BellaVella Wallet',
-                    icon: Icons.account_balance_wallet,
-                    value: 'wallet',
-                    groupValue: _selectedPaymentMethod,
-                    onChanged: (val) => setModalState(() => _selectedPaymentMethod = val!),
-                  ),
-                  
                   const SizedBox(height: 30),
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: _isProcessing 
+                      onPressed: (_isProcessing || _isPreviewLoading)
                         ? null 
                         : () => _handleCheckout(ctx, cartProvider),
                       style: ElevatedButton.styleFrom(
@@ -299,38 +483,118 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     );
   }
 
+  Widget _buildWalletUsageCard(CartProvider cartProvider, StateSetter setModalState) {
+    final coinsToUse = _selectedCoinsToUse(cartProvider);
+    final canToggleWalletCoins = !_isWalletLoading && _walletBalanceCoins > 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF0F5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.account_balance_wallet, color: Color(0xFFFF4891)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'BellaVella Wallet',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isWalletLoading
+                      ? 'Loading wallet balance...'
+                      : _walletBalanceCoins > 0
+                          ? 'Available: $_walletBalanceCoins coins. Wallet will automatically reduce this order by up to $coinsToUse.'
+                          : 'No BellaVella Wallet balance available right now.',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    height: 1.35,
+                  ),
+                ),
+                if (_useWalletCoins && coinsToUse > 0) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Wallet applied: $coinsToUse coins (₹$coinsToUse)',
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Switch(
+            value: _useWalletCoins,
+            onChanged: canToggleWalletCoins
+                ? (value) {
+                    setModalState(() {
+                      _useWalletCoins = value;
+                    });
+                    _refreshCheckoutPreview(cartProvider);
+                  }
+                : null,
+            activeColor: const Color(0xFFFF4891),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _handleCheckout(BuildContext modalContext, CartProvider cartProvider) async {
     setState(() => _isProcessing = true);
     
     // safe to pop modal first
+    _paymentSheetSetState = null;
     Navigator.pop(modalContext);
 
     try {
-      final String fullAddress = _composeCheckoutAddress();
-      
-      final String? slotStr = widget.checkoutData['slot']?.toString();
-      final parsedSlot = _parseSlot(slotStr);
-
-      final Map<String, dynamic> requestData = {
-        'address': fullAddress,
-        'address_id': widget.checkoutData['addressId'],
-        'city': widget.checkoutData['city'],
-        'latitude': widget.checkoutData['latitude'],
-        'longitude': widget.checkoutData['longitude'],
-        'scheduled_date': parsedSlot['date'],
-        'scheduled_slot': parsedSlot['time'],
-        'payment_method': _selectedPaymentMethod,
-        'coupon_code': cartProvider.appliedPromotion?['code'],
-        'tip_amount_paise': (cartProvider.tip * 100).toInt(),
-      };
+      final Map<String, dynamic> requestData = _buildCheckoutRequestData(cartProvider);
 
       final response = await ClientApiService.checkoutCart(requestData);
 
       if (response['success'] == true) {
         final orderData = response['data'];
         _lastOrderId = orderData['order_id'];
+        final confirmedAmountPaise = _parsePaise(orderData['amount']);
+        if (confirmedAmountPaise != null && mounted) {
+          setState(() {
+            _lastConfirmedPayablePaise = confirmedAmountPaise;
+          });
+        } else if (confirmedAmountPaise != null) {
+          _lastConfirmedPayablePaise = confirmedAmountPaise;
+        }
 
         if (_selectedPaymentMethod == 'online' && orderData['razorpay_order_id'] != null) {
+          final localEstimatedPaise = (cartProvider.totalAmount * 100).round();
+          if (confirmedAmountPaise != null && mounted) {
+            final message = confirmedAmountPaise < localEstimatedPaise
+                ? 'Checkout discount applied. Final payable ${_formatPaise(confirmedAmountPaise)}'
+                : 'Final payable ${_formatPaise(confirmedAmountPaise)}';
+            ToastUtil.showSuccess(context, message);
+          }
+
           if (orderData['is_mock'] == true) {
             if (!mounted) return;
             MockRazorpayDialog.show(
@@ -410,6 +674,35 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     ];
 
     return parts.join(', ');
+  }
+
+  int? _parsePaise(dynamic value) {
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value == null) {
+      return null;
+    }
+
+    return int.tryParse(value.toString());
+  }
+
+  String _formatPaise(int paise) {
+    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    return currencyFormat.format(paise / 100);
+  }
+
+  String _paymentHintText() {
+    switch (_selectedPaymentMethod) {
+      case 'online':
+        return _useWalletCoins
+            ? 'BellaVella Wallet will reduce the order first, then any eligible online-payment discount is applied before Razorpay opens.'
+            : 'Online-payment discounts are confirmed by the backend before Razorpay opens, so the final payable can be lower than the cart estimate.';
+      default:
+        return _useWalletCoins
+            ? 'BellaVella Wallet will reduce the payable first. Any remaining amount will be collected after service.'
+            : 'The backend confirms the final payable after applying any eligible coupon and checkout discount rules.';
+    }
   }
 
   @override

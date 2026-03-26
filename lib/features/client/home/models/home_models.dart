@@ -1,4 +1,5 @@
 import 'package:bellavella/features/client/services/models/service_models.dart';
+import 'package:bellavella/core/utils/media_url.dart';
 
 // All data models used by the Home feature.
 
@@ -74,7 +75,9 @@ class HomeBanner {
       id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title:       json['title'] ?? '',
       subtitle:    json['subtitle'],
-      imageUrl:    json['url'] ?? json['image'] ?? '',
+      imageUrl:    resolveMediaUrl(
+        json['url']?.toString() ?? json['image']?.toString(),
+      ),
       targetPage:  json['target_page'],
       description: json['description'],
     );

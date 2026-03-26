@@ -1,6 +1,7 @@
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:bellavella/core/theme/app_theme.dart';
@@ -87,7 +88,7 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                 children: [
                   _buildBalanceCard(),
                   const SizedBox(height: 30),
-                  _buildHowToEarnSection(),
+                  _buildEarningHighlightsSection(),
                   const SizedBox(height: 30),
                   _buildTransactionHistory(),
                 ],
@@ -207,170 +208,147 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
     );
   }
 
-  Widget _buildHowToEarnSection() {
+  Widget _buildEarningHighlightsSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Earn more rewards',
+            'Ways to earn BellaVella Coins',
             style: GoogleFonts.outfit(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            'You currently earn coins in two main ways: by inviting friends and by sharing reviews after completed bookings.',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              height: 1.45,
+              color: Colors.grey.shade600,
+            ),
+          ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildEarnCard(
-                icon: Icons.calendar_today_rounded,
-                title: 'Daily Check-in',
-                reward: '10 Coins',
-                subtitle: 'Earn daily',
-                iconColor: const Color(0xFF4A90E2),
-              ),
-              const SizedBox(width: 12),
-              _buildEarnCard(
-                icon: Icons.people_outline_rounded,
-                title: 'Refer Friend',
-                reward: '500 Coins',
-                subtitle: 'Invite & Get',
-                iconColor: const Color(0xFFF5A623),
-              ),
-            ],
+          _buildEarningHighlightCard(
+            icon: Icons.people_alt_outlined,
+            title: 'Refer & Earn',
+            headline: 'Invite a friend and earn coins when they join.',
+            subtitle: 'Best for growing your balance faster.',
+            accentColor: const Color(0xFFFFB648),
+            chipLabel: 'Referral Reward',
+            onTap: () => context.push('/client/profile/refer-earn'),
           ),
           const SizedBox(height: 12),
-          _buildWideEarnCard(
-            icon: Icons.card_giftcard_rounded,
-            title: 'Complete 5 Bookings reward',
-            reward: '100 Coins',
+          _buildEarningHighlightCard(
+            icon: Icons.star_rate_rounded,
+            title: 'Review & Earn',
+            headline: 'Share a service review after completed bookings to earn coins.',
+            subtitle: 'Go to Completed bookings and tap Rate Service.',
+            accentColor: const Color(0xFF53B97C),
+            chipLabel: 'Review Reward',
+            onTap: () => context.push('/client/my-bookings'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEarnCard({
+  Widget _buildEarningHighlightCard({
     required IconData icon,
     required String title,
-    required String reward,
+    required String headline,
     required String subtitle,
-    required Color iconColor,
+    required Color accentColor,
+    required String chipLabel,
+    required VoidCallback onTap,
   }) {
-    return Expanded(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: accentColor.withValues(alpha: 0.18)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: accentColor.withValues(alpha: 0.08),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Column(
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: iconColor.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+                color: accentColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Icon(icon, color: iconColor, size: 20),
+              child: Icon(icon, color: accentColor, size: 26),
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.outfit(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      chipLabel,
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: accentColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    headline,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              reward,
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: iconColor,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                color: Colors.grey.shade500,
-              ),
-            ),
+            const SizedBox(width: 10),
+            Icon(Icons.chevron_right_rounded, color: accentColor, size: 22),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildWideEarnCard({
-    required IconData icon,
-    required String title,
-    required String reward,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: AppTheme.primaryColor, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: Colors.black,
-                  ),
-                ),
-                Text(
-                  'Exclusive milestone reward',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            reward,
-            style: GoogleFonts.outfit(
-              color: AppTheme.primaryColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
-          ),
-        ],
       ),
     );
   }

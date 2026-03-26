@@ -6,6 +6,7 @@ class HomeImageBanner extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final double height;
 
   const HomeImageBanner({
     super.key,
@@ -13,15 +14,20 @@ class HomeImageBanner extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
+    this.height = 160,
   });
 
   @override
   Widget build(BuildContext context) {
+    final trimmedTitle = title.trim();
+    final trimmedSubtitle = subtitle.trim();
+    final hasOverlayText = trimmedTitle.isNotEmpty;
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        height: 160,
+        height: height,
         margin: const EdgeInsets.symmetric(horizontal: 20),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
@@ -32,7 +38,7 @@ class HomeImageBanner extends StatelessWidget {
               AppNetworkImage(
                 url: image,
                 width: double.infinity,
-                height: 160,
+                height: height,
                 fit: BoxFit.cover,
               ),
               // Gradient overlay
@@ -49,33 +55,35 @@ class HomeImageBanner extends StatelessWidget {
                 ),
               ),
               // Text overlay
-              Positioned(
-                left: 20,
-                right: 20,
-                bottom: 20,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 13,
+              if (hasOverlayText)
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  bottom: 20,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (trimmedTitle.isNotEmpty)
+                        Text(
+                          trimmedTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                  ],
+                      if (trimmedSubtitle.isNotEmpty)
+                        Text(
+                          trimmedSubtitle,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),

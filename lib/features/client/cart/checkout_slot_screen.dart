@@ -161,7 +161,7 @@ class _CheckoutSlotScreenState extends State<CheckoutSlotScreen> {
 
     if (dates.isEmpty) {
       final now = DateTime.now();
-      final dayRange = category.toLowerCase().contains('brid') ? 31 : 4;
+      final dayRange = category.toLowerCase().contains('brid') ? 45 : 4;
       dates = List.generate(dayRange, (index) => now.add(Duration(days: index)));
     }
 

@@ -309,6 +309,8 @@ class Booking {
   final bool canReschedule;
   final bool canCancel;
   final DateTime? rescheduleCutoffAt;
+  final String? cancelReasonCode;
+  final String? cancelReasonNote;
 
   Booking({
     required this.id,
@@ -337,6 +339,8 @@ class Booking {
     this.canReschedule = false,
     this.canCancel = false,
     this.rescheduleCutoffAt,
+    this.cancelReasonCode,
+    this.cancelReasonNote,
   });
 
   static BookingStatus _parseStatus(String? status) {
@@ -443,6 +447,8 @@ class Booking {
       canReschedule: json['can_reschedule'] == true,
       canCancel: json['can_cancel'] == true,
       rescheduleCutoffAt: _parseDateTime(json['reschedule_cutoff_at']),
+      cancelReasonCode: json['cancel_reason_code']?.toString(),
+      cancelReasonNote: json['cancel_reason_note']?.toString(),
     );
   }
 }

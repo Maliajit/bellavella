@@ -9,10 +9,11 @@ import 'package:bellavella/features/client/cart/models/cart_model.dart';
 import 'package:bellavella/features/client/packages/controllers/package_provider.dart';
 import 'package:bellavella/features/client/packages/widgets/package_config_sheet.dart';
 import 'package:bellavella/core/services/auth_flow_service.dart';
-import 'package:bellavella/core/services/promotion_service.dart';
+import 'package:bellavella/core/services/offer_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
+import 'package:bellavella/core/widgets/app_network_image.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -450,7 +451,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildCouponsSection() {
     final cartProvider = context.watch<CartProvider>();
-    final hasPromo = cartProvider.appliedPromotion != null;
+    final hasOffer = cartProvider.appliedOffer != null;
 
     return InkWell(
       onTap: () => _showCouponBottomSheet(context),
@@ -465,25 +466,25 @@ class _CartScreenState extends State<CartScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    hasPromo ? 'Coupon Applied' : 'Coupons and offers',
+                    hasOffer ? 'Coupon Applied' : 'Coupons and offers',
                     style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    hasPromo 
-                      ? '${cartProvider.appliedPromotion!['code']} applied successfully'
+                    hasOffer 
+                      ? '${cartProvider.appliedOffer!['code']} applied successfully'
                       : 'Login/Sign up to view offers',
                     style: GoogleFonts.outfit(
                       fontSize: 13, 
-                      color: hasPromo ? greenSaving : Colors.grey,
-                      fontWeight: hasPromo ? FontWeight.w500 : FontWeight.normal,
+                      color: hasOffer ? greenSaving : Colors.grey,
+                      fontWeight: hasOffer ? FontWeight.w500 : FontWeight.normal,
                     ),
                   ),
                 ],
               ),
             ),
-            if (hasPromo)
+            if (hasOffer)
               TextButton(
-                onPressed: () => cartProvider.removePromotion(),
+                onPressed: () => cartProvider.removeOffer(),
                 child: Text('Remove', style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold)),
               )
             else
@@ -495,157 +496,255 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   void _showCouponBottomSheet(BuildContext context) {
+    final cartProvider = context.read<CartProvider>();
+    String? selectedOfferCode = cartProvider.appliedOffer?['code']?.toString();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Apply Coupon',
-                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          Future<void> applySelectedOffer() async {
+            final codeToApply = _couponController.text.trim().isNotEmpty
+                ? _couponController.text.trim()
+                : selectedOfferCode;
+            if (codeToApply == null || codeToApply.isEmpty) {
+              return;
+            }
+
+            final error = await cartProvider.applyOffer(codeToApply);
+            if (!mounted) return;
+
+            if (error != null) {
+              ToastUtil.showError(context, error);
+              return;
+            }
+
+            Navigator.pop(context);
+            ToastUtil.showSuccess(context, 'Coupon applied successfully!');
+          }
+
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.78,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _couponController,
-              style: GoogleFonts.outfit(),
-              decoration: InputDecoration(
-                hintText: 'Enter coupon code',
-                hintStyle: GoogleFonts.outfit(color: Colors.grey),
-                suffixIcon: TextButton(
-                  onPressed: () async {
-                    if (_couponController.text.trim().isEmpty) return;
-                    
-                    final error = await context.read<CartProvider>().applyPromotion(
-                      _couponController.text.trim(),
-                    );
-                    
-                    if (!mounted) return;
-                    
-                    if (error != null) {
-                      ToastUtil.showError(context, error);
-                    } else {
-                      Navigator.pop(context);
-                      ToastUtil.showSuccess(context, 'Coupon applied successfully!');
-                    }
-                  },
-                  child: Text(
-                    'Apply',
-                    style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Apply Coupon',
+                      style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _couponController,
+                  style: GoogleFonts.outfit(),
+                  onChanged: (_) => setModalState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Enter coupon code',
+                    hintStyle: GoogleFonts.outfit(color: Colors.grey),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: pinkPrimary),
+                    ),
                   ),
                 ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: pinkPrimary),
-                ),
-              ),
-            ),
-            const SizedBox(height: 30),
-            Expanded(
-              child: FutureBuilder<Map<String, dynamic>>(
-                future: PromotionService.getActivePromotions(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: pinkPrimary));
-                  }
-                  
-                  if (!snapshot.hasData || snapshot.data!['success'] == false) {
-                    return Center(
-                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
-                    );
-                  }
-                  
-                  final promotions = snapshot.data!['data'] as List;
-                  if (promotions.isEmpty) {
-                    return Center(
-                      child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
-                    );
-                  }
+                const SizedBox(height: 20),
+                Expanded(
+                  child: FutureBuilder<Map<String, dynamic>>(
+                    future: OfferService.getActiveOffers(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator(color: pinkPrimary));
+                      }
 
-                  return ListView.builder(
-                    itemCount: promotions.length,
-                    itemBuilder: (context, index) {
-                      final promo = promotions[index];
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade200),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: pinkLight,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.percent, color: pinkPrimary, size: 20),
-                            ),
-                            const SizedBox(width: 15),
-                            Expanded(
-                              child: Column(
+                      if (!snapshot.hasData || snapshot.data!['success'] == false) {
+                        return Center(
+                          child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
+                        );
+                      }
+
+                      final offers = (snapshot.data!['data'] as List?) ?? const [];
+                      if (offers.isEmpty) {
+                        return Center(
+                          child: Text('No offers available', style: GoogleFonts.outfit(color: Colors.grey)),
+                        );
+                      }
+
+                      return ListView.separated(
+                        itemCount: offers.length,
+                        separatorBuilder: (_, __) => Divider(color: Colors.grey.shade200, height: 1),
+                        itemBuilder: (context, index) {
+                          final offer = Map<String, dynamic>.from(offers[index] as Map);
+                          final offerCode = offer['code']?.toString() ?? '';
+                          final isSelected = selectedOfferCode == offerCode;
+
+                          return InkWell(
+                            onTap: () {
+                              setModalState(() {
+                                selectedOfferCode = offerCode;
+                                _couponController.text = offerCode;
+                              });
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    promo['code'],
-                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                                  _buildOfferImage(offer),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          (offer['name']?.toString().isNotEmpty ?? false)
+                                              ? offer['name'].toString()
+                                              : offerCode,
+                                          style: GoogleFonts.outfit(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
+                                            color: Colors.black87,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          _offerDescription(offer),
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 13,
+                                            color: Colors.black87,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFE8F5E9),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: const Color(0xFFC8E6C9)),
+                                          ),
+                                          child: Text(
+                                            offerCode,
+                                            style: GoogleFonts.outfit(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF2E7D32),
+                                              letterSpacing: 0.4,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    promo['description'] ?? 'Discount on your order',
-                                    style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey.shade600),
+                                  const SizedBox(width: 12),
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 10),
+                                    child: Icon(
+                                      isSelected
+                                          ? Icons.radio_button_checked
+                                          : Icons.radio_button_off,
+                                      size: 30,
+                                      color: isSelected ? const Color(0xFF2979FF) : Colors.grey.shade500,
+                                    ),
                                   ),
                                 ],
                               ),
                             ),
-                            TextButton(
-                              onPressed: () async {
-                                final error = await context.read<CartProvider>().applyPromotion(promo['code']);
-                                if (!mounted) return;
-                                
-                                if (error != null) {
-                                  ToastUtil.showError(context, error);
-                                } else {
-                                  Navigator.pop(context);
-                                  ToastUtil.showSuccess(context, 'Coupon applied successfully!');
-                                }
-                              },
-                              child: Text(
-                                'APPLY',
-                                style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (_couponController.text.trim().isEmpty && (selectedOfferCode == null || selectedOfferCode!.isEmpty))
+                        ? null
+                        : applySelectedOffer,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0D47A1),
+                      disabledBackgroundColor: Colors.grey.shade300,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: Text(
+                      'Apply',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
+  }
+
+  Widget _buildOfferImage(Map<String, dynamic> offer) {
+    final imageUrl = offer['image']?.toString();
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: imageUrl != null && imageUrl.isNotEmpty
+          ? AppNetworkImage(
+              url: imageUrl,
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+              borderRadius: BorderRadius.circular(12),
+            )
+          : const Icon(Icons.local_offer_outlined, color: pinkPrimary, size: 24),
+    );
+  }
+
+  String _offerDescription(Map<String, dynamic> offer) {
+    final minOrderPaise = (offer['min_order_paise'] as num?)?.toInt() ?? 0;
+    final maxDiscountPaise = (offer['max_discount_paise'] as num?)?.toInt() ?? 0;
+    final description = offer['description']?.toString().trim();
+
+    final parts = <String>[];
+    if (description != null && description.isNotEmpty) {
+      parts.add(description);
+    }
+    if (minOrderPaise > 0) {
+      parts.add('Min order ${_formatPaiseAmount(minOrderPaise)}');
+    }
+    if (maxDiscountPaise > 0) {
+      parts.add('Max discount ${_formatPaiseAmount(maxDiscountPaise)}');
+    }
+
+    return parts.isEmpty ? 'Discount on your order' : parts.join(' • ');
+  }
+
+  String _formatPaiseAmount(int paise) {
+    return '₹${(paise / 100).toStringAsFixed(paise % 100 == 0 ? 0 : 2)}';
   }
 
   Widget _buildPaymentSummary(CartProvider cartProvider) {
@@ -695,6 +794,15 @@ class _CartScreenState extends State<CartScreen> {
           ],
           const Divider(height: 30),
           _summaryRow('Amount to pay', _formatCurrency(cartProvider.totalAmount), isBold: true, largeText: true),
+          const SizedBox(height: 10),
+          Text(
+            'Final checkout discounts for online payment and BellaVella coins are confirmed by the backend in the payment step. The amount above is the cart estimate before those rules are applied.',
+            style: GoogleFonts.outfit(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );

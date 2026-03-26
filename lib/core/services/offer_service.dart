@@ -1,12 +1,12 @@
 import 'api_service.dart';
 
-class PromotionService {
-  static Future<Map<String, dynamic>> getActivePromotions() async {
-    return await ApiService.get('/client/promotions');
+class OfferService {
+  static Future<Map<String, dynamic>> getActiveOffers() async {
+    return await ApiService.get('/client/offers');
   }
 
   static Future<Map<String, dynamic>> validateCoupon(String code, double orderAmount) async {
-    return await ApiService.post('/client/promotions/validate', {
+    return await ApiService.post('/client/offers/validate', {
       'code': code,
       'order_amount_paise': (orderAmount * 100).toInt(),
     });

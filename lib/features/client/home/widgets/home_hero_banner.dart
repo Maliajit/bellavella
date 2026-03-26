@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_network_image.dart';
 import '../models/home_models.dart';
 
@@ -13,8 +12,8 @@ class HomeHeroBanner extends StatefulWidget {
 }
 
 class _HomeHeroBannerState extends State<HomeHeroBanner> {
+  static const double _heroHeight = 150;
   final PageController _pageController = PageController();
-  int _currentPage = 0;
 
   @override
   void dispose() {
@@ -29,15 +28,15 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
     return Column(
       children: [
         SizedBox(
-          height: 200,
+          height: _heroHeight,
           child: PageView.builder(
             controller: _pageController,
-            onPageChanged: (index) {
-              setState(() => _currentPage = index);
-            },
             itemCount: widget.banners.length,
             itemBuilder: (context, index) {
               final banner = widget.banners[index];
+              final trimmedTitle = banner.title.trim();
+              final trimmedSubtitle = banner.subtitle?.trim() ?? '';
+              final hasOverlayText = trimmedTitle.isNotEmpty;
               return GestureDetector(
                 onTap: () => widget.onBannerTap?.call(banner),
                 child: Container(
@@ -51,7 +50,7 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                         AppNetworkImage(
                           url: banner.imageUrl,
                           width: double.infinity,
-                          height: 200,
+                          height: _heroHeight,
                           fit: BoxFit.cover,
                         ),
                         // Gradient overlay
@@ -68,57 +67,40 @@ class _HomeHeroBannerState extends State<HomeHeroBanner> {
                           ),
                         ),
                         // Text overlay
-                        Positioned(
-                          left: 20,
-                          right: 20,
-                          bottom: 20,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                banner.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (banner.subtitle != null && banner.subtitle!.isNotEmpty)
+                        if (hasOverlayText)
+                          Positioned(
+                            left: 20,
+                            right: 20,
+                            bottom: 20,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
                                 Text(
-                                  banner.subtitle!,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 16,
+                                  trimmedTitle,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 21,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
-                            ],
+                                if (trimmedSubtitle.isNotEmpty)
+                                  Text(
+                                    trimmedSubtitle,
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.9),
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
                 ),
               );
             },
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            widget.banners.length,
-            (index) => Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              width: _currentPage == index ? 20 : 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: _currentPage == index
-                    ? AppTheme.primaryColor
-                    : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
           ),
         ),
       ],

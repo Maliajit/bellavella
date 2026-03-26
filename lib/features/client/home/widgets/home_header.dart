@@ -48,21 +48,103 @@ class _HomeHeaderState extends State<HomeHeader> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              _getGreeting(),
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                color: AppTheme.primaryColor,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _getGreeting(),
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () => context.push('/client/wallet'),
+                  child: Container(
+                    margin: const EdgeInsets.only(left: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.amber.shade400, Colors.orange.shade600],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.withValues(alpha: 0.2),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.monetization_on, color: Colors.white, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          widget.walletBalance,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Stack(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(left: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300, width: 1.2),
+                      ),
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                        icon: const Icon(Icons.shopping_cart_outlined, color: Colors.grey, size: 22),
+                        onPressed: () => context.push('/client/cart'),
+                      ),
+                    ),
+                    if (cartProvider.itemCount > 0)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.pink,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '${cartProvider.itemCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
           ),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Location Section
               Expanded(
                 child: InkWell(
                   onTap: widget.onLocationTap,
@@ -111,82 +193,15 @@ class _HomeHeaderState extends State<HomeHeader> {
                   ),
                 ),
               ),
-              // Wallet Balance Chip
-              GestureDetector(
-                onTap: () => context.push('/client/wallet'),
-                child: Container(
-                  margin: const EdgeInsets.only(left: 10),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.amber.shade400, Colors.orange.shade600],
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.orange.withValues(alpha: 0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.monetization_on, color: Colors.white, size: 18),
-                      const SizedBox(width: 6),
-                      Text(
-                        widget.walletBalance,
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Cart Button
-              Stack(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(left: 10),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300, width: 1.2),
-                    ),
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                      icon: const Icon(Icons.shopping_cart_outlined, color: Colors.grey, size: 22),
-                      onPressed: () => context.push('/client/cart'),
-                    ),
-                  ),
-                  if (cartProvider.itemCount > 0)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: Colors.pink,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          '${cartProvider.itemCount}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
+              const SizedBox(width: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.end,
+                children: const [
+                  _BrandLogoBadge(assetPath: 'assets/images/Dove_logo.png', label: 'Dove'),
+                  _BrandLogoBadge(assetPath: 'assets/images/rica.png', label: 'RICA'),
+                  _BrandLogoBadge(assetPath: 'assets/images/inveda_logo.avif', label: 'Inveda'),
                 ],
               ),
             ],
@@ -216,6 +231,53 @@ class _HomeHeaderState extends State<HomeHeader> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BrandLogoBadge extends StatelessWidget {
+  final String assetPath;
+  final String label;
+
+  const _BrandLogoBadge({
+    required this.assetPath,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE8E8E8)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      alignment: Alignment.center,
+      child: Image.asset(
+        assetPath,
+        height: 18,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF303030),
+              letterSpacing: 0.3,
+            ),
+          );
+        },
       ),
     );
   }

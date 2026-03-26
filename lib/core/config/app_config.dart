@@ -4,52 +4,20 @@ enum AppType { client, professional }
 
 class AppConfig {
   static AppType? type;
-  static const String _apiBaseUrlDefine = String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.1.6:8000/api');
-  static const String _razorpayKeyDefine = String.fromEnvironment(
-    'RAZORPAY_KEY_ID',
-  );
-  static const String _googleMapsApiKeyDefine = String.fromEnvironment(
-    'GOOGLE_MAPS_API_KEY',
-  );
+
+  static const String _apiBaseUrlDefine =
+      String.fromEnvironment('API_BASE_URL', defaultValue: '');
+
+  static const String _razorpayKeyDefine =
+      String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: '');
+
+  static const String _googleMapsApiKeyDefine =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
 
   static bool get isClient => type == AppType.client;
   static bool get isProfessional => type == AppType.professional;
 
   static String get baseUrl {
-    final url = _normalizedApiBaseUrl;
-    debugPrint('AppConfig: Resolved baseUrl: $url');
-    return url;
-  }
-
-  static String get host {
-    final parsed = Uri.tryParse(_normalizedApiBaseUrl);
-    return parsed?.host ?? 'localhost';
-  }
-
-  static int get port {
-    final parsed = Uri.tryParse(_normalizedApiBaseUrl);
-    return parsed?.port ?? 8000;
-  }
-
-  static String get origin {
-    final uri = Uri.parse(baseUrl);
-    return uri.replace(path: '', query: '', fragment: '').toString();
-  }
-
-  static String get flavor => const String.fromEnvironment('APP_FLAVOR');
-
-  static String get razorpayKeyId {
-    if (_razorpayKeyDefine.isEmpty) {
-      throw StateError(
-        'Missing RAZORPAY_KEY_ID. Pass it with --dart-define=RAZORPAY_KEY_ID=...',
-      );
-    }
-    return _razorpayKeyDefine;
-  }
-
-  static String get googleMapsApiKey => _googleMapsApiKeyDefine;
-
-  static String get _normalizedApiBaseUrl {
     final raw = _sanitizeApiBaseUrl(_apiBaseUrlDefine);
     if (raw.isEmpty) {
       throw StateError(
@@ -66,8 +34,46 @@ class AppConfig {
         ? parsed.path.substring(0, parsed.path.length - 1)
         : parsed.path;
 
-    return parsed.replace(path: normalizedPath, query: '', fragment: '').toString();
+    final normalized = parsed
+        .replace(path: normalizedPath, query: '', fragment: '')
+        .toString();
+
+    debugPrint('AppConfig: Resolved baseUrl: $normalized');
+    return normalized;
   }
+
+  static String get host {
+    final parsed = Uri.parse(baseUrl);
+    if (parsed.host.isEmpty) {
+      throw StateError('Invalid host in baseUrl: $baseUrl');
+    }
+    return parsed.host;
+  }
+
+  static int get port {
+    final parsed = Uri.parse(baseUrl);
+    return parsed.hasPort ? parsed.port : (parsed.scheme == 'https' ? 443 : 80);
+  }
+
+  static String get origin {
+    final parsed = Uri.parse(baseUrl);
+    final portPart = parsed.hasPort ? ':${parsed.port}' : '';
+    return '${parsed.scheme}://${parsed.host}$portPart';
+  }
+
+  static String get flavor =>
+      const String.fromEnvironment('APP_FLAVOR', defaultValue: '');
+
+  static String get razorpayKeyId {
+    if (_razorpayKeyDefine.isEmpty) {
+      throw StateError(
+        'Missing RAZORPAY_KEY_ID. Pass it with --dart-define=RAZORPAY_KEY_ID=...',
+      );
+    }
+    return _razorpayKeyDefine;
+  }
+
+  static String get googleMapsApiKey => _googleMapsApiKeyDefine;
 
   static String _sanitizeApiBaseUrl(String raw) {
     var sanitized = raw.trim();

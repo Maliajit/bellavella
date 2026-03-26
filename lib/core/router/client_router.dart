@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import '../routes/app_routes.dart';
 import '../widgets/main_scaffold.dart';
@@ -121,7 +122,9 @@ final _shellRoutes = [
   GoRoute(
     path: AppRoutes.clientMyBookings,
     name: AppRoutes.clientMyBookingsName,
-    builder: (context, state) => const MyBookingsScreen(),
+    builder: (context, state) => MyBookingsScreen(
+      key: ValueKey(state.uri.toString()),
+    ),
   ),
   GoRoute(
     path: AppRoutes.clientProfile,

@@ -314,12 +314,11 @@ class _PackageConfigSheetState extends State<PackageConfigSheet> {
       return;
     }
 
-    ToastUtil.showSuccess(
-      context,
-      widget.existingCartItem == null
-          ? 'Package added to cart'
-          : 'Package updated',
-    );
+    if (widget.existingCartItem == null) {
+      ToastUtil.showPackageAddedToast(context);
+    } else {
+      ToastUtil.showSuccess(context, 'Package updated');
+    }
     Navigator.of(context).pop(true);
   }
 

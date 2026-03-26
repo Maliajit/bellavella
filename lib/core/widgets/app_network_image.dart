@@ -1,5 +1,6 @@
 import 'package:bellavella/core/widgets/skeleton_box.dart';
 import 'package:bellavella/core/config/app_config.dart';
+import 'package:bellavella/core/utils/media_url.dart';
 import 'package:flutter/material.dart';
 
 /// A reusable network image widget with built-in:
@@ -36,7 +37,8 @@ class AppNetworkImage extends StatelessWidget {
 
   String _resolvedUrl() {
     if (url == null || url!.isEmpty) return '';
-    var u = url!;
+    var u = resolveMediaUrl(url);
+    if (u.isEmpty) return '';
     
     // In local development, the backend might return URLs with its own local IP
     // like 192.168.1.x or 127.0.0.1 from the .env APP_URL. We need to replace
@@ -51,8 +53,6 @@ class AppNetworkImage extends StatelessWidget {
           port: originUri.port,
         ).toString();
       }
-    } else if (u.startsWith('/')) {
-      u = '${AppConfig.origin}$u';
     }
     
     return u;
@@ -69,6 +69,7 @@ class AppNetworkImage extends StatelessWidget {
       width: width,
       height: height,
       fit: fit,
+      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) {
@@ -103,7 +104,7 @@ class AppNetworkImage extends StatelessWidget {
         fit: fit,
         width: width,
         height: height,
-        errorBuilder: (_, __, ___) => Container(
+        errorBuilder: (context, error, stackTrace) => Container(
           width: width,
           height: height,
           color: const Color(0xFFF0F0F0),

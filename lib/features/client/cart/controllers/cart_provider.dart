@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bellavella/core/services/api_service.dart';
-import 'package:bellavella/core/services/promotion_service.dart';
+import 'package:bellavella/core/services/offer_service.dart';
 import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/features/client/packages/models/package_models.dart';
 import '../models/cart_model.dart';
@@ -13,7 +13,7 @@ class CartProvider extends ChangeNotifier {
   final GuestCartStorage _guestCartStorage = GuestCartStorage();
   double _discount = 0.0;
   double _tip = 0.0;
-  Map<String, dynamic>? _appliedPromotion;
+  Map<String, dynamic>? _appliedOffer;
   bool _isLoading = false;
   String? _error;
   bool _isInitialized = false;
@@ -26,7 +26,7 @@ class CartProvider extends ChangeNotifier {
   int get itemCount => _items.length;
   double get discount => _discount;
   double get tip => _tip;
-  Map<String, dynamic>? get appliedPromotion => _appliedPromotion;
+  Map<String, dynamic>? get appliedOffer => _appliedOffer;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool isItemSyncing(int itemId) => _syncingItemIds.contains(itemId);
@@ -387,21 +387,21 @@ class CartProvider extends ChangeNotifier {
   Future<void> clear() async {
     _items.clear();
     _discount = 0.0;
-    _appliedPromotion = null;
+    _appliedOffer = null;
     if (!TokenManager.hasToken) {
       await _guestCartStorage.clear();
     }
     notifyListeners();
   }
 
-  Future<String?> applyPromotion(String code) async {
+  Future<String?> applyOffer(String code) async {
     try {
-      final response = await PromotionService.validateCoupon(code, subtotal);
+      final response = await OfferService.validateCoupon(code, subtotal);
       if (response['success'] == true) {
         final data = response['data'];
         final discountPaise = data['discount_paise'];
         _discount = (discountPaise != null ? (discountPaise as num).toDouble() : 0.0) / 100.0;
-        _appliedPromotion = data;
+        _appliedOffer = data;
         notifyListeners();
         return null; // No error
       } else {
@@ -412,9 +412,9 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  void removePromotion() {
+  void removeOffer() {
     _discount = 0.0;
-    _appliedPromotion = null;
+    _appliedOffer = null;
     notifyListeners();
   }
 

@@ -157,6 +157,10 @@ class ClientApiService {
     return await ApiService.post('$_prefix/cart/checkout', data);
   }
 
+  static Future<Map<String, dynamic>> previewCheckoutCart(Map<String, dynamic> data) async {
+    return await ApiService.post('$_prefix/cart/checkout/preview', data);
+  }
+
   static Future<Map<String, dynamic>> verifyCheckoutPayment({
     required int orderId,
     required String razorpayPaymentId,

@@ -283,206 +283,226 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                       ],
                     ),
                   )
-                : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        HomeHeader(
-                          locationAddress: homeProvider.locationAddress,
-                          locationSubAddress: homeProvider.locationSubAddress,
-                          walletBalance: homeProvider.formattedWalletBalance,
-                          onLocationTap: () => homeProvider.determinePosition(),
+                : Column(
+                    children: [
+                      HomeHeader(
+                        locationAddress: homeProvider.locationAddress,
+                        locationSubAddress: homeProvider.locationSubAddress,
+                        walletBalance: homeProvider.formattedWalletBalance,
+                        onLocationTap: () => homeProvider.determinePosition(),
+                      ),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 20),
+
+                              // Dynamic sections from backend
+                              ...homeProvider.sections.map((section) {
+                                Widget sectionWidget = const SizedBox.shrink();
+
+                                switch (section.type) {
+                                  case 'hero_banner':
+                                    final banners = section.items
+                                        .map<HomeBanner>(
+                                          (i) => HomeBanner.fromJson(
+                                            i as Map<String, dynamic>,
+                                          ),
+                                        )
+                                        .where((b) => b.imageUrl.isNotEmpty)
+                                        .toList();
+                                    if (banners.isNotEmpty) {
+                                      sectionWidget = HomeHeroBanner(
+                                        banners: banners,
+                                        onBannerTap: (banner) => _navigateToTarget(
+                                          context,
+                                          banner.targetPage,
+                                        ),
+                                      );
+                                    }
+                                    break;
+
+                                  case 'promo_banner':
+                                    if (section.items.isNotEmpty) {
+                                      final img =
+                                          section.items.first as Map<String, dynamic>;
+                                      final banner = HomeBanner.fromJson(img);
+                                      if (banner.imageUrl.isNotEmpty) {
+                                        sectionWidget = HomeImageBanner(
+                                          title: banner.title.trim(),
+                                          subtitle: banner.subtitle?.trim() ?? '',
+                                          image: banner.imageUrl,
+                                          height: 150,
+                                          onTap: () => _navigateToTarget(
+                                            context,
+                                            banner.targetPage,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                    break;
+
+                                  case 'category_carousel':
+                                    final categories = section.items
+                                        .map<HomeCategory>(
+                                          (i) => HomeCategory.fromJson(
+                                            i as Map<String, dynamic>,
+                                          ),
+                                        )
+                                        .toList();
+                                    if (categories.isNotEmpty) {
+                                      sectionWidget = HomeServiceGrid(
+                                        categories: categories,
+                                        onViewAll: () => _openCategoryPage(
+                                          context,
+                                          categories.first,
+                                        ),
+                                        onCategoryTap: (category) =>
+                                            _openServiceGroupPage(
+                                          context,
+                                          category,
+                                        ),
+                                      );
+                                    }
+                                    break;
+
+                                  case 'service_carousel':
+                                  case 'service_grid':
+                                    final services = section.items
+                                        .map<HomeService>(
+                                          (i) => HomeService.fromJson(
+                                            i as Map<String, dynamic>,
+                                          ),
+                                        )
+                                        .toList();
+                                    if (services.isNotEmpty) {
+                                      sectionWidget = HomeServiceCarousel(
+                                        title: section.title,
+                                        subtitle: section.subtitle ?? '',
+                                        services: services,
+                                        onAdd: (service) {
+                                          _handleHomeServiceAdd(
+                                            context,
+                                            service,
+                                            section.title,
+                                          );
+                                        },
+                                      );
+                                    }
+                                    break;
+
+                                  case 'video_stories':
+                                    final stories = section.items
+                                        .map((i) {
+                                          final map = i as Map<String, dynamic>;
+                                          return Story(
+                                            videoUrl: map['url'] ?? '',
+                                            thumbnail: map['thumbnail'] ?? '',
+                                            title: map['title'] ?? '',
+                                            serviceCategory: map['subtitle'] ?? '',
+                                          );
+                                        })
+                                        .where((s) => s.videoUrl.isNotEmpty)
+                                        .toList();
+                                    if (stories.isNotEmpty) {
+                                      sectionWidget = HomeStorySection(
+                                        stories: stories,
+                                        title: section.title,
+                                        subtitle:
+                                            section.subtitle ??
+                                            'Real lives, real impact',
+                                      );
+                                    }
+                                    break;
+
+                                  case 'image_banner':
+                                    if (section.items.isNotEmpty) {
+                                      final img =
+                                          section.items.first as Map<String, dynamic>;
+                                      final banner = HomeBanner.fromJson(img);
+                                      if (banner.imageUrl.isNotEmpty) {
+                                        sectionWidget = HomeImageBanner(
+                                          title: banner.title.trim(),
+                                          subtitle: banner.subtitle?.trim() ?? '',
+                                          image: banner.imageUrl,
+                                          onTap: () => _navigateToTarget(
+                                            context,
+                                            banner.targetPage,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                    break;
+
+                                  case 'active_booking':
+                                    if (section.items.isNotEmpty) {
+                                      final booking =
+                                          section.items.first as Map<String, dynamic>;
+                                      final bookingId =
+                                          booking['booking_id']?.toString() ??
+                                          booking['id']?.toString() ??
+                                          '';
+                                      if (bookingId.isNotEmpty) {
+                                        sectionWidget = ActiveBookingBanner(
+                                          bookingId: bookingId,
+                                          status:
+                                              booking['status_label']?.toString() ??
+                                              section.title,
+                                          professionalName:
+                                              booking['professional_name']
+                                                  ?.toString() ??
+                                              'Assigned professional',
+                                          imageUrl:
+                                              booking['professional_avatar']
+                                                  ?.toString() ??
+                                              '',
+                                          progress:
+                                              (booking['progress'] is num)
+                                                  ? (booking['progress'] as num)
+                                                      .toDouble()
+                                                  : 0.0,
+                                        );
+                                      }
+                                    }
+                                    break;
+
+                                  case 'trending_packages':
+                                    sectionWidget = HomeTrendingPackagesSection(
+                                      title: section.title,
+                                      subtitle: section.subtitle,
+                                      items: section.items,
+                                    );
+                                    break;
+
+                                  case 'download_app':
+                                    sectionWidget = HomeDownloadAppSection(
+                                      title: section.title,
+                                      subtitle: section.subtitle,
+                                      items: section.items,
+                                      btnText: section.btnText,
+                                      btnLink: section.btnLink,
+                                    );
+                                    break;
+                                }
+
+                                if (sectionWidget is SizedBox &&
+                                    sectionWidget.height == null) {
+                                  return const SizedBox.shrink();
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 40.0),
+                                  child: sectionWidget,
+                                );
+                              }),
+
+                              const SizedBox(height: 80),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 20),
-
-                        // Dynamic sections from backend
-                        ...homeProvider.sections.map((section) {
-                          Widget sectionWidget = const SizedBox.shrink();
-
-                          switch (section.type) {
-                            case 'hero_banner':
-                              final banners = section.items
-                                  .map<HomeBanner>(
-                                    (i) => HomeBanner.fromJson(
-                                      i as Map<String, dynamic>,
-                                    ),
-                                  )
-                                  .where((b) => b.imageUrl.isNotEmpty)
-                                  .toList();
-                              if (banners.isNotEmpty) {
-                                sectionWidget = HomeHeroBanner(
-                                  banners: banners,
-                                  onBannerTap: (banner) => _navigateToTarget(
-                                    context,
-                                    banner.targetPage,
-                                  ),
-                                );
-                              }
-                              break;
-
-                            case 'category_carousel':
-                              final categories = section.items
-                                  .map<HomeCategory>(
-                                    (i) => HomeCategory.fromJson(
-                                      i as Map<String, dynamic>,
-                                    ),
-                                  )
-                                  .toList();
-                              if (categories.isNotEmpty) {
-                                sectionWidget = HomeServiceGrid(
-                                  categories: categories,
-                                  onViewAll: () =>
-                                      _openCategoryPage(
-                                        context,
-                                        categories.first,
-                                      ),
-                                  onCategoryTap: (category) =>
-                                      _openServiceGroupPage(
-                                        context,
-                                        category,
-                                      ),
-                                );
-                              }
-                              break;
-
-                            case 'service_carousel':
-                            case 'service_grid':
-                              final services = section.items
-                                  .map<HomeService>(
-                                    (i) => HomeService.fromJson(
-                                      i as Map<String, dynamic>,
-                                    ),
-                                  )
-                                  .toList();
-                              if (services.isNotEmpty) {
-                                sectionWidget = HomeServiceCarousel(
-                                  title: section.title,
-                                  subtitle: section.subtitle ?? '',
-                                  services: services,
-                                  onAdd: (service) {
-                                    _handleHomeServiceAdd(
-                                      context,
-                                      service,
-                                      section.title,
-                                    );
-                                  },
-                                );
-                              }
-                              break;
-
-                            case 'video_stories':
-                              final stories = section.items
-                                  .map((i) {
-                                    final map = i as Map<String, dynamic>;
-                                    return Story(
-                                      videoUrl: map['url'] ?? '',
-                                      thumbnail: map['thumbnail'] ?? '',
-                                      title: map['title'] ?? '',
-                                      serviceCategory: map['subtitle'] ?? '',
-                                    );
-                                  })
-                                  .where((s) => s.videoUrl.isNotEmpty)
-                                  .toList();
-                              if (stories.isNotEmpty) {
-                                sectionWidget = HomeStorySection(
-                                  stories: stories,
-                                  title: section.title,
-                                  subtitle:
-                                      section.subtitle ??
-                                      'Real lives, real impact',
-                                );
-                              }
-                              break;
-
-                            case 'image_banner':
-                              if (section.items.isNotEmpty) {
-                                final img =
-                                    section.items.first as Map<String, dynamic>;
-                                final banner = HomeBanner.fromJson(img);
-                                if (banner.imageUrl.isNotEmpty) {
-                                  sectionWidget = HomeImageBanner(
-                                    title: banner.title.isNotEmpty
-                                        ? banner.title
-                                        : section.title,
-                                    subtitle:
-                                        banner.subtitle ??
-                                        section.subtitle ??
-                                        '',
-                                    image: banner.imageUrl,
-                                    onTap: () => _navigateToTarget(
-                                      context,
-                                      banner.targetPage,
-                                    ),
-                                  );
-                                }
-                              }
-                              break;
-
-                            case 'active_booking':
-                              if (section.items.isNotEmpty) {
-                                final booking =
-                                    section.items.first as Map<String, dynamic>;
-                                final bookingId =
-                                    booking['booking_id']?.toString() ??
-                                    booking['id']?.toString() ??
-                                    '';
-                                if (bookingId.isNotEmpty) {
-                                  sectionWidget = ActiveBookingBanner(
-                                    bookingId: bookingId,
-                                    status:
-                                        booking['status_label']?.toString() ??
-                                        section.title,
-                                    professionalName:
-                                        booking['professional_name']
-                                            ?.toString() ??
-                                        'Assigned professional',
-                                    imageUrl:
-                                        booking['professional_avatar']
-                                            ?.toString() ??
-                                        '',
-                                    progress:
-                                        (booking['progress'] is num)
-                                            ? (booking['progress'] as num)
-                                                .toDouble()
-                                            : 0.0,
-                                  );
-                                }
-                              }
-                              break;
-
-                            case 'trending_packages':
-                              sectionWidget = HomeTrendingPackagesSection(
-                                title: section.title,
-                                subtitle: section.subtitle,
-                                items: section.items,
-                              );
-                              break;
-
-                            case 'download_app':
-                              sectionWidget = HomeDownloadAppSection(
-                                title: section.title,
-                                subtitle: section.subtitle,
-                                items: section.items,
-                                btnText: section.btnText,
-                                btnLink: section.btnLink,
-                              );
-                              break;
-                          }
-
-                          if (sectionWidget is SizedBox &&
-                              sectionWidget.height == null) {
-                            return const SizedBox.shrink();
-                          }
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 40.0),
-                            child: sectionWidget,
-                          );
-                        }),
-
-                        const SizedBox(height: 80),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
           ),
           if (shouldShowLoadedContent)

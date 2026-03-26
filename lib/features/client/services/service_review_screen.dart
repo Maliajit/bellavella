@@ -6,6 +6,7 @@ import 'package:chewie/chewie.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/services/api_service.dart';
 import '../../../../core/widgets/base_widgets.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 
@@ -66,59 +67,69 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
     setState(() {});
   }
 
-  void _submitReview() async {
+  Future<void> _submitReview() async {
     if (_rating == 0) {
       ToastUtil.showError(context, 'Please select a rating');
       return;
     }
 
     setState(() => _isSubmitting = true);
-    
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
 
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      
-      final bool earnedPoints = _videoFile != null;
-      
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 60),
-              const SizedBox(height: 16),
-              Text(
-                'Review Submitted!',
-                style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                earnedPoints 
-                  ? 'Congratulations! 50 Bellavella points have been credited to your account for the video review.' 
-                  : 'Thank you for your feedback! Your review helps us improve our services.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: PrimaryButton(
-                  label: 'Back to Bookings',
-                  onPressed: () {
-                    context.go('/client/my-bookings');
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+    final response = await ApiService.post(
+      '/client/bookings/${widget.bookingId}/reviews',
+      <String, dynamic>{
+        'rating': _rating,
+        'comment': _reviewController.text.trim(),
+      },
+    );
+
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
+
+    if (response['success'] != true) {
+      final message =
+          response['message']?.toString() ??
+          response['errors']?.toString() ??
+          'Unable to submit review.';
+      ToastUtil.showError(context, message);
+      return;
     }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle, color: Colors.green, size: 60),
+            const SizedBox(height: 16),
+            Text(
+              'Review Submitted!',
+              style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              response['message']?.toString() ??
+                  'Thank you for your feedback! Your review helps us improve our services.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: PrimaryButton(
+                label: 'Back to Bookings',
+                onPressed: () {
+                  context.go('/client/my-bookings?refresh=${DateTime.now().millisecondsSinceEpoch}');
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -159,6 +170,10 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
   }
 
   Widget _buildServiceInfo() {
+    final bookingCode = widget.bookingId.length <= 8
+        ? widget.bookingId.toUpperCase()
+        : widget.bookingId.substring(0, 8).toUpperCase();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -182,7 +197,7 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Booking #${widget.bookingId.substring(0, 8).toUpperCase()}', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text('Booking #$bookingCode', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 const SizedBox(height: 4),
                 const Text('Korean Glass skin facial', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
