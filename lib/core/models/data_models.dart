@@ -88,10 +88,10 @@ class PayoutDetails {
       upiScreenshot: upiScreenshot,
     );
     return PayoutDetails(
-      accountHolder: json['account_holder']?.toString() ?? '',
+      accountHolder: (json['account_holder'] ?? json['account_holder_name'])?.toString() ?? '',
       bankName: json['bank_name']?.toString() ?? '',
       accountNumber: json['account_number']?.toString() ?? '',
-      ifsc: json['ifsc']?.toString() ?? '',
+      ifsc: (json['ifsc'] ?? json['ifsc_code'])?.toString() ?? '',
       branch: json['branch']?.toString() ?? '',
       upiId: json['upi_id']?.toString() ?? '',
       verificationStatus: verificationStatus,
@@ -248,7 +248,9 @@ class Professional {
       serviceRadius: ParserUtil.safeParseDouble(json['service_radius']),
       portfolio: json['portfolio'] is List ? (json['portfolio'] as List).map((e) => e.toString()).toList() : [],
       payout: PayoutDetails.fromJson(
-        json['payout'],
+        (json['payout'] != null && (json['payout'] is Map) && (json['payout'] as Map).isNotEmpty) 
+          ? json['payout'] 
+          : json,
         verificationStatus: json['payout_verification_status']?.toString() ?? 'Pending',
         bankProofImage: _resolveDocUrl(json['bank_proof_image']?.toString()),
         upiScreenshot: _resolveDocUrl(json['upi_screenshot']?.toString()),

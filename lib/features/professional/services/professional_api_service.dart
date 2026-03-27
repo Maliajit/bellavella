@@ -71,6 +71,11 @@ class ProfessionalApiService {
     String? state,
     String? aadharNumber,
     String? panNumber,
+    String? accountHolderName,
+    String? bankName,
+    String? accountNumber,
+    String? ifscCode,
+    String? upiId,
     XFile? aadharFront,
     XFile? aadharBack,
     XFile? panPhoto,
@@ -94,6 +99,11 @@ class ProfessionalApiService {
       if (state != null) 'state': state,
       if (aadharNumber != null) 'aadhar': aadharNumber,
       if (panNumber != null) 'pan': panNumber,
+      if (accountHolderName != null) 'account_holder_name': accountHolderName,
+      if (bankName != null) 'bank_name': bankName,
+      if (accountNumber != null) 'account_number': accountNumber,
+      if (ifscCode != null) 'ifsc_code': ifscCode,
+      if (upiId != null) 'upi_id': upiId,
       if (referralCode != null) 'referral_code': referralCode,
     };
 
@@ -161,16 +171,36 @@ class ProfessionalApiService {
     throw Exception(response['message'] ?? 'Failed to load booking requests');
   }
 
-  static Future<List<pro_models.ProfessionalBooking>> getBookings() async {
-    final response = await ApiService.get('$_prefix/bookings');
+  static Future<List<pro_models.ProfessionalBooking>> getBookings({String? area}) async {
+    final Map<String, String> queryParameters = {};
+    if (area != null && area.isNotEmpty) {
+      queryParameters['area'] = area;
+      print("BOOKING FETCH AREA: $area");
+    }
+
+    final response = await ApiService.get(
+      '$_prefix/bookings',
+      queryParameters: queryParameters,
+    );
+    
     if (response['success'] == true) {
       final rawData = response['data'];
       List listData = [];
-      if (rawData is List) {
+      
+      // If the backend returns pagination (orders.data), extract it
+      if (rawData is Map && rawData.containsKey('orders')) {
+         final ordersData = rawData['orders'];
+         if (ordersData is Map && ordersData.containsKey('data')) {
+           listData = ordersData['data'];
+         } else if (ordersData is List) {
+           listData = ordersData;
+         }
+      } else if (rawData is List) {
         listData = rawData;
       } else if (rawData is Map && rawData['data'] is List) {
         listData = rawData['data'];
       }
+      
       return listData.map((i) => pro_models.ProfessionalBooking.fromJson(i)).toList();
     }
     throw Exception(response['message'] ?? 'Failed to load bookings');
@@ -553,6 +583,16 @@ class ProfessionalApiService {
     if (response['success'] == true && response['data'] != null) {
       final List data = response['data'] is List ? response['data'] : [];
       return data.map((i) => pro_models.LeaderboardItem.fromJson(i)).toList();
+    }
+    return [];
+  }
+
+  static Future<List<String>> getAreas() async {
+    final response = await ApiService.get('/admin/areas');
+    if (response['success'] == true && response['data'] != null) {
+      if (response['data'] is List) {
+        return List<String>.from(response['data']);
+      }
     }
     return [];
   }
