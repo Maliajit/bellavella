@@ -22,22 +22,44 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
   final List<String> _filters = ['All', 'Today', 'Upcoming', 'Completed'];
   
   List<pro_models.ProfessionalBooking> _orders = [];
+  List<String> _availableAreas = [];
+  String? _selectedArea;
   bool _isLoading = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _fetchOrders();
+    _fetchInitialData();
   }
 
-  Future<void> _fetchOrders() async {
+  Future<void> _fetchInitialData() async {
+    await Future.wait([
+      _fetchOrders(),
+      _fetchAreas(),
+    ]);
+  }
+
+  Future<void> _fetchAreas() async {
+    try {
+      final areas = await ProfessionalApiService.getAreas();
+      if (mounted) {
+        setState(() {
+          _availableAreas = areas;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching areas: $e');
+    }
+  }
+
+  Future<void> _fetchOrders({String? area}) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
     try {
-      final orders = await ProfessionalApiService.getBookings();
+      final orders = await ProfessionalApiService.getBookings(area: area ?? _selectedArea);
       if (mounted) {
         setState(() {
           _orders = orders;
@@ -204,6 +226,45 @@ class _ProfessionalOrderListScreenState extends State<ProfessionalOrderListScree
               selectedFilter: _selectedFilter,
               onFilterChanged: (value) => setState(() => _selectedFilter = value),
             ),
+
+            if (_availableAreas.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      hint: Text(
+                        "All Areas",
+                        style: GoogleFonts.inter(fontSize: 14, color: Colors.grey),
+                      ),
+                      value: _selectedArea,
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text("All Areas"),
+                        ),
+                        ..._availableAreas.map((area) => DropdownMenuItem(
+                              value: area,
+                              child: Text(area),
+                            )),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedArea = value;
+                        });
+                        _fetchOrders(area: value);
+                      },
+                    ),
+                  ),
+                ),
+              ),
             
             const SizedBox(height: 16),
 

@@ -336,19 +336,19 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
-    return _request('POST', endpoint, body);
+    return _request('POST', endpoint, body: body);
   }
 
   static Future<Map<String, dynamic>> put(String endpoint, Map<String, dynamic> body) async {
-    return _request('PUT', endpoint, body);
+    return _request('PUT', endpoint, body: body);
   }
 
   static Future<Map<String, dynamic>> patch(String endpoint, Map<String, dynamic> body) async {
-    return _request('PATCH', endpoint, body);
+    return _request('PATCH', endpoint, body: body);
   }
 
-  static Future<Map<String, dynamic>> get(String endpoint) async {
-    return _request('GET', endpoint);
+  static Future<Map<String, dynamic>> get(String endpoint, {Map<String, String>? queryParameters}) async {
+    return _request('GET', endpoint, queryParameters: queryParameters);
   }
 
   static Future<Map<String, dynamic>> delete(String endpoint) async {
@@ -426,12 +426,21 @@ class ApiService {
 
   static Future<Map<String, dynamic>> _request(
     String method,
-    String endpoint, [
+    String endpoint, {
     Map<String, dynamic>? body,
+    Map<String, String>? queryParameters,
     bool hasRetriedAfterRefresh = false,
-  ]) async {
+  }) async {
     try {
-      final uri = _buildUri(endpoint);
+      var uri = _buildUri(endpoint);
+      if (queryParameters != null && queryParameters.isNotEmpty) {
+        uri = uri.replace(queryParameters: {
+          ...uri.queryParameters,
+          ...queryParameters,
+        });
+      }
+      print("API GET REQUEST: ${uri.toString()}");
+      
       final url = uri.toString();
       final headers = _headers;
       _logRequest(method, url, headers, body);
@@ -444,7 +453,13 @@ class ApiService {
         if (_canAttemptRefresh(endpoint, headers, hasRetriedAfterRefresh)) {
           final refreshed = await _refreshAccessToken();
           if (refreshed) {
-            return _request(method, endpoint, body, true);
+            return _request(
+              method, 
+              endpoint, 
+              body: body, 
+              queryParameters: queryParameters, 
+              hasRetriedAfterRefresh: true
+            );
           }
         }
         return _unauthorizedResponse(decodedResponse);

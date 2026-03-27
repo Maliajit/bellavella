@@ -53,6 +53,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   final _personalInfoKey = GlobalKey();
   final _skillsKey = GlobalKey();
   final _addressKey = GlobalKey();
+  final _bankingKey = GlobalKey();
   final _idVerificationKey = GlobalKey();
 
   // Image Error States (for visual feedback)
@@ -91,7 +92,14 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   String? _selectedArea;
   bool _isTermsAccepted = false;
 
-  // Section D: ID Verification
+  // Section D: Banking Details
+  final _accountHolderController = TextEditingController();
+  final _bankNameController = TextEditingController();
+  final _accountNumberController = TextEditingController();
+  final _ifscController = TextEditingController();
+  final _upiController = TextEditingController();
+
+  // Section E: ID Verification
   final _aadharController = TextEditingController();
   final _panController = TextEditingController();
   XFile? _aadharFront;
@@ -150,6 +158,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     _pincodeController.dispose();
     _aadharController.dispose();
     _panController.dispose();
+    _accountHolderController.dispose();
+    _bankNameController.dispose();
+    _accountNumberController.dispose();
+    _ifscController.dispose();
+    _upiController.dispose();
     _referralCodeController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -273,6 +286,8 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           _scrollToError(_personalInfoKey);
         } else if (_addressController.text.isEmpty || _selectedState == null || _selectedCity == null || _selectedArea == null || _pincodeController.text.length != 6) {
           _scrollToError(_addressKey);
+        } else if (_accountHolderController.text.isEmpty || _bankNameController.text.isEmpty || _accountNumberController.text.isEmpty || _ifscController.text.isEmpty) {
+          _scrollToError(_bankingKey);
         } else if (_aadharController.text.length != 12 || _panController.text.length != 10) {
           _scrollToError(_idVerificationKey);
         }
@@ -308,6 +323,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         state: _selectedState,
         aadharNumber: _aadharController.text.trim(),
         panNumber: _panController.text.trim(),
+        accountHolderName: _accountHolderController.text.trim(),
+        bankName: _bankNameController.text.trim(),
+        accountNumber: _accountNumberController.text.trim(),
+        ifscCode: _ifscController.text.trim(),
+        upiId: _upiController.text.trim(),
         aadharFront: _aadharFront,
         aadharBack: _aadharBack,
         panPhoto: _panPhoto,
@@ -654,6 +674,45 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   if (v.length != 6 || !RegExp(r'^[0-9]+$').hasMatch(v)) return 'Pincode must be 6 digits';
                   return null;
                 }, keyboardType: TextInputType.number, maxLength: 6),
+              ]),
+
+              const SizedBox(height: 32),
+              _buildSectionHeader('Banking Details', Icons.account_balance_rounded, _bankingKey),
+              _buildCard([
+                _buildTextField('Account Holder Name', _accountHolderController, Icons.person_outline, (v) => (v == null || v.isEmpty) ? 'Account holder name is required' : null),
+                const SizedBox(height: 16),
+                _buildTextField('Bank Name', _bankNameController, Icons.account_balance_outlined, (v) => (v == null || v.isEmpty) ? 'Bank name is required' : null),
+                const SizedBox(height: 16),
+                _buildTextField('Account Number', _accountNumberController, Icons.pin_outlined, (v) {
+                  if (v == null || v.isEmpty) return 'Account number is required';
+                  if (v.length < 9) return 'Enter a valid account number';
+                  return null;
+                }, keyboardType: TextInputType.number),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  'IFSC Code', 
+                  _ifscController, 
+                  Icons.vpn_key_outlined, 
+                  (v) {
+                    if (v == null || v.isEmpty) return 'IFSC code is required';
+                    if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(v)) return 'Invalid IFSC format (e.g. SBIN0012345)';
+                    return null;
+                  },
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 11,
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  'UPI ID (Optional)', 
+                  _upiController, 
+                  Icons.alternate_email_rounded, 
+                  (v) {
+                    if (v != null && v.isNotEmpty && !v.contains('@')) return 'Invalid UPI ID format';
+                    return null;
+                  },
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                ),
               ]),
 
               const SizedBox(height: 32),
