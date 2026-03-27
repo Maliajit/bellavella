@@ -235,6 +235,33 @@ class ProfessionalBooking {
   }
 }
 
+class ShiftInfo {
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final int remainingSeconds;
+  final bool isActive;
+  final double progress;
+
+  ShiftInfo({
+    this.startTime,
+    this.endTime,
+    this.remainingSeconds = 0,
+    this.isActive = false,
+    this.progress = 0,
+  });
+
+  factory ShiftInfo.fromJson(dynamic json) {
+    if (json is! Map) return ShiftInfo();
+    return ShiftInfo(
+      startTime: json['start_time'] != null ? DateTime.tryParse(json['start_time'].toString()) : null,
+      endTime: json['end_time'] != null ? DateTime.tryParse(json['end_time'].toString()) : null,
+      remainingSeconds: int.tryParse(json['remaining_seconds']?.toString() ?? '0') ?? 0,
+      isActive: json['is_active'] == true,
+      progress: ParserUtil.safeParseDouble(json['progress']),
+    );
+  }
+}
+
 class ProfessionalDashboardStats {
   final double todayEarnings;
   final double totalEarnings;
@@ -250,6 +277,10 @@ class ProfessionalDashboardStats {
   final double shiftProgress;
   final int shiftDuration;
   final String? sessionId;
+  final ShiftInfo? shiftInfo;
+  final double availableBalance;
+  final double pendingBalance;
+  final int withdrawDelayDays;
   final List<ProfessionalBooking> recentBookings;
 
   ProfessionalDashboardStats({
@@ -267,6 +298,10 @@ class ProfessionalDashboardStats {
     this.shiftProgress = 0,
     this.shiftDuration = 480,
     this.sessionId,
+    this.shiftInfo,
+    this.availableBalance = 0,
+    this.pendingBalance = 0,
+    this.withdrawDelayDays = 3,
     required this.recentBookings,
   });
 
@@ -295,11 +330,48 @@ class ProfessionalDashboardStats {
       distanceToJob: ParserUtil.safeParseDouble(json['distance_to_job']),
       activeJobStatus: json['status']?.toString(),
       isOnline: json['is_online'] == true,
-      remainingSeconds: int.tryParse(json['remaining_seconds']?.toString() ?? '0') ?? 0,
-      shiftProgress: ParserUtil.safeParseDouble(json['shift_progress']),
+      remainingSeconds: json['shift_info'] != null 
+          ? (int.tryParse(json['shift_info']['remaining_seconds']?.toString() ?? '0') ?? 0)
+          : (int.tryParse(json['remaining_seconds']?.toString() ?? '0') ?? 0),
+      shiftProgress: json['shift_info'] != null 
+          ? ParserUtil.safeParseDouble(json['shift_info']['progress'])
+          : ParserUtil.safeParseDouble(json['shift_progress']),
       shiftDuration: int.tryParse(json['shift_duration']?.toString() ?? '480') ?? 480,
       sessionId: json['session_id']?.toString(),
+      shiftInfo: json['shift_info'] != null ? ShiftInfo.fromJson(json['shift_info']) : null,
+      availableBalance: ParserUtil.safeParseDouble(json['available_balance']),
+      pendingBalance: ParserUtil.safeParseDouble(json['pending_balance']),
+      withdrawDelayDays: int.tryParse(json['withdraw_delay_days']?.toString() ?? '3') ?? 3,
       recentBookings: bookingsList,
+    );
+  }
+}
+
+class LeaderboardItem {
+  final int id;
+  final String name;
+  final String role;
+  final String image;
+  final int completedJobs;
+  final int rank;
+
+  LeaderboardItem({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.image,
+    required this.completedJobs,
+    required this.rank,
+  });
+
+  factory LeaderboardItem.fromJson(Map<String, dynamic> json) {
+    return LeaderboardItem(
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      name: (json['name'] ?? 'Professional').toString(),
+      role: (json['role'] ?? 'Partner').toString(),
+      image: (json['image'] ?? '').toString(),
+      completedJobs: int.tryParse(json['completed_jobs_count']?.toString() ?? '0') ?? 0,
+      rank: int.tryParse(json['rank']?.toString() ?? '0') ?? 0,
     );
   }
 }
@@ -309,6 +381,8 @@ class ProfessionalWallet {
   final double earningsBalance;
   final double depositBalance;
   final double totalBalance;
+  final double availableBalance;
+  final double pendingBalance;
   final int coins;
   final int kits;
   final double weeklyEarnings;
@@ -323,6 +397,8 @@ class ProfessionalWallet {
     required this.earningsBalance,
     required this.depositBalance,
     required this.totalBalance,
+    required this.availableBalance,
+    required this.pendingBalance,
     required this.coins,
     required this.kits,
     this.weeklyEarnings = 0,
@@ -335,7 +411,11 @@ class ProfessionalWallet {
 
   factory ProfessionalWallet.fromJson(dynamic json) {
     if (json is! Map) {
-      return ProfessionalWallet(balance: 0, earningsBalance: 0, depositBalance: 0, totalBalance: 0, coins: 0, kits: 0, transactions: []);
+      return ProfessionalWallet(
+        balance: 0, earningsBalance: 0, depositBalance: 0, totalBalance: 0, 
+        availableBalance: 0, pendingBalance: 0,
+        coins: 0, kits: 0, transactions: []
+      );
     }
     final earnings = ParserUtil.safeParseDouble(json['earnings_balance'] ?? json['cash_balance'] ?? json['balance']);
     final deposit = ParserUtil.safeParseDouble(json['deposit_balance'] ?? 0);
@@ -359,6 +439,8 @@ class ProfessionalWallet {
       earningsBalance: earnings,
       depositBalance: deposit,
       totalBalance: ParserUtil.safeParseDouble(json['total_balance'] ?? (earnings + deposit)),
+      availableBalance: ParserUtil.safeParseDouble(json['available_balance'] ?? earnings),
+      pendingBalance: ParserUtil.safeParseDouble(json['pending_balance'] ?? 0),
       coins: int.tryParse((json['coin_balance'] ?? json['coins'])?.toString() ?? '0') ?? 0,
       kits: int.tryParse((json['kit_count'] ?? json['kits'])?.toString() ?? '0') ?? 0,
       weeklyEarnings: ParserUtil.safeParseDouble(json['weekly_earnings'] ?? 0),
