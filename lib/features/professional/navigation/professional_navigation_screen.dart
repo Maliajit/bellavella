@@ -1,79 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import 'package:go_router/go_router.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart';
-import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:provider/provider.dart';
-import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
 
 class ProfessionalNavigationScreen extends StatefulWidget {
   final ProfessionalBooking booking;
+
   const ProfessionalNavigationScreen({super.key, required this.booking});
 
   @override
-  State<ProfessionalNavigationScreen> createState() => _ProfessionalNavigationScreenState();
+  State<ProfessionalNavigationScreen> createState() =>
+      _ProfessionalNavigationScreenState();
 }
 
-class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScreen> {
+class _ProfessionalNavigationScreenState
+    extends State<ProfessionalNavigationScreen> {
   late ProfessionalBooking _booking;
   bool _isProcessing = false;
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _booking = widget.booking;
-    _isLoading = false;
-    // Sync in background if needed, but don't block
+    DashboardController.instance.setActiveJob(_booking);
     _fetchLatestData();
   }
 
   Future<void> _fetchLatestData() async {
     try {
       final latest = await ProfessionalApiService.getBookingDetail(_booking.id);
-      if (mounted) {
-        setState(() {
-          _booking = latest;
-        });
-        _syncController();
-      }
-    } catch (e) {
-      debugPrint('Error fetching latest booking in background: $e');
-    }
-  }
+      if (!mounted) return;
 
-  /// Syncs the local booking state with the central DashboardController.
-  void _syncController() {
-    if (mounted) {
+      setState(() {
+        _booking = latest;
+      });
       DashboardController.instance.setActiveJob(_booking);
-      debugPrint('🔄 Navigation: Synced controller with ${_booking.id} (${_booking.status.name})');
+    } catch (e) {
+      debugPrint('Navigation screen booking refresh failed: $e');
     }
   }
 
-  void _startJourney() {
-    // 🔥 Optimistic UI Update
-    final updated = _booking.copyWith(status: BookingStatus.onTheWay);
-    DashboardController.instance.updateJob(updated);
-    
-    // 🔥 Navigate instantly
-    context.pushNamed(
-      AppRoutes.proActiveJobName, 
-      pathParameters: {'id': _booking.id},
-      extra: updated
-    );
+  Future<void> _startJourney() async {
+    if (_isProcessing) return;
 
-    // 🔥 Backend Sync in Background
-    ProfessionalApiService.jobStartJourney(_booking.id).then((res) {
-      if (res['success'] != true) {
-        debugPrint('Background start journey failed: ${res['message']}');
+    setState(() => _isProcessing = true);
+
+    final optimisticBooking = _booking.copyWith(
+      status: BookingStatus.onTheWay,
+      currentStep: 'journey',
+    );
+    DashboardController.instance.setActiveJob(optimisticBooking);
+
+    try {
+      final started =
+          await DashboardController.instance.startJourney(optimisticBooking);
+      if (!mounted) return;
+
+      if (!started) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to start journey. Please try again.'),
+          ),
+        );
+        return;
       }
-    }).catchError((e) {
-      debugPrint('Background start journey error: $e');
-    });
+
+      context.pushNamed(
+        AppRoutes.proArriveName,
+        pathParameters: {'id': _booking.id},
+        extra: DashboardController.instance.activeJob ?? optimisticBooking,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Start journey failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   Future<void> _launchNavigation() async {
@@ -82,21 +94,22 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
     } else {
       await _openAddressSearch(_booking.address);
     }
-    // Also trigger the backend/state transition
-    _startJourney();
+    await _startJourney();
   }
 
   Future<void> _openGoogleMaps(double lat, double lng) async {
-    final Uri url = Uri.parse(
-        "https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving");
+    final url = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
   }
 
   Future<void> _openAddressSearch(String address) async {
-    final Uri url = Uri.parse(
-        "https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}");
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(address)}',
+    );
     if (await canLaunchUrl(url)) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     }
@@ -108,7 +121,6 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Map Preview Section
           Positioned.fill(
             child: Image.asset(
               'assets/images/map_preview.png',
@@ -120,10 +132,14 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.map_outlined, size: 48, color: Colors.grey.shade400),
+                        Icon(
+                          Icons.map_outlined,
+                          size: 48,
+                          color: Colors.grey.shade400,
+                        ),
                         const SizedBox(height: 16),
                         Text(
-                          "Map Preview Unavailable",
+                          'Map Preview Unavailable',
                           style: GoogleFonts.inter(color: Colors.grey.shade500),
                         ),
                       ],
@@ -133,15 +149,14 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
               },
             ),
           ),
-
-          // Top App Bar
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             child: SafeArea(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
@@ -162,7 +177,11 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.arrow_back_rounded, size: 20, color: Colors.black87),
+                        child: const Icon(
+                          Icons.arrow_back_rounded,
+                          size: 20,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -179,8 +198,6 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
               ),
             ),
           ),
-
-          // Bottom Panel
           Positioned(
             bottom: 32,
             left: 20,
@@ -230,7 +247,10 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF3F4F6),
                           borderRadius: BorderRadius.circular(12),
@@ -263,7 +283,11 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Icon(Icons.location_on_rounded, size: 16, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.location_on_rounded,
+                        size: 16,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -283,18 +307,41 @@ class _ProfessionalNavigationScreenState extends State<ProfessionalNavigationScr
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _startJourney,
+                      onPressed: _isProcessing ? null : _startJourney,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.black,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 20),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                      child: Text(
-                        "Start Journey",
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                      ),
+                      child: _isProcessing
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              'Start Journey',
+                              style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isProcessing ? null : _launchNavigation,
+                      icon: const Icon(Icons.near_me_rounded),
+                      label: const Text('Open Map and Start Journey'),
                     ),
                   ),
                 ],

@@ -12,6 +12,11 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
+    if (kIsWeb) {
+      debugPrint('NotificationService: skipping local notifications init on web.');
+      return;
+    }
+
     // 1. Android Initialization Settings
     const AndroidInitializationSettings initializationSettingsAndroid =
         AndroidInitializationSettings('@mipmap/ic_launcher');
@@ -87,6 +92,11 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
+    if (kIsWeb) {
+      debugPrint('NotificationService: skipping local notification display on web.');
+      return;
+    }
+
     final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'high_importance_channel',
       'High Importance Notifications',
@@ -127,6 +137,11 @@ class NotificationService {
   }
 
   static Future<void> showIncomingCallNotification(RemoteMessage message) async {
+    if (kIsWeb) {
+      debugPrint('NotificationService: skipping incoming call notification on web.');
+      return;
+    }
+
     final FlutterLocalNotificationsPlugin localNotifications = FlutterLocalNotificationsPlugin();
     
     await localNotifications.show(

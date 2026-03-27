@@ -778,6 +778,7 @@ class _ProfessionalDashboardScreenState
     );
 
     switch (activeJob.status) {
+      case BookingStatus.assigned:
       case BookingStatus.accepted:
         buttonText = "Start Journey";
         onPressed = () => context.pushNamed(AppRoutes.proNavigationName, pathParameters: {'id': activeJob.id}, extra: activeJob);

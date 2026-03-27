@@ -247,7 +247,14 @@ class ProfessionalApiService {
     // Note: success with null data is valid — the endpoint returns success:true
     // with no data payload. Throwing on null data would show a false error.
     if (response['success'] == true) {
-      return response['data'] ?? {};
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        return {
+          'success': true,
+          ...data,
+        };
+      }
+      return {'success': true};
     }
     throw Exception(response['message'] ?? 'Payment verification failed');
   }
