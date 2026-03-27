@@ -540,4 +540,13 @@ class ProfessionalApiService {
   static Future<Map<String, dynamic>> cancelLeave(int id) async {
     return await ApiService.delete('$_prefix/leaves/$id');
   }
+
+  static Future<List<pro_models.LeaderboardItem>> getLeaderboard() async {
+    final response = await ApiService.get('$_prefix/leaderboard');
+    if (response['success'] == true && response['data'] != null) {
+      final List data = response['data'] is List ? response['data'] : [];
+      return data.map((i) => pro_models.LeaderboardItem.fromJson(i)).toList();
+    }
+    return [];
+  }
 }

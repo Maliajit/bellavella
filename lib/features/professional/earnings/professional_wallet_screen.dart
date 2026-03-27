@@ -87,9 +87,10 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   }
 
   // Getters
-  double get _earn  => _wallet?.earningsBalance ?? 0.0;
+  double get _earn  => _wallet?.availableBalance ?? 0.0;
+  double get _pending => _wallet?.pendingBalance ?? 0.0;
   double get _dep   => _wallet?.depositBalance  ?? 0.0;
-  double get _total => _earn + _dep;
+  double get _total => (_wallet?.earningsBalance ?? 0.0) + _dep;
   bool   get _depOk => _dep >= _minDeposit;
   double get _need  => (_minDeposit - _dep).clamp(0.0, _minDeposit);
   String _fmt(double v) {
@@ -286,22 +287,46 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     );
   }
 
-
   Widget _decoCircle(double size, Color c) => Container(width: size, height: size, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
 
-  Widget _heroPill(IconData icon, String label, double val, Color c) {
+  Widget _smallHeroStat(String label, double val, Color c) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: GoogleFonts.outfit(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600)),
+          Text('₹${val.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 2),
+          Container(height: 2, width: 12, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(1))),
+        ],
+      ),
+    );
+  }
+
+  Widget _verticalDivider() => Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 12), color: Colors.white.withOpacity(0.1));
+
+  Widget _buildDelayBanner() {
+    final days = _stats?.withdrawDelayDays ?? 3;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.1))),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: _amber.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _amber.withOpacity(0.2)),
+      ),
       child: Row(
         children: [
-          Container(width: 32, height: 32, decoration: BoxDecoration(color: c.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: c, size: 16)),
-          const SizedBox(width: 10),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: GoogleFonts.outfit(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600)),
-            Text('₹${val.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
-          ])),
+          Icon(Icons.timer_outlined, color: _amber, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Holding Period', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.orange.shade900)),
+                Text('Earnings are locked for $days days after job completion to prevent fraud.', style: GoogleFonts.outfit(fontSize: 12, color: Colors.orange.shade700)),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -433,13 +458,24 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
                       '₹${_total.toStringAsFixed(0)}',
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1),
                     ),
-                    const SizedBox(height: 24),
-                    Row(
-                      children: [
-                        Expanded(child: _heroPill(Icons.trending_up_rounded, 'Earnings', _earn, _green)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _heroPill(Icons.savings_outlined, 'Deposit', _dep, _blue)),
-                      ],
+                    const SizedBox(height: 18),
+                    // Balance breakdown
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      ),
+                      child: Row(
+                        children: [
+                          _smallHeroStat('Available', _earn, _green),
+                          _verticalDivider(),
+                          _smallHeroStat('Pending', _pending, _amber),
+                          _verticalDivider(),
+                          _smallHeroStat('Deposit', _dep, _blue),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -477,6 +513,11 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
       if (needsVerification) ...[
         _buildVerificationBanner(isKycVerified, isPayoutAdded, isPayoutVerified),
+        const SizedBox(height: 16),
+      ],
+
+      if (_pending > 0) ...[
+        _buildDelayBanner(),
         const SizedBox(height: 16),
       ],
 

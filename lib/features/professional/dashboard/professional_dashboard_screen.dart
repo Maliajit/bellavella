@@ -29,6 +29,7 @@ class _ProfessionalDashboardScreenState
     extends State<ProfessionalDashboardScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
   // Real Data State
   pro_models.ProfessionalDashboardStats? _stats;
+  List<pro_models.LeaderboardItem> _leaderboard = [];
   bool _isLoading = true;
   String? _errorMessage;
   late ConfettiController _confettiController;
@@ -39,11 +40,14 @@ class _ProfessionalDashboardScreenState
   int _remainingSeconds = 0;
   double _shiftProgress = 0;
   int _totalShiftSeconds = 28800;
+  pro_models.ShiftInfo? _shiftInfo;
   String? _lastNotificationId;
   Timer? _pollingTimer;
   Timer? _countdownTimer;
   Timer? _syncTimer;
   late AnimationController _radarController;
+  int _failureCount = 0; // ✅ BURST PROTECTION
+  bool _isSyncHalted = false; // ✅ SYNC STATE
 
   @override
   void initState() {
@@ -54,6 +58,7 @@ class _ProfessionalDashboardScreenState
     // appears even before the full dashboard stats load completes.
     _loadActiveJob();
     _fetchDashboardData();
+    _fetchLeaderboard();
     WidgetsBinding.instance.addObserver(this);
     _startHeartbeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -96,6 +101,7 @@ class _ProfessionalDashboardScreenState
         }
       }
     } catch (e) {
+      _handleSyncFailure(e.toString());
       if (mounted) {
         context.read<DashboardController>().clearJob();
       }
@@ -111,27 +117,27 @@ class _ProfessionalDashboardScreenState
     }
     try {
       final stats = await ProfessionalApiService.getDashboardStats();
+      
       if (mounted) {
-        // stats is non-nullable
         setState(() {
+          _stats = stats;
           _isOnline = stats.isOnline;
           _kitCount = stats.kitCount;
           _remainingSeconds = stats.remainingSeconds;
           _shiftProgress = stats.shiftProgress;
+          _shiftInfo = stats.shiftInfo;
           _totalShiftSeconds = stats.shiftDuration * 60;
           if (_totalShiftSeconds <= 0) _totalShiftSeconds = 28800;
           _isLoading = false;
+          _errorMessage = null;
         });
         
-        // Ensure timer is running if online
         if (_isOnline && _remainingSeconds > 0) {
           _startCountdown();
-        } else { // If not online OR remaining seconds <= 0
+        } else {
           _stopTimers();
         }
 
-        // Seed the DashboardController on app start / re-open so the
-        // Job Card appears immediately without waiting for stats API.
         final activeInStats = stats.recentBookings.firstWhere(
           (b) => b.isActive,
           orElse: () => pro_models.ProfessionalBooking.empty(),
@@ -145,13 +151,60 @@ class _ProfessionalDashboardScreenState
       }
     } catch (e) {
       debugPrint('Dashboard fetch error: $e');
-      if (mounted && !isSilent) {
+      
+      _handleSyncFailure(e.toString());
+
+      if (mounted) {
         setState(() {
-          _errorMessage = e.toString();
+          if (_stats == null && !isSilent) {
+            _errorMessage = e.toString();
+          }
           _isLoading = false;
         });
       }
     }
+  }
+
+  void _handleSyncFailure(String error) {
+    _failureCount++;
+    debugPrint('⚠️ Sync Failure #$_failureCount: $error');
+    
+    // ✅ BURST PROTECTION: Stop polling after 3 consecutive failures
+    // or if it's a critical server error (500/503)
+    if (_failureCount >= 3 || error.contains('500') || error.contains('503')) {
+      _haltSync();
+    }
+  }
+
+  void _haltSync() {
+    if (_isSyncHalted) return;
+    
+    debugPrint('🛑 CRITICAL: Halting all background sync to prevent API burst.');
+    _stopTimers();
+    _pollingTimer?.cancel(); // Also stop the request polling timer
+    
+    if (mounted) {
+      setState(() {
+        _isSyncHalted = true;
+      });
+    }
+  }
+
+  void _reconnectSync() {
+    debugPrint('🔄 Attempting manual sync reconnect...');
+    setState(() {
+      _isSyncHalted = false;
+      _failureCount = 0;
+      _errorMessage = null;
+    });
+    _fetchDashboardData(isSilent: false);
+    _startHeartbeat();
+    
+    // Restart request polling
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
+      _checkIncomingRequests();
+    });
   }
 
   Future<void> _checkIncomingRequests() async {
@@ -226,10 +279,34 @@ class _ProfessionalDashboardScreenState
       _showRequirementsError("Minimum 5 kits required to go online.");
       return;
     }
-    await context.read<ProfessionalProfileController>().toggleAvailability(value);
-    if (value && mounted) {
-      _fetchDashboardData(isSilent: true);
+    try {
+      await context.read<ProfessionalProfileController>().toggleAvailability(value);
+      if (value && mounted) {
+        _fetchDashboardData(isSilent: true);
+      }
+    } catch (e) {
+      if (mounted) {
+        String msg = e.toString();
+        if (msg.contains('outside global shift hours')) {
+          _showShiftError(msg.replaceAll('Exception: ', ''));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        }
+      }
     }
+  }
+
+  void _showShiftError(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Shift Hours Exception'),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
+      ),
+    );
   }
 
   @override
@@ -313,6 +390,13 @@ class _ProfessionalDashboardScreenState
     return "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
   }
 
+  String _formatDateTime(DateTime? dt) {
+    if (dt == null) return "--:--";
+    final h = dt.hour.toString().padLeft(2, '0');
+    final m = dt.minute.toString().padLeft(2, '0');
+    return "$h:$m";
+  }
+
   Color _getBadgeColor(int seconds) {
     if (seconds > 3600) return Colors.green;
     if (seconds > 900) return Colors.orange;
@@ -334,6 +418,7 @@ class _ProfessionalDashboardScreenState
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -350,20 +435,14 @@ class _ProfessionalDashboardScreenState
               ),
             ],
           ),
-          if (_shiftProgress > 0) ...[
-            const SizedBox(height: 4),
-            Container(
-              width: 60,
-              height: 3,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: badgeColor.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(2),
-              ),
-              child: LinearProgressIndicator(
-                value: _shiftProgress,
-                backgroundColor: Colors.transparent,
-                valueColor: AlwaysStoppedAnimation<Color>(badgeColor),
+          if (_shiftInfo?.startTime != null && _shiftInfo?.endTime != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              "${_formatDateTime(_shiftInfo?.startTime)} - ${_formatDateTime(_shiftInfo?.endTime)}",
+              style: GoogleFonts.inter(
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+                color: badgeColor.withOpacity(0.8),
               ),
             ),
           ],
@@ -415,8 +494,13 @@ class _ProfessionalDashboardScreenState
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   child: Column(
                     children: [
+                      if (_isSyncHalted) _buildSyncHaltedBanner(),
                       const SizedBox(height: 20),
                       _buildPrimaryFocusPanel(),
+                      if (_leaderboard.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        _buildLeaderboard(),
+                      ],
                       const SizedBox(height: 20),
                       _buildReferralBanner(),
                       const SizedBox(height: 32),
@@ -435,6 +519,223 @@ class _ProfessionalDashboardScreenState
         ),
       ),
     );
+  }
+
+  Widget _buildSyncHaltedBanner() {
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.sync_problem, color: Colors.red.shade700, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Server Sync Paused",
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.red.shade900,
+                  ),
+                ),
+                Text(
+                  "To protect the server, sync was stopped after multiple failures.",
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: _reconnectSync,
+            style: TextButton.styleFrom(
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: BorderSide(color: Colors.red.shade200),
+              ),
+            ),
+            child: Text(
+              "Reconnect",
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: Colors.red.shade800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _fetchLeaderboard() async {
+    try {
+      final items = await ProfessionalApiService.getLeaderboard();
+      if (mounted) {
+        setState(() {
+          _leaderboard = items;
+        });
+      }
+    } catch (e) {
+      debugPrint('Leaderboard fetch error: $e');
+    }
+  }
+
+  // 🏆 Leaderboard Section (Premium Card Style)
+  Widget _buildLeaderboard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              "🏆 Top Performers",
+              style: GoogleFonts.inter(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Colors.black87,
+                letterSpacing: -0.5,
+              ),
+            ),
+            if (_leaderboard.any((p) => p.name.contains('Mehta') || p.id == 1)) // Placeholder check for "My Rank"
+            Text(
+              "Your Rank: #1",
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: _leaderboard.map((pro) {
+            return Expanded(
+              child: _buildLeaderboardCard(pro),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLeaderboardCard(pro_models.LeaderboardItem pro) {
+    bool isFirst = pro.rank == 1;
+    double avatarSize = isFirst ? 42 : 35;
+    
+    return Column(
+      children: [
+        Stack(
+          alignment: Alignment.topRight,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: isFirst ? [
+                  BoxShadow(
+                    color: Colors.amber.withOpacity(0.4),
+                    blurRadius: 12,
+                    spreadRadius: 2,
+                  )
+                ] : null,
+              ),
+              child: CircleAvatar(
+                radius: avatarSize + 2,
+                backgroundColor: isFirst ? Colors.amber.shade400 : Colors.grey.shade200,
+                child: CircleAvatar(
+                  radius: avatarSize,
+                  backgroundColor: Colors.white,
+                  backgroundImage: pro.image.isNotEmpty 
+                      ? NetworkImage(pro.image) 
+                      : const AssetImage('assets/images/default-avatar.png') as ImageProvider,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+              ),
+              child: Text(
+                _getMedal(pro.rank),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          pro.name,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+            fontSize: 13,
+            fontWeight: isFirst ? FontWeight.w800 : FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          pro.role,
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.inter(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade500,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: (isFirst ? Colors.amber.shade50 : Colors.grey.shade50),
+            borderRadius: BorderRadius.circular(100),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("⭐", style: TextStyle(fontSize: 10)),
+              const SizedBox(width: 4),
+              Text(
+                "${pro.completedJobs}",
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isFirst ? Colors.amber.shade900 : Colors.grey.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _getMedal(int rank) {
+    if (rank == 1) return "🥇";
+    if (rank == 2) return "🥈";
+    if (rank == 3) return "🥉";
+    return "#$rank";
   }
 
   // 1️⃣ Smart Compact Header
@@ -828,6 +1129,10 @@ class _ProfessionalDashboardScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          _overviewItem("AVAILABLE", "₹${(_stats?.availableBalance ?? 0).toStringAsFixed(0)}"),
+          _verticalDivider(),
+          _overviewItem("PENDING", "₹${(_stats?.pendingBalance ?? 0).toStringAsFixed(0)}"),
+          _verticalDivider(),
           _overviewItem("RATING", "⭐ ${_stats?.rating ?? 4.5}"),
         ],
       ),
