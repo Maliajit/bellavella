@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
@@ -53,7 +54,13 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
     _videoPlayerController?.dispose();
     _chewieController?.dispose();
 
-    _videoPlayerController = VideoPlayerController.file(File(_videoFile!.path));
+    if (kIsWeb) {
+      _videoPlayerController = VideoPlayerController.networkUrl(
+        Uri.parse(_videoFile!.path),
+      );
+    } else {
+      _videoPlayerController = VideoPlayerController.file(File(_videoFile!.path));
+    }
     await _videoPlayerController!.initialize();
 
     _chewieController = ChewieController(
@@ -75,13 +82,27 @@ class _ServiceReviewScreenState extends State<ServiceReviewScreen> {
 
     setState(() => _isSubmitting = true);
 
-    final response = await ApiService.post(
-      '/client/bookings/${widget.bookingId}/reviews',
-      <String, dynamic>{
-        'rating': _rating,
-        'comment': _reviewController.text.trim(),
-      },
-    );
+    final Map<String, dynamic> response;
+    if (_videoFile != null) {
+      response = await ApiService.multipart(
+        '/client/bookings/${widget.bookingId}/reviews',
+        <String, String>{
+          'rating': _rating.toString(),
+          'comment': _reviewController.text.trim(),
+        },
+        <String, XFile>{
+          'video': _videoFile!,
+        },
+      );
+    } else {
+      response = await ApiService.post(
+        '/client/bookings/${widget.bookingId}/reviews',
+        <String, dynamic>{
+          'rating': _rating,
+          'comment': _reviewController.text.trim(),
+        },
+      );
+    }
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
