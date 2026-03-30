@@ -105,6 +105,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   XFile? _aadharFront;
   XFile? _aadharBack;
   XFile? _panPhoto;
+  XFile? _bankProofPhoto;
   XFile? _certificatePhoto;
   XFile? _lightBillPhoto;
   XFile? _liveSelfie;
@@ -331,6 +332,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         aadharFront: _aadharFront,
         aadharBack: _aadharBack,
         panPhoto: _panPhoto,
+        bankProof: _bankProofPhoto,
         certificate: _certificatePhoto,
         lightBill: _lightBillPhoto,
         selfie: _liveSelfie,
@@ -403,6 +405,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         if (type == 'aadhar_front') _aadharFront = image;
         else if (type == 'aadhar_back') _aadharBack = image;
         else if (type == 'pan') _panPhoto = image;
+        else if (type == 'bank_proof') _bankProofPhoto = image;
         else if (type == 'certificate') _certificatePhoto = image;
         else if (type == 'light_bill') _lightBillPhoto = image;
         else if (type == 'selfie') _liveSelfie = image;
@@ -415,6 +418,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       if (type == 'aadhar_front') _aadharFront = null;
       else if (type == 'aadhar_back') _aadharBack = null;
       else if (type == 'pan') _panPhoto = null;
+      else if (type == 'bank_proof') _bankProofPhoto = null;
       else if (type == 'certificate') _certificatePhoto = null;
       else if (type == 'light_bill') _lightBillPhoto = null;
       else if (type == 'selfie') _liveSelfie = null;
@@ -500,11 +504,14 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       body: SingleChildScrollView(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               if (_showErrorTop)
                 Container(
                   width: double.infinity,
@@ -713,6 +720,13 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                 ),
+                const SizedBox(height: 16),
+                Text(
+                  'Passbook / Cancelled Cheque Photo',
+                  style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w500, color: const Color(0xFF2E2E2E)),
+                ),
+                const SizedBox(height: 8),
+                _buildImagePickerTile('Upload Passbook / Cheque', _bankProofPhoto, 'bank_proof'),
               ]),
 
               const SizedBox(height: 32),
@@ -866,8 +880,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildSectionHeader(String title, IconData icon, GlobalKey key) {
     return Padding(
@@ -973,18 +989,22 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     return GestureDetector(
       onTap: () => image == null ? _showImageSourceSheet(type) : null,
       child: Container(
-        height: isSquare ? 200 : 120,
+        height: isSquare ? 220 : 130,
+        width: double.infinity,
         decoration: BoxDecoration(
-          color: isError ? AppTheme.errorColor.withValues(alpha: 0.05) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isError ? AppTheme.errorColor : Colors.grey.shade200, width: isError ? 1.5 : 1),
+          color: isError ? AppTheme.errorColor.withValues(alpha: 0.05) : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isError ? AppTheme.errorColor : const Color(0xFFE5E7EB), 
+            width: isError ? 1.5 : 1.2
+          ),
         ),
         child: image != null
             ? Stack(
                 fit: StackFit.expand,
                 children: [
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     child: kIsWeb
                         ? Image.network(image.path, fit: BoxFit.cover, width: double.infinity)
                         : Image.file(
@@ -995,32 +1015,52 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                           ),
                   ),
                   Positioned(
-                    top: 8,
-                    right: 8,
+                    top: 10,
+                    right: 10,
                     child: GestureDetector(
                       onTap: () => _removeImage(type),
                       child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)],
                         ),
-                        child: const Icon(Icons.close, size: 16, color: Colors.red),
+                        child: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
                       ),
                     ),
                   ),
                 ],
               )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                   Icon(
-                    label.toLowerCase().contains('selfie') ? Icons.camera_front_rounded : Icons.add_a_photo_outlined, 
-                    color: AppTheme.primaryColor.withValues(alpha: 0.5)
-                  ),
-                  const SizedBox(height: 8),
-                  Text(label, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                ],
+            : Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        label.toLowerCase().contains('selfie') ? Icons.face_rounded : label.toLowerCase().contains('passbook') ? Icons.account_balance_wallet_outlined : Icons.cloud_upload_outlined, 
+                        color: AppTheme.primaryColor,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      label, 
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFF374151), 
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
       ),
     );

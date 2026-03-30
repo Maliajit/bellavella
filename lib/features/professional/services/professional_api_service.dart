@@ -79,6 +79,7 @@ class ProfessionalApiService {
     XFile? aadharFront,
     XFile? aadharBack,
     XFile? panPhoto,
+    XFile? bankProof,
     XFile? certificate,
     XFile? lightBill,
     XFile? selfie,
@@ -111,6 +112,7 @@ class ProfessionalApiService {
       if (aadharFront != null) 'aadhar_front': aadharFront,
       if (aadharBack != null) 'aadhar_back': aadharBack,
       if (panPhoto != null) 'pan_photo': panPhoto,
+      if (bankProof != null) 'bank_proof': bankProof,
       if (certificate != null) 'certificate': certificate,
       if (lightBill != null) 'light_bill': lightBill,
       if (selfie != null) 'selfie': selfie,
@@ -290,18 +292,19 @@ class ProfessionalApiService {
   }
 
   // --- Wallet ---
-  static Future<pro_models.ProfessionalWallet> getWallet({String tab = 'earnings'}) async {
+  static Future<ProfessionalWallet> getWallet({String tab = 'earnings'}) async {
     final response = await ApiService.get('$_prefix/wallet?tab=$tab');
     if (response['success'] == true) {
-      return pro_models.ProfessionalWallet.fromJson(response['data']);
+      return ProfessionalWallet.fromJson(response['data']);
     }
     throw Exception(response['message'] ?? 'Failed to load wallet');
   }
 
-  static Future<Map<String, dynamic>> requestWithdrawal(double amount, [String method = 'direct']) async {
-    return await ApiService.post('$_prefix/withdrawals/request', {
+  static Future<Map<String, dynamic>> requestWithdrawal(double amount, {String method = 'direct', String? requestId}) async {
+    return await ApiService.post('$_prefix/withdraw', {
       'amount': amount,
       'method': method,
+      if (requestId != null) 'request_id': requestId,
     });
   }
 

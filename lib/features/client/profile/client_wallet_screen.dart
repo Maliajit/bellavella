@@ -469,8 +469,8 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
 
   /// Format transaction amount defensively
   /// Returns signed amount string: +50 or -100
-  String _formatTransactionAmount(int amount, String type) {
-  final safeAmount = amount.abs();
+  String _formatTransactionAmount(num amount, String type) {
+  final safeAmount = amount.toInt().abs();
   return type.toLowerCase() == 'credit' ? '+$safeAmount' : '-$safeAmount';
 }
 

@@ -228,36 +228,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                       isVerified: profile?.verification == 'Verified',
                       onTap: () => context.pushNamed(AppRoutes.proKycDocumentsName, extra: profile),
                     ),
-                    _buildListOption(
-                      Icons.school_outlined,
-                      "Professional Certificate",
-                      value: profile?.verification == 'Verified' ? "Verified" : "Pending",
-                      isVerified: profile?.verification == 'Verified',
-                      onTap: () {
-                        if (profile?.verification == 'Verified' && profile?.certificateImg != null) {
-                          context.pushNamed(AppRoutes.proDocumentViewName, extra: {
-                            'title': 'Certificate',
-                            'imageUrl': profile!.certificateImg,
-                          });
-                        } else {
-                          context.pushNamed(AppRoutes.proKycDocumentsName, extra: profile);
-                        }
-                      },
-                    ),
-                    _buildListOption(
-                      Icons.account_balance_outlined,
-                      "Bank Verification",
-                      subtitle: _getPaymentSubtitle(profile.payout),
-                      value: _getPaymentStatusText(profile.payout),
-                      valueColor: _getPaymentStatusColor(profile.payout),
-                      trailingWidget: _getPaymentStatusIcon(profile.payout),
-                      onTap: () async {
-                        final result = await context.pushNamed(AppRoutes.proEditBankDetailsName);
-                        if (result == true) {
-                          controller.fetchProfile();
-                        }
-                      },
-                    ),
                   ]),
 
                   const SizedBox(height: 16),
@@ -609,48 +579,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
         ),
       ),
     );
-  }
-
-  String _getPaymentSubtitle(PayoutDetails payout) {
-    if (payout.bankName.isNotEmpty && payout.accountNumber.isNotEmpty) {
-      final last4 = payout.accountNumber.length > 4 
-          ? payout.accountNumber.substring(payout.accountNumber.length - 4) 
-          : payout.accountNumber;
-      return "${payout.bankName} •••• $last4";
-    } else if (payout.upiId.isNotEmpty) {
-      return "UPI: ${payout.upiId}";
-    }
-    return "Account / UPI details";
-  }
-
-  String _getPaymentStatusText(PayoutDetails payout) {
-    if (payout.bankName.isEmpty && payout.upiId.isEmpty) return "Add bank / UPI";
-    switch (payout.verificationStatus.toLowerCase()) {
-      case 'verified': return "Verified";
-      case 'rejected': return "Rejected";
-      case 'pending': return "Pending";
-      default: return "Add bank / UPI";
-    }
-  }
-
-  Color _getPaymentStatusColor(PayoutDetails payout) {
-    if (payout.bankName.isEmpty && payout.upiId.isEmpty) return Colors.grey;
-    switch (payout.verificationStatus.toLowerCase()) {
-      case 'verified': return Colors.green.shade600;
-      case 'rejected': return Colors.red.shade600;
-      case 'pending': return Colors.orange.shade700;
-      default: return Colors.grey;
-    }
-  }
-
-  Widget? _getPaymentStatusIcon(PayoutDetails payout) {
-    if (payout.bankName.isEmpty && payout.upiId.isEmpty) return null;
-    switch (payout.verificationStatus.toLowerCase()) {
-      case 'verified': return Icon(Icons.verified, color: Colors.green.shade600, size: 16);
-      case 'rejected': return Icon(Icons.error, color: Colors.red.shade600, size: 16);
-      case 'pending': return Icon(Icons.access_time_filled, color: Colors.orange.shade700, size: 16);
-      default: return null;
-    }
   }
 
   void _handleLogout(BuildContext context) {

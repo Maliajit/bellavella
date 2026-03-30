@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 
@@ -20,7 +19,7 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
   bool _isSubmitting = false;
   String? _error;
   
-  pro_models.ProfessionalWallet? _wallet;
+  ProfessionalWallet? _wallet;
   Professional? _profile;
 
   final TextEditingController _amountCtrl = TextEditingController();
@@ -63,7 +62,8 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
     }
   }
 
-  double get _available => _wallet?.earningsBalance ?? 0.0;
+  double get _available => _wallet?.availableBalance ?? 0.0;
+  bool get _canWithdraw => _wallet?.canWithdraw ?? true;
   bool get _hasBank => _profile?.payout.accountNumber.isNotEmpty ?? false;
   bool get _hasUpi => _profile?.payout.upiId.isNotEmpty ?? false;
 
@@ -95,7 +95,8 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      await ProfessionalApiService.requestWithdrawal(_amount!, _selectedMethod);
+      final requestId = const Uuid().v4();
+      await ProfessionalApiService.requestWithdrawal(_amount!, method: _selectedMethod, requestId: requestId);
       if (mounted) {
         setState(() => _isSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -168,6 +169,10 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (!_canWithdraw) ...[
+                _buildCooldownBanner(),
+                const SizedBox(height: 16),
+              ],
               // Available Balance Card
               Container(
                 width: double.infinity,
@@ -245,17 +250,15 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
                 _hasUpi ? _profile!.payout.upiId : 'Not Added',
                 _hasUpi
               ),
-
               const SizedBox(height: 120), // Padding for bottom button
             ],
           ),
         ),
-
-        // Floating Action Button Area
+        // Bottom Action Button
         Positioned(
           bottom: 0, left: 0, right: 0,
           child: Container(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
@@ -264,25 +267,51 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: (_amount != null && _amount! >= 500 && _amount! <= 50000 && _amount! <= _available && !_isSubmitting) 
-                  ? _submitRequest 
-                  : null,
+                onPressed: (_isSubmitting || _amount == null || _amount! < 500 || _amount! > 50000 || _amount! > _available || !_canWithdraw) 
+                  ? null 
+                  : _submitRequest,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _primary,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  disabledForegroundColor: Colors.grey.shade500,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  disabledBackgroundColor: Colors.grey.shade200,
+                  disabledForegroundColor: Colors.grey.shade400,
                   elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: _isSubmitting 
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text('Request Withdrawal', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700)),
+                  ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                  : Text(_canWithdraw ? 'Submit Request' : 'Withdrawal Locked', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800)),
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCooldownBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_clock_outlined, color: Colors.red.shade700, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Withdrawal Locked', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.red.shade900)),
+                Text('You can only withdraw once every 7 days. Check the countdown on the main wallet screen.', style: GoogleFonts.outfit(fontSize: 12, color: Colors.red.shade700)),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

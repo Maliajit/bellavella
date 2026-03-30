@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,13 +9,13 @@ import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
 import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
-import 'package:bellavella/core/models/data_models.dart';
 
 enum WalletTab { earnings, deposit, coins, kits }
 
@@ -25,7 +27,7 @@ class ProfessionalWalletScreen extends StatefulWidget {
 
 class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     with SingleTickerProviderStateMixin {
-  pro_models.ProfessionalWallet? _wallet;
+  ProfessionalWallet? _wallet;
   pro_models.ProfessionalDashboardStats? _stats;
   Professional? _profile;
   bool _isLoading = true;
@@ -35,6 +37,9 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   rzp_helper.RazorpayService? _razorpayService;
   bool _isProcessing = false;
   double _pendingDepositAmount = 0.0;
+  Timer? _countdownTimer;
+  Timer? _syncTimer;
+  int _remainingSeconds = 0;
 
   // Design tokens
   static const double _minDeposit = 1500.0;
@@ -57,8 +62,18 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     });
     _initRazorpay();
     _fetchData();
+    _initSyncTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProfessionalProfileController>().fetchProfile();
+    });
+  }
+
+  void _initSyncTimer() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(const Duration(seconds: 60), (timer) {
+      if (!_isProcessing && !_isLoading) {
+        _fetchData(isSilent: true);
+      }
     });
   }
 
@@ -71,26 +86,66 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   void dispose() { 
     _tabController.dispose(); 
     _razorpayService?.clear();
+    _countdownTimer?.cancel();
+    _syncTimer?.cancel();
     super.dispose(); 
   }
 
-  Future<void> _fetchData() async {
-    setState(() { _isLoading = true; _error = null; });
+  Future<void> _fetchData({bool isSilent = false}) async {
+    if (!isSilent) setState(() { _isLoading = true; _error = null; });
     try {
       final wallet = await ProfessionalApiService.getWallet(tab: 'earnings');
-      final stats  = await ProfessionalApiService.getDashboardStats();
-      final profile = await ProfessionalApiService.getProfile();
-      if (mounted) setState(() { _wallet = wallet; _stats = stats; _profile = profile; _isLoading = false; });
+      if (mounted) {
+        setState(() { 
+          _wallet = wallet; 
+          _isLoading = false; 
+          _remainingSeconds = wallet.remainingSeconds;
+        });
+        if (_remainingSeconds > 0) {
+          _startTimer();
+        } else {
+          _countdownTimer?.cancel();
+        }
+      }
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
+      if (mounted && !isSilent) setState(() { _error = e.toString(); _isLoading = false; });
     }
+  }
+
+  void _startTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+      } else {
+        timer.cancel();
+        _fetchData(isSilent: true); // Re-sync when timer hits 0
+      }
+    });
+  }
+
+  String _formatRemainingTime(int totalSeconds) {
+    if (totalSeconds <= 0) return 'Available Now';
+    
+    final days = totalSeconds ~/ (24 * 3600);
+    final hours = (totalSeconds % (24 * 3600)) ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+
+    String res = '';
+    if (days > 0) res += '${days}d ';
+    if (hours > 0 || days > 0) res += '${hours}h ';
+    if (minutes > 0 || hours > 0 || days > 0) res += '${minutes}m ';
+    res += '${seconds}s';
+    
+    return res;
   }
 
   // Getters
   double get _earn  => _wallet?.availableBalance ?? 0.0;
   double get _pending => _wallet?.pendingBalance ?? 0.0;
-  double get _dep   => _wallet?.depositBalance  ?? 0.0;
-  double get _total => (_wallet?.earningsBalance ?? 0.0) + _dep;
+  double get _dep   => _wallet?.depositBalance ?? 0.0;
+  double get _total => (_wallet?.cashBalance ?? 0.0);
   bool   get _depOk => _dep >= _minDeposit;
   double get _need  => (_minDeposit - _dep).clamp(0.0, _minDeposit);
   String _fmt(double v) {
@@ -289,20 +344,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
   Widget _decoCircle(double size, Color c) => Container(width: size, height: size, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
 
-  Widget _smallHeroStat(String label, double val, Color c) {
-    return Expanded(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: GoogleFonts.outfit(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600)),
-          Text('₹${val.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 2),
-          Container(height: 2, width: 12, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(1))),
-        ],
-      ),
-    );
-  }
-
   Widget _verticalDivider() => Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 12), color: Colors.white.withOpacity(0.1));
 
   Widget _buildDelayBanner() {
@@ -348,7 +389,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
               child: Icon(Icons.warning_amber_rounded, color: _amber, size: 20)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Low Deposit', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.orange.shade900)),
+            Text('Add money to your wallet', style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black87)),
             Text('Add ₹${_need.toStringAsFixed(0)} to receive new bookings', style: GoogleFonts.outfit(fontSize: 12, color: Colors.orange.shade700)),
           ])),
           const SizedBox(width: 8),
@@ -440,22 +481,12 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
               Padding(
                 padding: const EdgeInsets.all(28),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                          child: const Icon(Icons.account_balance_wallet_outlined, color: Colors.white70, size: 18),
-                        ),
-                        const SizedBox(width: 8),
-                        Text('Total Balance', style: GoogleFonts.outfit(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                    Text('Earnings (Matured)', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
                     Text(
-                      '₹${_total.toStringAsFixed(0)}',
+                      '₹${(_wallet?.availableBalance ?? 0).toStringAsFixed(0)}',
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1),
                     ),
                     const SizedBox(height: 18),
@@ -468,12 +499,13 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
                         border: Border.all(color: Colors.white.withOpacity(0.1)),
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          _smallHeroStat('Available', _earn, _green),
+                          _smallHeroStat('Locked', _wallet?.lockedBalance ?? 0, _amber, subtitle: 'Cooling'),
                           _verticalDivider(),
-                          _smallHeroStat('Pending', _pending, _amber),
+                          _smallHeroStat('Total', _wallet?.earningsBalance ?? 0, Colors.white, subtitle: 'Earned'),
                           _verticalDivider(),
-                          _smallHeroStat('Deposit', _dep, _blue),
+                          _smallHeroStat('Deposit', _wallet?.depositBalance ?? 0, _blue, subtitle: 'Security'),
                         ],
                       ),
                     ),
@@ -491,19 +523,14 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   //  EARNINGS TAB
   // ══════════════════════════════════════════════════════
   Widget _earningsTab() {
-    final today   = (_wallet?.todayEarnings   ?? _stats?.todayEarnings ?? 0.0).toDouble();
-    final weekly  = (_wallet?.weeklyEarnings  ?? 0.0).toDouble();
-    final monthly = (_wallet?.monthlyEarnings ?? 0.0).toDouble();
-    final jobs    = _wallet?.totalJobs ?? _stats?.totalBookings ?? 0;
+    final today   = _wallet?.todayEarnings ?? 0.0;
+    final weekly  = _wallet?.weeklyEarnings ?? 0.0;
+    final monthly = _wallet?.monthlyEarnings ?? 0.0;
+    final jobs    = _wallet?.totalJobs ?? 0;
     final active  = _stats?.activeJobsCount ?? 0;
 
-    final profile = context.watch<ProfessionalProfileController>().profile;
-    final isKycVerified = profile?.verification == 'Verified';
-    final hasBank = profile?.payout.accountNumber.isNotEmpty ?? false;
-    final hasUpi = profile?.payout.upiId != null && profile!.payout.upiId!.isNotEmpty;
-    final isPayoutAdded = hasBank || hasUpi;
-    final isPayoutVerified = (profile?.payout.verificationStatus ?? 'Pending') == 'Verified';
-    final needsVerification = !isKycVerified || !isPayoutAdded || !isPayoutVerified;
+    final canWithdraw = _wallet?.canWithdraw ?? true;
+    final nextWithdrawal = _wallet?.nextWithdrawalAt;
 
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
@@ -511,8 +538,8 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       _buildEarningsHero(),
       const SizedBox(height: 24),
 
-      if (needsVerification) ...[
-        _buildVerificationBanner(isKycVerified, isPayoutAdded, isPayoutVerified),
+      if (!canWithdraw && nextWithdrawal != null) ...[
+        _buildCooldownBanner(_wallet!.withdrawDelayDays, nextWithdrawal),
         const SizedBox(height: 16),
       ],
 
@@ -523,7 +550,17 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
       // Action buttons row
       Row(children: [
-        Expanded(child: _actionCard(Icons.call_received_rounded, 'Withdraw', _primary, () => _handleWithdrawClick(isEarnings: true))),
+        Expanded(child: _actionCard(
+          Icons.call_received_rounded, 
+          'Withdraw', 
+          canWithdraw ? _primary : Colors.grey, 
+          canWithdraw ? () => _handleWithdrawClick(isEarnings: true) : () {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Withdrawal locked. Next withdrawal available in ${_formatRemainingTime(_remainingSeconds)}'),
+              backgroundColor: Colors.orange,
+            ));
+          }
+        )),
         const SizedBox(width: 12),
         Expanded(child: _actionCard(Icons.receipt_long_rounded, 'Transactions', Colors.black87, () => context.pushNamed(AppRoutes.proTransactionsName), outlined: true)),
       ]),
@@ -802,6 +839,45 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   Widget _sLabel(String t) => Text(t.toUpperCase(),
       style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w900, color: _textSecondary, letterSpacing: 1.4));
 
+  Widget _buildCooldownBanner(int days, DateTime nextAvailable) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.red.shade50,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.red.shade100),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.lock_clock_outlined, color: Colors.red.shade700, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Withdrawal Cooldown', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.red.shade900)),
+                Text(
+                  _remainingSeconds > 0 
+                    ? 'Wait ${_formatRemainingTime(_remainingSeconds)} more to withdraw earnings.'
+                    : 'Withdrawal available now.', 
+                  style: GoogleFonts.outfit(fontSize: 12, color: Colors.red.shade700)
+                ),
+                if (_remainingSeconds > 0)
+                  Text('Next: ${nextAvailable.day} ${_getMonthName(nextAvailable.month)} ${nextAvailable.year % 100}', 
+                    style: GoogleFonts.outfit(fontSize: 10, color: Colors.red.shade300)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return months[month - 1];
+  }
+
   Widget _divider() => const Divider(color: Color(0xFFE5E7EB), height: 24, thickness: 1);
 
   Widget _statCard(IconData icon, String label, String val, Color c) {
@@ -1002,6 +1078,58 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     _showWithdrawSheet(isEarnings: isEarnings);
   }
 
+  void _showWithdrawSheet({bool isEarnings = true}) {
+    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+        builder: (bottomSheetContext) => _WithdrawSheet(
+          maxAmount: isEarnings ? (_wallet?.availableBalance ?? 0) : (_wallet?.depositBalance ?? 0),
+          label: isEarnings ? 'Earnings' : 'Deposit',
+          onWithdraw: (amount) async {
+            try {
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (dialogContext) => const Center(child: CircularProgressIndicator(color: Colors.white)),
+              );
+
+              final requestId = const Uuid().v4();
+              // Use State scope variables to avoid context issues after pops
+              final messenger = ScaffoldMessenger.of(context);
+              final router = Navigator.of(context);
+              final loadingRouter = Navigator.of(context, rootNavigator: true);
+
+              final response = await ProfessionalApiService.requestWithdrawal(amount, requestId: requestId);
+
+              if (mounted) {
+                loadingRouter.pop(); // Close loading
+                router.pop(); // Close sheet
+                
+                if (response['success'] == true) {
+                  messenger.showSnackBar(SnackBar(
+                    content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested successfully.'),
+                    backgroundColor: Colors.green,
+                  ));
+                  _fetchData(); // Refresh wallet
+                } else {
+                  messenger.showSnackBar(SnackBar(
+                    content: Text(response['message'] ?? 'Failed to request withdrawal'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
+              }
+            } catch (e) {
+              if (mounted) {
+                Navigator.of(context, rootNavigator: true).pop(); // Close loading
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Error: ${e.toString()}'),
+                  backgroundColor: Colors.red,
+                ));
+              }
+            }
+          },
+        ));
+  }
+
   void _showVerificationDialog({required String title, required String desc, required String btnLabel, required VoidCallback onPressed}) {
     showDialog(
       context: context,
@@ -1024,90 +1152,15 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     );
   }
 
-  Widget _buildVerificationBanner(bool kyc, bool payoutAdded, bool payoutVerified) {
-    String msg = "Complete KYC to enable withdrawals.";
-    if (kyc && !payoutAdded) msg = "Add Bank or UPI to withdraw money.";
-    if (kyc && payoutAdded && !payoutVerified) msg = "Payment verification pending.";
-
-    return GestureDetector(
-      onTap: () {
-        if (!kyc) context.push(AppRoutes.proKycDocuments);
-        else if (!payoutAdded) context.push(AppRoutes.proEditBankDetails);
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.red.shade100),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.lock_person_outlined, color: Colors.red.shade700, size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Verification Required', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.red.shade900)),
-                  Text(msg, style: GoogleFonts.outfit(fontSize: 12, color: Colors.red.shade700)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right_rounded, color: Colors.red.shade300),
-          ],
-        ),
-      ),
+  Widget _smallHeroStat(String label, double val, Color color, {required String subtitle}) {
+    return Column(
+      children: [
+        Text(label, style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 2),
+        Text('₹${val.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: color, fontSize: 15, fontWeight: FontWeight.bold)),
+        Text(subtitle, style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.3), fontSize: 9)),
+      ],
     );
-  }
-
-  void _showWithdrawSheet({bool isEarnings = true}) {
-    showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-        builder: (_) => _WithdrawSheet(
-          maxAmount: isEarnings ? _earn : _dep,
-          label: isEarnings ? 'Earnings' : 'Deposit',
-          onWithdraw: (amount) async {
-            try {
-              // Show loading
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(child: CircularProgressIndicator(color: Colors.white)),
-              );
-
-              final response = await ProfessionalApiService.requestWithdrawal(amount);
-
-              if (mounted) {
-                // 🔥 FIX: Use rootNavigator: true for dialog, standard for sheet
-                Navigator.of(context, rootNavigator: true).pop(); // Close loading
-                Navigator.of(context).pop(); // Close sheet
-                
-                if (response['success'] == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Withdrawal of ₹${amount.toStringAsFixed(0)} requested successfully.'),
-                    backgroundColor: Colors.green,
-                  ));
-                  _fetchData(); // Refresh wallet
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(response['message'] ?? 'Failed to request withdrawal'),
-                    backgroundColor: Colors.red,
-                  ));
-                }
-              }
-            } catch (e) {
-              if (mounted) {
-                // 🔥 FIX: Use rootNavigator: true for dialog
-                Navigator.of(context, rootNavigator: true).pop(); // Close loading
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text('Error: ${e.toString()}'),
-                  backgroundColor: Colors.red,
-                ));
-              }
-            }
-          },
-        ));
   }
 }
 

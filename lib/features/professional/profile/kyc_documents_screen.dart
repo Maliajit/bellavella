@@ -93,6 +93,8 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final docs = widget.professional.documents;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -104,7 +106,7 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Verification',
+          'Verification Center',
           style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
@@ -116,49 +118,80 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
             _buildStatusHeader(),
             const SizedBox(height: 24),
             Text(
-              "Documents",
+              "Document Status",
               style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
             ),
+            const SizedBox(height: 8),
+            Text(
+              "Track your verification progress below",
+              style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey),
+            ),
             const SizedBox(height: 16),
-            _buildSectionHeader("Identity Documents (Aadhaar & PAN)"),
+            _buildSectionHeader("Identity Documents"),
             const SizedBox(height: 12),
             _buildDocTile(
               "Aadhaar Card (Front)",
               "aadhaar_front",
-              widget.professional.aadhaarFront,
+              docs['aadhaar_front']?['url']?.toString(),
               _pickedAadhaarFront,
+              docs['aadhaar_front']?['status']?.toString() ?? 'pending',
               Icons.badge_outlined,
             ),
             const SizedBox(height: 12),
             _buildDocTile(
               "Aadhaar Card (Back)",
               "aadhaar_back",
-              widget.professional.aadhaarBack,
+              docs['aadhaar_back']?['url']?.toString(),
               _pickedAadhaarBack,
+              docs['aadhaar_back']?['status']?.toString() ?? 'pending',
               Icons.badge_outlined,
             ),
             const SizedBox(height: 12),
             _buildDocTile(
               "PAN Card Image",
               "pan_img",
-              widget.professional.panImg,
-              _pickedPan, 
+              docs['pan_card']?['url']?.toString(),
+              _pickedPan,
+              docs['pan_card']?['status']?.toString() ?? 'pending',
               Icons.description_outlined,
             ),
             
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            _buildSectionHeader("Address & Payout Verification"),
+            const SizedBox(height: 12),
+            _buildDocTile(
+              "Light Bill (Address Proof)",
+              "light_bill",
+              docs['light_bill']?['url']?.toString(),
+              null, // Not locally pickable in this screen yet but can be added
+              docs['light_bill']?['status']?.toString() ?? 'pending',
+              Icons.bolt_outlined,
+            ),
+            const SizedBox(height: 12),
+            _buildDocTile(
+              "Bank Proof (Passbook/Cheque)",
+              "bank_proof",
+              docs['bank_proof']?['url']?.toString(),
+              null,
+              docs['bank_proof']?['status']?.toString() ?? 'pending',
+              Icons.account_balance_outlined,
+            ),
+
+            const SizedBox(height: 24),
             _buildSectionHeader("Skill Verification"),
             const SizedBox(height: 12),
             _buildDocTile(
               "Professional Certificate",
               "certificate_img",
-              widget.professional.certificateImg,
+              widget.professional.certificateImg, // Fallback to old field
               _pickedCertificate,
+              'pending', // Status not yet implemented for certificates in API specifically but can be added
               Icons.school_outlined,
             ),
             const SizedBox(height: 32),
             if (!isVerified)
               _buildNoteCard(),
+            const SizedBox(height: 50),
           ],
         ),
       ),
@@ -181,7 +214,7 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
 
   Widget _buildStatusHeader() {
     final status = widget.professional.verification;
-    final isPending = status != 'Verified' && status != 'Rejected';
+    final isVerified = status == 'Verified';
     final color = isVerified ? Colors.green : (status == 'Rejected' ? Colors.red : Colors.orange);
     
     return Container(
@@ -208,13 +241,13 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isVerified ? "Verified Professional" : (status == 'Rejected' ? "Verification Rejected" : "Verification Pending"),
+                  isVerified ? "Profile Verified" : (status == 'Rejected' ? "Verification Rejected" : "Review in Progress"),
                   style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
                   isVerified 
-                      ? "Your documents are locked." 
-                      : (status == 'Rejected' ? "Please re-upload correct documents." : "Review takes 24-48 hours."),
+                      ? "All documents are approved." 
+                      : (status == 'Rejected' ? "Please fix rejected documents." : "We are checking your documents."),
                   style: GoogleFonts.outfit(fontSize: 13, color: Colors.grey),
                 ),
               ],
@@ -227,15 +260,36 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
     );
   }
 
-  Widget _buildDocTile(String title, String field, String? url, XFile? local, IconData icon) {
+  Widget _buildDocTile(String title, String field, String? url, XFile? local, String status, IconData icon) {
     final hasDoc = url != null || local != null;
     final isLoading = _uploading && _uploadingField == field;
+
+    // Status mapping
+    Color statusColor;
+    String statusText;
+    switch (status.toLowerCase()) {
+      case 'approved':
+        statusColor = Colors.green;
+        statusText = "Approved";
+        break;
+      case 'rejected':
+        statusColor = Colors.red;
+        statusText = "Rejected";
+        break;
+      default:
+        statusColor = Colors.orange;
+        statusText = hasDoc ? "Pending Review" : "Not Uploaded";
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: status.toLowerCase() == 'rejected' ? Colors.red.withOpacity(0.2) : Colors.transparent,
+          width: 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -244,76 +298,73 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            if (isVerified) {
-              _viewDocument(context, title, url, local);
-            } else {
-              _pickAndUpload(field);
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: Colors.blueGrey.shade600, size: 20),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isLoading)
-                  SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppTheme.primaryColor,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: Colors.blueGrey.shade600, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: Colors.black87,
                     ),
-                  )
-                else if (isVerified)
-                  Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400)
-                else
+                  ),
+                  const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(8),
+                      color: statusColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      hasDoc ? "Replace" : "Upload",
+                      statusText,
                       style: GoogleFonts.outfit(
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
+                        color: statusColor,
                       ),
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
+            if (isLoading)
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppTheme.primaryColor,
+                ),
+              )
+            else ...[
+              if (hasDoc)
+                IconButton(
+                  icon: const Icon(Icons.visibility_outlined, color: Colors.blue),
+                  onPressed: () => _viewDocument(context, title, url, local),
+                ),
+              if (!isVerified && status.toLowerCase() != 'approved')
+                IconButton(
+                  icon: Icon(hasDoc ? Icons.refresh_rounded : Icons.file_upload_outlined, color: AppTheme.primaryColor),
+                  onPressed: () => _pickAndUpload(field),
+                ),
+            ],
+          ],
         ),
       ),
     );
@@ -334,7 +385,7 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              "Important: Please ensure the images are clear and all details are readable. Original documents are preferred.",
+              "Important: Once a document is 'Approved', you won't be able to replace it. Rejection reasons will be shared by admin.",
               style: GoogleFonts.outfit(fontSize: 13, color: Colors.blue.shade800, height: 1.4),
             ),
           ),
@@ -354,7 +405,7 @@ class _DocumentViewModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.8,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
