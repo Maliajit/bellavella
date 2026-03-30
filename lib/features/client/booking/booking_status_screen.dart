@@ -7,6 +7,7 @@ import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:bellavella/core/widgets/base_widgets.dart';
 import 'package:bellavella/features/client/booking/widgets/slot_picker_bottom_sheet.dart';
 import 'package:bellavella/features/client/booking/widgets/booking_cancel_reason_sheet.dart';
+import 'package:bellavella/features/shared/reviews/user_review_screen.dart';
 
 class BookingStatusScreen extends StatefulWidget {
   final String bookingId;
@@ -265,6 +266,30 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
                                   : const Text('Cancel Booking'),
                             ),
                           if (_booking!.canCancel)
+                            const SizedBox(height: 12),
+                          if (_booking!.status == BookingStatus.completed &&
+                              _booking!.professional != null &&
+                              _booking!.professional!.id.isNotEmpty)
+                            PrimaryButton(
+                              label: 'Review Professional',
+                              onPressed: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => UserReviewScreen(
+                                      bookingId: _booking!.id,
+                                      endpoint: '/client/review/professional',
+                                      title: 'Review Professional',
+                                      subtitle: 'Share feedback about the professional who served you.',
+                                      subjectName: _booking!.professional!.name,
+                                      successMessage: 'Your review for the professional was submitted for approval.',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          if (_booking!.status == BookingStatus.completed &&
+                              _booking!.professional != null &&
+                              _booking!.professional!.id.isNotEmpty)
                             const SizedBox(height: 12),
                           OutlinedButton(
                             onPressed: _goToMyBookings,

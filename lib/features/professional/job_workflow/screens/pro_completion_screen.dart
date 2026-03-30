@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/core/services/realtime_job_service.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
+import 'package:bellavella/features/shared/reviews/user_review_screen.dart';
 import '../widgets/workflow_stepper.dart';
 
 class ProJobCompleteScreen extends StatefulWidget {
@@ -141,22 +142,57 @@ class _ProJobCompleteScreenState extends State<ProJobCompleteScreen> {
         ),
         Padding(
           padding: const EdgeInsets.all(24),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _onReturnToDashboard,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => UserReviewScreen(
+                          bookingId: widget.booking.id,
+                          endpoint: '/professional/review/client',
+                          title: 'Review Client',
+                          subtitle: 'Share feedback about the client for this completed booking.',
+                          subjectName: widget.booking.clientName,
+                          successMessage: 'Your review for the client was submitted for approval.',
+                        ),
+                      ),
+                    );
+                  },
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 56),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    "Review Client",
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                ),
               ),
-              child: Text(
-                "Return to Dashboard",
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _onReturnToDashboard,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: Text(
+                    "Return to Dashboard",
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ],

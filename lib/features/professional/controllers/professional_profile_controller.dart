@@ -54,9 +54,10 @@ class ProfessionalProfileController extends ChangeNotifier {
     }
   }
 
-  Future<void> toggleAvailability(bool online) async {
+  Future<bool> toggleAvailability(bool online) async {
     debugPrint('🔘 ProfessionalProfileController: Toggling Availability to: $online');
     final previous = _isOnline;
+    _error = null;
     _isOnline = online;
     notifyListeners();
 
@@ -69,15 +70,18 @@ class ProfessionalProfileController extends ChangeNotifier {
           _heartbeatTimer?.cancel();
         }
         await fetchProfile(); // Refresh profile to get updated stats
+        return true;
       } else {
         _isOnline = previous;
-        _error = res['message'];
+        _error = res['message']?.toString() ?? 'Failed to update availability';
         notifyListeners();
+        return false;
       }
     } catch (e) {
       _isOnline = previous;
       _error = e.toString();
       notifyListeners();
+      return false;
     }
   }
 

@@ -7,6 +7,7 @@ import 'package:bellavella/features/client/packages/models/package_models.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:bellavella/features/client/booking/widgets/booking_cancel_reason_sheet.dart';
+import 'package:bellavella/features/shared/reviews/user_review_screen.dart';
 
 class MyBookingsScreen extends StatefulWidget {
   const MyBookingsScreen({super.key});
@@ -507,6 +508,58 @@ class _MyBookingsScreenState extends State<MyBookingsScreen> {
                         ),
                       ),
                    ),
+                   if ((bookingData['professional'] is Map &&
+                           (bookingData['professional']['id']?.toString().isNotEmpty ?? false)) ||
+                       (bookingData['professional_name']?.toString().isNotEmpty ?? false))
+                     const SizedBox(height: 12),
+                   if ((bookingData['professional'] is Map &&
+                           (bookingData['professional']['id']?.toString().isNotEmpty ?? false)) ||
+                       (bookingData['professional_name']?.toString().isNotEmpty ?? false))
+                     SizedBox(
+                       width: double.infinity,
+                       child: OutlinedButton.icon(
+                         onPressed: () async {
+                           final professionalData = bookingData['professional'] is Map
+                               ? Map<String, dynamic>.from(
+                                   bookingData['professional'] as Map,
+                                 )
+                               : <String, dynamic>{};
+                           final professionalName =
+                               professionalData['name']?.toString() ??
+                               bookingData['professional_name']?.toString() ??
+                               'Professional';
+
+                           await Navigator.of(context).push(
+                             MaterialPageRoute(
+                               builder: (_) => UserReviewScreen(
+                                 bookingId: bookingData['id']?.toString() ?? '',
+                                 endpoint: '/client/review/professional',
+                                 title: 'Review Professional',
+                                 subtitle:
+                                     'Share feedback about the professional who served you.',
+                                 subjectName: professionalName,
+                                 successMessage:
+                                     'Your review for the professional was submitted for approval.',
+                               ),
+                             ),
+                           );
+                         },
+                         icon: const Icon(Icons.person_outline_rounded, size: 20),
+                         label: const Text('Review Professional'),
+                         style: OutlinedButton.styleFrom(
+                           foregroundColor: AppTheme.primaryColor,
+                           side: BorderSide(color: AppTheme.primaryColor),
+                           padding: const EdgeInsets.symmetric(vertical: 14),
+                           shape: RoundedRectangleBorder(
+                             borderRadius: BorderRadius.circular(12),
+                           ),
+                           textStyle: const TextStyle(
+                             fontWeight: FontWeight.bold,
+                             fontSize: 14,
+                           ),
+                         ),
+                       ),
+                     ),
                 ],
               ],
             ),

@@ -81,7 +81,7 @@ class RealTimeService {
         if (job.status == BookingStatus.assigned) {
           // NEW ASSIGNMENT -> Show Popup (Uber style)
           _showIncomingRequestPopup(jobData);
-        } else if (job.status == BookingStatus.cancelled || job.status == BookingStatus.completed) {
+        } else if (job.status == BookingStatus.cancelled) {
           DashboardController.instance.clearJob();
         } else {
           // Accepted, OnTheWay, Arrived, Started, etc.

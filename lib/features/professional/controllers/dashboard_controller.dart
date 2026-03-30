@@ -21,6 +21,8 @@ class DashboardController extends ChangeNotifier {
   JobStep get currentWorkflowStep => _currentWorkflowStep;
   int get currentStepIndex => _currentWorkflowStep.index + 1;
   int get currentStep => currentStepIndex;
+  bool get hasCompletedJob =>
+      _activeJob != null && _activeJob!.status == BookingStatus.completed;
 
   void _updateStep(JobStep newStep) {
     if (newStep.index < _currentWorkflowStep.index) {
@@ -35,7 +37,7 @@ class DashboardController extends ChangeNotifier {
   }
 
   void setActiveJob(ProfessionalBooking job) {
-    if (!job.isActive) {
+    if (!job.isActive && job.status != BookingStatus.completed) {
       debugPrint(
         'DashboardController: attempted to set a non-active job; clearing instead.',
       );
@@ -86,7 +88,13 @@ class DashboardController extends ChangeNotifier {
       _activeJob = job;
       _syncWorkflowStep(job.status);
 
-      if (!_isActiveForWorkflow(job.status)) {
+      if (job.status == BookingStatus.completed) {
+        debugPrint(
+          'DashboardController: retaining completed job for review flow.',
+        );
+        stopJobPolling();
+        notifyListeners();
+      } else if (!_isActiveForWorkflow(job.status)) {
         debugPrint(
           'DashboardController: job moved to terminal status ${job.status.name}; clearing.',
         );
@@ -215,6 +223,7 @@ class DashboardController extends ChangeNotifier {
       if (res['success'] == true) {
         _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
         _updateStep(JobStep.complete);
+        stopJobPolling();
       }
     } catch (e) {
       debugPrint('completeJob error: $e');
@@ -244,6 +253,7 @@ class DashboardController extends ChangeNotifier {
       if (res['success'] == true || res['verified'] == true || res.isEmpty) {
         _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
         _updateStep(JobStep.complete);
+        stopJobPolling();
         return true;
       }
       return false;
@@ -298,7 +308,13 @@ class DashboardController extends ChangeNotifier {
             _activeJob = latestJob;
             _syncWorkflowStep(latestJob.status);
 
-            if (!_isActiveForWorkflow(latestJob.status)) {
+            if (latestJob.status == BookingStatus.completed) {
+              debugPrint(
+                'DashboardController: polling saw completed status; preserving review screen.',
+              );
+              stopJobPolling();
+              notifyListeners();
+            } else if (!_isActiveForWorkflow(latestJob.status)) {
               debugPrint(
                 'DashboardController: polling saw terminal status; clearing.',
               );
@@ -307,8 +323,16 @@ class DashboardController extends ChangeNotifier {
             }
           }
         } else if (latestJob == null && _activeJob != null) {
-          debugPrint('DashboardController: active job no longer returned; clearing.');
-          clearJob();
+          if (_activeJob!.status == BookingStatus.completed) {
+            debugPrint(
+              'DashboardController: active endpoint no longer returns completed job; preserving local review state.',
+            );
+            stopJobPolling();
+            notifyListeners();
+          } else {
+            debugPrint('DashboardController: active job no longer returned; clearing.');
+            clearJob();
+          }
         }
       } catch (e) {
         debugPrint('DashboardController polling error: $e');

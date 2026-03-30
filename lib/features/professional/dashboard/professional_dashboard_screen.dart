@@ -94,7 +94,10 @@ class _ProfessionalDashboardScreenState
         if (job != null) {
           context.read<DashboardController>().setActiveJob(job);
         } else {
-          context.read<DashboardController>().clearJob();
+          final controller = context.read<DashboardController>();
+          if (!controller.hasCompletedJob) {
+            controller.clearJob();
+          }
           // Reset real-time listener cache so new requests can be detected
           RealtimeJobService.shownBookings.clear();
           debugPrint('✅ Dashboard: No active job found. Cleared controller and shownBookings cache.');
@@ -103,7 +106,10 @@ class _ProfessionalDashboardScreenState
     } catch (e) {
       _handleSyncFailure(e.toString());
       if (mounted) {
-        context.read<DashboardController>().clearJob();
+        final controller = context.read<DashboardController>();
+        if (!controller.hasCompletedJob) {
+          controller.clearJob();
+        }
       }
     }
   }
@@ -146,7 +152,10 @@ class _ProfessionalDashboardScreenState
         if (activeInStats.id.isNotEmpty && activeInStats.isActive && activeInStats.status != BookingStatus.completed) {
           context.read<DashboardController>().setActiveJob(activeInStats);
         } else {
-          context.read<DashboardController>().clearJob();
+          final controller = context.read<DashboardController>();
+          if (!controller.hasCompletedJob) {
+            controller.clearJob();
+          }
         }
       }
     } catch (e) {
@@ -280,8 +289,21 @@ class _ProfessionalDashboardScreenState
       return;
     }
     try {
-      await context.read<ProfessionalProfileController>().toggleAvailability(value);
-      if (value && mounted) {
+      final profileController = context.read<ProfessionalProfileController>();
+      final success = await profileController.toggleAvailability(value);
+      if (!mounted) return;
+
+      if (!success) {
+        final msg = profileController.error ?? 'Failed to update availability.';
+        if (msg.contains('outside global shift hours')) {
+          _showShiftError(msg.replaceAll('Exception: ', ''));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        }
+        return;
+      }
+
+      if (value) {
         _fetchDashboardData(isSilent: true);
       }
     } catch (e) {
