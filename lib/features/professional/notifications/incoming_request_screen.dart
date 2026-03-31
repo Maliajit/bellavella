@@ -12,6 +12,8 @@ import 'package:bellavella/features/professional/controllers/dashboard_controlle
 import 'package:bellavella/core/services/realtime_job_service.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/widgets/job_request_popup.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class IncomingRequestScreen extends StatefulWidget {
   final Map<String, dynamic> notification;
@@ -202,10 +204,37 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
 
     try {
       final bookingId = widget.notification['booking_id']?.toString() ?? '';
-      await ProfessionalApiService.rejectBooking(bookingId);
-      if (mounted) context.pop(false);
+      final res = await ProfessionalApiService.rejectBooking(bookingId);
+      
+      if (!mounted) return;
+
+      if (res['success'] == true) {
+        final data = res['data'];
+        final int remaining = data['remaining_rejects'] ?? 0;
+        final bool isSuspended = data['is_suspended'] == true;
+        
+        // Show feedback FIRST, then pop/redirect when user acknowledges
+        JobRequestPopup.showRejectionLimit(
+          context, 
+          remaining, 
+          isSuspended: isSuspended
+        );
+      } else {
+        // If already suspended or other explicit error
+        if (res['_account_suspended'] == true) {
+           context.go(AppRoutes.proSuspended);
+        } else {
+           if (mounted) context.pop(false);
+        }
+      }
     } catch (e) {
-      if (mounted) context.pop(false);
+      if (mounted) {
+        if (e.toString().contains('suspended')) {
+          context.go(AppRoutes.proSuspended);
+        } else {
+          context.pop(false);
+        }
+      }
     }
   }
 

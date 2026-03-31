@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
-import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/widgets/job_request_popup.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
 
 class ProfessionalBookingRequestsScreen extends StatefulWidget {
   const ProfessionalBookingRequestsScreen({super.key});
@@ -68,18 +68,40 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
   Future<void> _rejectBooking(String id) async {
     try {
       final res = await ProfessionalApiService.rejectBooking(id);
+      
+      if (!mounted) return;
+      
       if (res['success'] == true) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Booking request declined.')),
+        final data = res['data'];
+        final bool isSuspended = data['is_suspended'] ?? false;
+        final int remaining = data['remaining_rejects'] ?? 0;
+
+        // 🔥 REMOVE REQUEST FIRST (Optimistic UI)
+        setState(() {
+          _requests.removeWhere((r) => r.id == id);
+        });
+
+        // 🔥 SHOW DIALOG (Safe Context)
+        JobRequestPopup.showRejectionLimit(
+          context, 
+          remaining, 
+          isSuspended: isSuspended
         );
-        _fetchRequests(); // Refresh list
+      } else {
+        // Handle specific error codes if needed
+        if (res['_http_status'] == 403 || res['_account_suspended'] == true) {
+          context.go(AppRoutes.proSuspended);
+        }
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (e.toString().contains('suspended')) {
+        context.go(AppRoutes.proSuspended);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     }
   }
 

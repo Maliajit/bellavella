@@ -47,6 +47,24 @@ class ClientProfileApiService {
     throw Exception(response['message'] ?? 'Failed to load wallet');
   }
 
+  /// Fetch available scratch cards.
+  static Future<List<dynamic>> getScratchCards() async {
+    final response = await ApiService.get('$_prefix/scratch-cards');
+    if (response['success'] == true) {
+      return response['data'] as List<dynamic>;
+    }
+    throw Exception(response['message'] ?? 'Failed to load scratch cards');
+  }
+
+  /// Mark a scratch card as scratched and reveal/credit reward.
+  static Future<Map<String, dynamic>> scratchCard(String id) async {
+    final response = await ApiService.post('$_prefix/scratch-cards/$id/scratch', {});
+    if (response['success'] == true) {
+      return response['data'] as Map<String, dynamic>;
+    }
+    throw Exception(response['message'] ?? 'Failed to process scratch card');
+  }
+
   /// Fetch list of user addresses.
   static Future<List<dynamic>> getAddresses() async {
     final response = await ApiService.get('$_prefix/addresses');

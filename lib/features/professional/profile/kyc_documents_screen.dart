@@ -93,7 +93,7 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final docs = widget.professional.documents;
+    final docs = widget.professional.documents ?? {};
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),

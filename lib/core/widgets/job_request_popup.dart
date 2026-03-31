@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
+import 'package:go_router/go_router.dart';
+import '../routes/app_routes.dart';
 
 class JobRequestPopup extends StatefulWidget {
   final Map<String, dynamic> jobData;
@@ -13,6 +15,110 @@ class JobRequestPopup extends StatefulWidget {
     required this.onAccept,
     required this.onReject,
   });
+
+  static void showRejectionLimit(BuildContext context, int remaining, {bool isSuspended = false}) {
+    final bool suspended = isSuspended || remaining <= 0;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 20,
+                spreadRadius: 5,
+              )
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  color: (!suspended ? Colors.orange : Colors.red).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  !suspended ? Icons.warning_amber_rounded : Icons.block_flipped,
+                  color: !suspended ? Colors.orange : Colors.red,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                !suspended ? 'REJECTION LIMIT' : 'ACCOUNT SUSPENDED',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                !suspended 
+                  ? 'You have $remaining rejection${remaining == 1 ? '' : 's'} remaining for today. Reaching 0 will suspend your account.'
+                  : 'You have reached your daily rejection limit. Your account is temporarily suspended until tomorrow.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  color: Colors.grey.shade600,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                    onPressed: () {
+                    Navigator.pop(dialogContext); // Close dialog
+                    
+                    if (suspended) {
+                      context.go(AppRoutes.proSuspended);
+                    } else {
+                      // Just pop the underlying screen if we were in the request screen
+                      try {
+                        if (context.mounted) {
+                           context.pop(false);
+                        }
+                      } catch (_) {
+                        // context might not be poppable if already popped or in different state
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: !suspended ? const Color(0xFFFF4891) : Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    elevation: 4,
+                    shadowColor: (!suspended ? const Color(0xFFFF4891) : Colors.red).withOpacity(0.3),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: Text(
+                    !suspended ? 'UNDERSTOOD' : 'VIEW STATUS',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   static void show(
     BuildContext context, {

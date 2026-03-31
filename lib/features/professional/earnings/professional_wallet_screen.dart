@@ -10,6 +10,7 @@ import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/models/professional_wallet.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
@@ -27,7 +28,7 @@ class ProfessionalWalletScreen extends StatefulWidget {
 
 class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     with SingleTickerProviderStateMixin {
-  pro_models.ProfessionalWallet? _wallet;
+  ProfessionalWallet? _wallet;
   pro_models.ProfessionalDashboardStats? _stats;
   Professional? _profile;
   bool _isLoading = true;
@@ -531,6 +532,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
     final canWithdraw = _wallet?.canWithdraw ?? true;
     final nextWithdrawal = _wallet?.nextWithdrawalAt;
+    final kitsItems = _wallet?.kits ?? [];
 
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
@@ -576,6 +578,15 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
         const SizedBox(width: 10),
         Expanded(child: _statCard(Icons.calendar_month_outlined, 'Monthly', _fmt(monthly), _primary)),
       ]),
+      const SizedBox(height: 24),
+
+      // Assigned kits list
+      _sLabel('Kit Inventory History'),
+      const SizedBox(height: 12),
+      if (kitsItems.isEmpty) _emptyState(Icons.inventory_2_outlined, 'No kits assigned', 'Kits purchased will appear here.')
+      else Column(children: kitsItems.map((kit) {
+        return _jobRow(Icons.work_outline_rounded, kit.name, kit.status, Colors.indigo);
+      }).toList()),
       const SizedBox(height: 24),
 
       // Jobs
@@ -736,7 +747,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   //  KITS TAB
   // ══════════════════════════════════════════════════════
   Widget _kitsTab() {
-    final kits = _wallet?.kits ?? 0;
+    final kitsCount = _wallet?.kitCount ?? 0;
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
 
@@ -754,9 +765,9 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
             const Icon(Icons.inventory_2_outlined, color: Colors.white54, size: 22),
           ]),
           const SizedBox(height: 10),
-          Text('$kits', style: GoogleFonts.outfit(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1)),
+          Text('$kitsCount', style: GoogleFonts.outfit(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1)),
           Text('remaining kits', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13)),
-          if (kits < 5) ...[
+          if (kitsCount < 5) ...[
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
@@ -764,7 +775,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
               child: Row(children: [
                 const Icon(Icons.warning_amber_rounded, color: Colors.yellowAccent, size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text('Min 5 kits required. Add ${5 - kits} more.', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500))),
+                Expanded(child: Text('Min 5 kits required. Add ${5 - kitsCount} more.', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500))),
               ]),
             ),
           ],

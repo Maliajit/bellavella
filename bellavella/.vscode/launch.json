@@ -1,0 +1,83 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Client - Chrome (Localhost)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_client.dart",
+      "args": [
+        "--flavor",
+        "client",
+        "--dart-define=APP_FLAVOR=client",
+        "--dart-define=API_BASE_URL=http://localhost:8000/api",
+        "--dart-define=RAZORPAY_KEY_ID=rzp_test_S7dlJIqMvrpcaj"
+      ]
+    },
+    {
+      "name": "Client - Android Emulator",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_client.dart",
+      "args": [
+        "--flavor",
+        "client",
+        "--dart-define=APP_FLAVOR=client",
+        "--dart-define=API_BASE_URL=http://10.0.2.2:8000/api",
+        "--dart-define=RAZORPAY_KEY_ID=rzp_test_S7dlJIqMvrpcaj"
+      ]
+    },
+    {
+      "name": "Client - Mobile Device (LAN IP)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_client.dart",
+      "args": [
+        "--flavor",
+        "client",
+        "--dart-define=APP_FLAVOR=client",
+        "--dart-define=API_BASE_URL=http://192.168.1.6:8000/api",
+        "--dart-define=RAZORPAY_KEY_ID=rzp_test_S7dlJIqMvrpcaj"
+      ]
+    },
+    {
+      "name": "Professional - Chrome (Localhost)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_professional.dart",
+      "args": [
+        "--flavor",
+        "professional",
+        "--dart-define=APP_FLAVOR=professional",
+        "--dart-define=API_BASE_URL=http://localhost:8000/api",
+        "--dart-define=RAZORPAY_KEY_ID=rzp_test_S7dlJIqMvrpcaj"
+      ]
+    },
+    {
+      "name": "Professional - Android Emulator",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_professional.dart",
+      "args": [
+        "--flavor",
+        "professional",
+        "--dart-define=APP_FLAVOR=professional",
+        "--dart-define=API_BASE_URL=http://10.0.2.2:8000/api",
+        "--dart-define=RAZORPAY_KEY_ID=rzp_test_S7dlJIqMvrpcaj"
+      ]
+    },
+    {
+      "name": "Professional - Mobile Device (LAN IP)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main_professional.dart",
+      "args": [
+        "--flavor",
+        "professional",
+        "--dart-define=APP_FLAVOR=professional",
+        "--dart-define=API_BASE_URL=http://192.168.1.6:8000/api",
+        "--dart-define=RAZORPAY_KEY_ID=rzp_test_S7dlJIqMvrpcaj"
+      ]
+    }
+  ]
+}
