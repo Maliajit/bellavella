@@ -292,10 +292,10 @@ class ProfessionalApiService {
   }
 
   // --- Wallet ---
-  static Future<ProfessionalWallet> getWallet({String tab = 'earnings'}) async {
+  static Future<pro_models.ProfessionalWallet> getWallet({String tab = 'earnings'}) async {
     final response = await ApiService.get('$_prefix/wallet?tab=$tab');
     if (response['success'] == true) {
-      return ProfessionalWallet.fromJson(response['data']);
+      return pro_models.ProfessionalWallet.fromJson(response['data']);
     }
     throw Exception(response['message'] ?? 'Failed to load wallet');
   }

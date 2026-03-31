@@ -1035,9 +1035,10 @@ packages:
   pusher_client:
     dependency: "direct main"
     description:
-      path: "local_packages/pusher_client"
-      relative: true
-    source: path
+      name: pusher_client
+      sha256: "0dce30a1b4b0dca2a9af2f680eec495b9cdc2b0281491426f3af9718776dc14a"
+      url: "https://pub.dev"
+    source: hosted
     version: "2.0.0"
   razorpay_flutter:
     dependency: "direct main"

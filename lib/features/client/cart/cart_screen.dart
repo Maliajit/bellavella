@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
+
 import 'package:bellavella/features/client/cart/models/cart_model.dart';
 import 'package:bellavella/features/client/packages/controllers/package_provider.dart';
 import 'package:bellavella/features/client/packages/widgets/package_config_sheet.dart';
@@ -14,6 +13,7 @@ import 'package:bellavella/core/services/token_manager.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:bellavella/core/widgets/app_network_image.dart';
+
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -36,15 +36,28 @@ class _CartScreenState extends State<CartScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CartProvider>().fetchCart();
+      final provider = context.read<CartProvider>();
+      provider.addListener(_onCartChanged);
+      provider.fetchCart();
     });
+  }
+
+  void _onCartChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   void dispose() {
+    context.read<CartProvider>().removeListener(_onCartChanged);
     _couponController.dispose();
     super.dispose();
   }
+
+
+
+
+
 
   Future<void> _editPackage(CartItem item) async {
     if (!item.isPackage ||
@@ -234,8 +247,8 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildSavingsBanner() {
     final cartProvider = context.watch<CartProvider>();
-    final discount = cartProvider.discount;
-    if (discount <= 0) return const SizedBox.shrink();
+    final disc = cartProvider.discount;
+    if (disc <= 0) return const SizedBox.shrink();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -244,18 +257,22 @@ class _CartScreenState extends State<CartScreen> {
         children: [
           const Icon(Icons.sell, color: greenSaving, size: 20),
           const SizedBox(width: 12),
-          Text(
-            'Saving ${_formatCurrency(discount)} on this order',
-            style: GoogleFonts.outfit(
-              color: greenSaving,
-              fontWeight: FontWeight.w600,
-              fontSize: 15,
+          Expanded(
+            child: Text(
+              'You are saving ${_formatCurrency(disc)} on this order',
+              style: GoogleFonts.outfit(
+                color: greenSaving,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+
 
   Widget _buildCartCategorySection(String category, List<CartItem> items) {
     return Padding(
@@ -484,9 +501,12 @@ class _CartScreenState extends State<CartScreen> {
             ),
             if (hasOffer)
               TextButton(
-                onPressed: () => cartProvider.removeOffer(),
+                onPressed: () {
+                   cartProvider.removeOffer();
+                },
                 child: Text('Remove', style: GoogleFonts.outfit(color: pinkPrimary, fontWeight: FontWeight.bold)),
               )
+
             else
               const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
           ],
@@ -524,6 +544,7 @@ class _CartScreenState extends State<CartScreen> {
             Navigator.pop(context);
             ToastUtil.showSuccess(context, 'Coupon applied successfully!');
           }
+
 
           return Container(
             height: MediaQuery.of(context).size.height * 0.78,
@@ -758,7 +779,6 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     final hasDiscount = cartProvider.discount > 0;
-    final hasTip = cartProvider.tip > 0;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
@@ -783,30 +803,13 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ],
           const Divider(height: 30),
-          _summaryRow('Total amount', _formatCurrency(cartProvider.totalAfterDiscount), isBold: true),
-          if (hasTip) ...[
-            const SizedBox(height: 8),
-            _summaryRow(
-              'Professional tip', 
-              _formatCurrency(cartProvider.tip), 
-              isBold: true,
-            ),
-          ],
           const Divider(height: 30),
-          _summaryRow('Amount to pay', _formatCurrency(cartProvider.totalAmount), isBold: true, largeText: true),
-          const SizedBox(height: 10),
-          Text(
-            'Final checkout discounts for online payment and BellaVella coins are confirmed by the backend in the payment step. The amount above is the cart estimate before those rules are applied.',
-            style: GoogleFonts.outfit(
-              fontSize: 13,
-              color: Colors.grey.shade600,
-              height: 1.4,
-            ),
-          ),
+          _summaryRow('Total amount', _formatCurrency(cartProvider.totalAmount), isBold: true, largeText: true),
         ],
       ),
     );
   }
+
 
   Widget _summaryRow(String label, String value, {bool isBold = false, bool largeText = false, Color? textColor}) {
     return Padding(

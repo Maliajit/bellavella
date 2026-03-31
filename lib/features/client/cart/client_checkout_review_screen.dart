@@ -33,13 +33,19 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
   int? _lastOrderId; // Store order id for verification
   int? _lastConfirmedPayablePaise;
   int? _previewPayablePaise;
-  int? _previewDiscountPaise;
+  int? _previewSubtotalPaise;
+  int? _previewOfferDiscountPaise;
+  int? _previewPaymentDiscountPaise;
+  int? _previewWalletDiscountPaise;
+  int? _previewWalletRedeemedPaise;
+  int? _previewTotalDiscountPaise;
   bool _isPreviewLoading = false;
   String? _previewError;
   StateSetter? _paymentSheetSetState;
   bool _useWalletCoins = false;
   bool _isWalletLoading = false;
   int _walletBalanceCoins = 0;
+
 
   @override
   void initState() {
@@ -211,11 +217,14 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
 
       if (response['success'] == true && response['data'] is Map<String, dynamic>) {
         final data = Map<String, dynamic>.from(response['data'] as Map);
-        final totalDiscountPaise = _parsePaise(data['total_discount_paise']) ?? 0;
-        final walletRedeemedPaise = _parsePaise(data['wallet_redeemed_paise']) ?? 0;
         setState(() {
+          _previewSubtotalPaise = _parsePaise(data['subtotal_paise']);
+          _previewOfferDiscountPaise = _parsePaise(data['offer_discount_paise']);
+          _previewPaymentDiscountPaise = _parsePaise(data['payment_discount_paise']);
+          _previewWalletDiscountPaise = _parsePaise(data['wallet_discount_paise']);
+          _previewTotalDiscountPaise = _parsePaise(data['total_discount_paise']);
+          _previewWalletRedeemedPaise = _parsePaise(data['wallet_redeemed_paise']);
           _previewPayablePaise = _parsePaise(data['total_paise']);
-          _previewDiscountPaise = totalDiscountPaise + walletRedeemedPaise;
           _previewError = null;
           _isPreviewLoading = false;
         });
@@ -223,7 +232,6 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
       } else {
         setState(() {
           _previewPayablePaise = null;
-          _previewDiscountPaise = null;
           _previewError =
               response['message']?.toString() ?? 'Unable to preview payable amount.';
           _isPreviewLoading = false;
@@ -234,12 +242,12 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
       if (!mounted) return;
       setState(() {
         _previewPayablePaise = null;
-        _previewDiscountPaise = null;
         _previewError = 'Unable to preview payable amount.';
         _isPreviewLoading = false;
       });
       _paymentSheetSetState?.call(() {});
     }
+
   }
 
   void _showPaymentBottomSheet(BuildContext context) {
@@ -263,172 +271,163 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
               });
             }
             return Container(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Select Payment Mode',
-                        style: GoogleFonts.outfit(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () {
-                          _paymentSheetSetState = null;
-                          Navigator.pop(ctx);
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // Payable Summary
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF0F5), // pinkLight
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          _isPreviewLoading
-                              ? 'Calculating Payable'
-                              : _lastConfirmedPayablePaise != null
-                                  ? 'Final Payable'
-                                  : _previewPayablePaise != null
-                                      ? 'Discounted Payable'
-                                      : 'Estimated Payable',
+                          'Select Payment Mode',
                           style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        _isPreviewLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFFFF4891),
-                                ),
-                              )
-                            : Text(
-                                _lastConfirmedPayablePaise != null
-                                    ? _formatPaise(_lastConfirmedPayablePaise!)
-                                    : _previewPayablePaise != null
-                                        ? _formatPaise(_previewPayablePaise!)
-                                        : currencyFormat.format(cartProvider.totalAmount),
-                                style: GoogleFonts.outfit(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFFFF4891), // pinkPrimary
-                                ),
-                              ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            _paymentSheetSetState = null;
+                            Navigator.pop(ctx);
+                          },
+                        ),
                       ],
                     ),
-                  ),
-                  if (!_isPreviewLoading && (_previewDiscountPaise ?? 0) > 0) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'Checkout savings: ${_formatPaise(_previewDiscountPaise!)}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.green.shade700,
+                    const SizedBox(height: 12),
+                    
+                    // Payable Summary
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF0F5), // pinkLight
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                    ),
-                  ],
-                  if (!_isPreviewLoading && _previewError != null) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      _previewError!,
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        color: Colors.red.shade400,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Text(
-                    _paymentHintText(),
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildWalletUsageCard(cartProvider, setModalState),
-                  const SizedBox(height: 16),
-                  
-                  // Payment Options
-                  _buildPaymentOption(
-                    title: 'Online Payment (UPI/Cards)',
-                    icon: Icons.credit_card,
-                    value: 'online',
-                    groupValue: _selectedPaymentMethod,
-                    onChanged: (val) {
-                      setModalState(() => _selectedPaymentMethod = val!);
-                      _refreshCheckoutPreview(cartProvider);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildPaymentOption(
-                    title: 'Cash after service',
-                    icon: Icons.money,
-                    value: 'cod',
-                    groupValue: _selectedPaymentMethod,
-                    onChanged: (val) {
-                      setModalState(() => _selectedPaymentMethod = val!);
-                      _refreshCheckoutPreview(cartProvider);
-                    },
-                  ),
-                  const SizedBox(height: 30),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: (_isProcessing || _isPreviewLoading)
-                        ? null 
-                        : () => _handleCheckout(ctx, cartProvider),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF4891),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _isProcessing
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            'Confirm Payment',
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _isPreviewLoading
+                                ? 'Calculating Payable'
+                                : _lastConfirmedPayablePaise != null
+                                    ? 'Final Payable'
+                                    : 'Amount to Pay',
                             style: GoogleFonts.outfit(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              fontSize: 16,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
+                          _isPreviewLoading
+                              ? const SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFFFF4891),
+                                  ),
+                                )
+                              : Text(
+                                  _lastConfirmedPayablePaise != null
+                                      ? _formatPaise(_lastConfirmedPayablePaise!)
+                                      : _previewPayablePaise != null
+                                          ? _formatPaise(_previewPayablePaise!)
+                                          : currencyFormat.format(cartProvider.totalAmount),
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFFFF4891), // pinkPrimary
+                                  ),
+                                ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
+                    _buildDetailedSummary(),
+
+                    if (!_isPreviewLoading && _previewError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _previewError!,
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          color: Colors.red.shade400,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Text(
+                      _paymentHintText(),
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    _buildWalletUsageCard(cartProvider, setModalState),
+                    const SizedBox(height: 16),
+                    
+                    // Payment Options
+                    _buildPaymentOption(
+                      title: 'Online Payment (UPI/Cards)',
+                      icon: Icons.credit_card,
+                      value: 'online',
+                      groupValue: _selectedPaymentMethod,
+                      onChanged: (val) {
+                        setModalState(() => _selectedPaymentMethod = val!);
+                        _refreshCheckoutPreview(cartProvider);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPaymentOption(
+                      title: 'Cash after service',
+                      icon: Icons.money,
+                      value: 'cod',
+                      groupValue: _selectedPaymentMethod,
+                      onChanged: (val) {
+                        setModalState(() => _selectedPaymentMethod = val!);
+                        _refreshCheckoutPreview(cartProvider);
+                      },
+                    ),
+                    const SizedBox(height: 30),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 55,
+                      child: ElevatedButton(
+                        onPressed: (_isProcessing || _isPreviewLoading)
+                          ? null 
+                          : () => _handleCheckout(ctx, cartProvider),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF4891),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _isProcessing
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : Text(
+                              'Confirm Payment',
+                              style: GoogleFonts.outfit(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ),
               ),
             );
           },
@@ -688,9 +687,128 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
   }
 
   String _formatPaise(int paise) {
+    if (paise == 0) return '₹0';
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
     return currencyFormat.format(paise / 100);
   }
+
+  Widget _buildDetailedSummary() {
+    final cartProvider = context.read<CartProvider>();
+    if (_isPreviewLoading || _previewPayablePaise == null) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: Column(
+        children: [
+          _summaryRow('Subtotal', _formatPaise(_previewSubtotalPaise ?? 0)),
+          if ((_previewOfferDiscountPaise ?? 0) > 0)
+            _summaryRow('Coupon (Offer) Discount', '-${_formatPaise(_previewOfferDiscountPaise!)}', isPercentage: true),
+          
+          if ((cartProvider.tip * 100).toInt() > 0)
+            _summaryRow('Professional Tip', _formatPaise((cartProvider.tip * 100).toInt())),
+            
+          if ((_previewPaymentDiscountPaise ?? 0) > 0)
+            _summaryRow('Online Payment Discount', '-${_formatPaise(_previewPaymentDiscountPaise!)}', isBenefit: true),
+          
+          if ((_previewWalletDiscountPaise ?? 0) > 0)
+            _summaryRow('Wallet Promo Discount', '-${_formatPaise(_previewWalletDiscountPaise!)}', isBenefit: true, hasInfo: true),
+          
+          if ((_previewWalletRedeemedPaise ?? 0) > 0)
+            _summaryRow('Coins Redeemed (Wallet)', '-${_formatPaise(_previewWalletRedeemedPaise!)}', isHighlight: true),
+          
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Divider(height: 1, thickness: 1.2),
+          ),
+          
+          if ((_previewTotalDiscountPaise ?? 0) > 0)
+            _summaryRow('Total Savings', '-${_formatPaise(_previewTotalDiscountPaise!)}', isBold: true, discountColor: true),
+            
+          _summaryRow('Final Payable', _formatPaise(_previewPayablePaise!), isBold: true, largeText: true),
+          if ((_previewTotalDiscountPaise ?? 0) > 0)
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                   Icon(Icons.stars, color: Colors.green.shade700, size: 16),
+                   const SizedBox(width: 8),
+                   Text(
+                     'You saved ${_formatPaise(_previewTotalDiscountPaise!)} on this order!',
+                     style: GoogleFonts.outfit(
+                       fontSize: 13,
+                       fontWeight: FontWeight.w600,
+                       color: Colors.green.shade700,
+                     ),
+                   ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryRow(String label, String value, {
+    bool isBenefit = false, 
+    bool isBold = false, 
+    bool isHighlight = false, 
+    bool discountColor = false, 
+    bool isPercentage = false,
+    bool hasInfo = false,
+    bool largeText = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  fontSize: largeText ? 17 : 14,
+                  fontWeight: (isBold || largeText) ? FontWeight.bold : FontWeight.w500,
+                  color: isHighlight 
+                      ? const Color(0xFFFF4891) 
+                      : (isBenefit || isPercentage) ? Colors.green.shade700 : Colors.black54,
+                ),
+              ),
+              if (hasInfo) ...[
+                const SizedBox(width: 4),
+                Tooltip(
+                  message: 'Extra benefit from BellaVella for using coins.',
+                  child: Icon(Icons.info_outline, size: 14, color: Colors.grey.shade400),
+                ),
+              ],
+            ],
+          ),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: largeText ? 18 : 14,
+              fontWeight: (isBold || largeText) ? FontWeight.bold : FontWeight.w600,
+              color: (discountColor || isBenefit || isPercentage) 
+                  ? Colors.green.shade700 
+                  : (isHighlight || largeText) ? const Color(0xFFFF4891) : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 
   String _paymentHintText() {
     switch (_selectedPaymentMethod) {

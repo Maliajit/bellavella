@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../models/professional_models.dart' as pro_models;
 import '../services/professional_api_service.dart';
-import 'package:bellavella/core/models/data_models.dart';
 
 class ProfessionalTransactionHistoryScreen extends StatefulWidget {
   const ProfessionalTransactionHistoryScreen({super.key});
@@ -20,8 +19,8 @@ class _ProfessionalTransactionHistoryScreenState
   late TabController _tabController;
 
   // Cash / Coins
-  List<WalletTransaction> _cashTxs   = [];
-  List<WalletTransaction> _coinTxs   = [];
+  List<pro_models.WalletTransaction> _cashTxs   = [];
+  List<pro_models.WalletTransaction> _coinTxs   = [];
   // Kits
   List<pro_models.KitOrderModel> _kitOrders = [];
 

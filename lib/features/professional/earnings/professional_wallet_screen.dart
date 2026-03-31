@@ -27,7 +27,7 @@ class ProfessionalWalletScreen extends StatefulWidget {
 
 class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     with SingleTickerProviderStateMixin {
-  ProfessionalWallet? _wallet;
+  pro_models.ProfessionalWallet? _wallet;
   pro_models.ProfessionalDashboardStats? _stats;
   Professional? _profile;
   bool _isLoading = true;

@@ -269,6 +269,38 @@ class Professional {
   static String? _resolveDocUrl(String? raw) {
     return resolveNullableMediaUrl(raw);
   }
+
+  Map<String, Map<String, String>> get documents {
+    String statusFor(String? url) {
+      if (url == null || url.isEmpty) {
+        return 'pending';
+      }
+
+      final normalized = verification.toLowerCase();
+      if (normalized == 'verified') {
+        return 'approved';
+      }
+      if (normalized == 'rejected') {
+        return 'rejected';
+      }
+      return 'pending';
+    }
+
+    Map<String, String> entry(String? url) => {
+      'url': url ?? '',
+      'status': statusFor(url),
+    };
+
+    return {
+      'aadhaar_front': entry(aadhaarFront),
+      'aadhaar_back': entry(aadhaarBack),
+      'pan_card': entry(panImg),
+      'light_bill': entry(null),
+      'bank_proof': entry(payout.bankProofImage),
+      'certificate_img': entry(certificateImg),
+      'selfie': entry(selfieUrl),
+    };
+  }
 }
 
 enum BookingStatus {
