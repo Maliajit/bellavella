@@ -1,5 +1,7 @@
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
+import 'package:bellavella/features/client/profile/widgets/scratch_card_widget.dart';
+import 'package:bellavella/features/client/profile/widgets/scratch_reveal_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -17,6 +19,7 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
   Wallet? _wallet;
   bool _isLoading = true;
   String? _error;
+  bool _hasCheckedForRewards = false;
 
   @override
   void initState() {
@@ -36,12 +39,53 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
         _wallet = Wallet.fromJson(walletData);
         _isLoading = false;
       });
+
+      // Show popup if rewards available and not yet checked this session
+      if (!_hasCheckedForRewards && (_wallet?.scratchCards.isNotEmpty ?? false)) {
+        _hasCheckedForRewards = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showRewardPopup();
+        });
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isLoading = false;
       });
     }
+  }
+
+  void _showRewardPopup() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.card_giftcard_rounded, color: Colors.white),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'You’ve got a reward 🎁',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: Colors.orange,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: 'OPEN',
+          textColor: Colors.white,
+          onPressed: () {
+          final cards = _wallet?.scratchCards ?? [];
+          if (cards.isNotEmpty) {
+            _openScratchDialog(cards.first);
+          }
+        },
+        ),
+      ),
+    );
   }
 
   @override
@@ -83,15 +127,21 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                 ],
               ),
             )
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  _buildBalanceCard(),
-                  const SizedBox(height: 30),
-                  _buildEarningHighlightsSection(),
-                  const SizedBox(height: 30),
-                  _buildTransactionHistory(),
-                ],
+          : RefreshIndicator(
+              onRefresh: _loadWalletData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    _buildBalanceCard(),
+                    const SizedBox(height: 20),
+                    _buildScratchCardsSection(),
+                    const SizedBox(height: 20),
+                    _buildEarningHighlightsSection(),
+                    const SizedBox(height: 30),
+                    _buildTransactionHistory(),
+                  ],
+                ),
               ),
             ),
     );
@@ -204,6 +254,69 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildScratchCardsSection() {
+    final cards = _wallet?.scratchCards ?? [];
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            children: [
+              Text(
+                'Your Rewards',
+                style: GoogleFonts.outfit(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: Colors.orange,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 12),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 220,
+          child: ListView.builder(
+            padding: const EdgeInsets.only(left: 20),
+            scrollDirection: Axis.horizontal,
+            itemCount: cards.length,
+            itemBuilder: (context, index) {
+              return ScratchCardWidget(
+                card: cards[index],
+                onTap: () => _openScratchDialog(cards[index]),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _openScratchDialog(ScratchCard card) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => ScratchRevealDialog(
+        card: card,
+        onScratched: () {
+          _loadWalletData(); // Refresh balance and cards
+        },
       ),
     );
   }
@@ -464,14 +577,13 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
 
   /// Format balance defensively: strip whitespace, ensure numeric, display cleanly
   String _formatBalance(int balance) {
-  return balance.toString();
-}
+    return balance.toString();
+  }
 
   /// Format transaction amount defensively
   /// Returns signed amount string: +50 or -100
   String _formatTransactionAmount(num amount, String type) {
-  final safeAmount = amount.toInt().abs();
-  return type.toLowerCase() == 'credit' ? '+$safeAmount' : '-$safeAmount';
-}
-
+    final safeAmount = amount.toInt().abs();
+    return type.toLowerCase() == 'credit' ? '+$safeAmount' : '-$safeAmount';
+  }
 }

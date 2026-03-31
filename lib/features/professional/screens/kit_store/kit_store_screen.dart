@@ -5,6 +5,7 @@ import 'package:bellavella/core/config/app_config.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:bellavella/core/models/professional_wallet.dart';
 import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart' as rzp_helper;
 import 'widgets/kit_store_header.dart';
 import 'package:provider/provider.dart';

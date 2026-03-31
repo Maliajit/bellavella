@@ -5,8 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/models/professional_wallet.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
 
 class WithdrawalRequestScreen extends StatefulWidget {
   const WithdrawalRequestScreen({super.key});
@@ -20,7 +20,7 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
   bool _isSubmitting = false;
   String? _error;
   
-  pro_models.ProfessionalWallet? _wallet;
+  ProfessionalWallet? _wallet;
   Professional? _profile;
 
   final TextEditingController _amountCtrl = TextEditingController();

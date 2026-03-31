@@ -178,7 +178,7 @@ class Professional {
   final String? certificateImg;
   final String? selfieUrl;
   final bool isOnline;
-
+  final Map<String, dynamic>? documents;
 
   Professional({
     required this.id,
@@ -208,6 +208,7 @@ class Professional {
     this.certificateImg,
     this.selfieUrl,
     this.isOnline = false,
+    this.documents,
   });
 
   factory Professional.fromJson(dynamic json) {
@@ -263,43 +264,12 @@ class Professional {
       certificateImg: _resolveDocUrl(json['certificate_img']?.toString()),
       selfieUrl: _resolveDocUrl(json['selfie']?.toString()),
       isOnline: json['is_online'] == true || json['is_online'] == 1,
+      documents: json['documents'],
     );
   }
 
   static String? _resolveDocUrl(String? raw) {
     return resolveNullableMediaUrl(raw);
-  }
-
-  Map<String, Map<String, String>> get documents {
-    String statusFor(String? url) {
-      if (url == null || url.isEmpty) {
-        return 'pending';
-      }
-
-      final normalized = verification.toLowerCase();
-      if (normalized == 'verified') {
-        return 'approved';
-      }
-      if (normalized == 'rejected') {
-        return 'rejected';
-      }
-      return 'pending';
-    }
-
-    Map<String, String> entry(String? url) => {
-      'url': url ?? '',
-      'status': statusFor(url),
-    };
-
-    return {
-      'aadhaar_front': entry(aadhaarFront),
-      'aadhaar_back': entry(aadhaarBack),
-      'pan_card': entry(panImg),
-      'light_bill': entry(null),
-      'bank_proof': entry(payout.bankProofImage),
-      'certificate_img': entry(certificateImg),
-      'selfie': entry(selfieUrl),
-    };
   }
 }
 
@@ -499,6 +469,7 @@ class Wallet {
   final String currencyLabel;
   final String exchangeRate;
   final List<Transaction> transactions;
+  final List<ScratchCard> scratchCards;
 
   Wallet({
     required this.balance,
@@ -506,6 +477,7 @@ class Wallet {
     this.currencyLabel = 'BellaVella Coins',
     this.exchangeRate = '1 Coin = ₹1.00',
     required this.transactions,
+    required this.scratchCards,
   });
 
   factory Wallet.fromJson(Map<String, dynamic> json) {
@@ -513,12 +485,47 @@ class Wallet {
       balance: json['balance'] is num
           ? (json['balance'] as num).toInt()
           : int.tryParse(json['balance'].toString()) ?? 0,
-       walletType: json['wallet_type']?.toString() ?? 'coin',
+      walletType: json['wallet_type']?.toString() ?? 'coin',
       currencyLabel: json['currency_label']?.toString() ?? 'BellaVella Coins',
       exchangeRate: json['exchange_rate']?.toString() ?? '1 Coin = ₹1.00',
       transactions: (json['transactions'] as List? ?? [])
           .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
           .toList(),
+      scratchCards: (json['scratch_cards'] as List? ?? [])
+          .map((e) => ScratchCard.fromJson(e))
+          .toList(),
+    );
+  }
+}
+
+class ScratchCard {
+  final String id;
+  final int amount;
+  final String title;
+  final String description;
+  final bool isScratched;
+  final String? source;
+
+  ScratchCard({
+    required this.id,
+    required this.amount,
+    required this.title,
+    required this.description,
+    required this.isScratched,
+    this.source,
+  });
+
+  factory ScratchCard.fromJson(dynamic json) {
+    if (json is! Map) {
+      return ScratchCard(id: '', amount: 0, title: '', description: '', isScratched: false);
+    }
+    return ScratchCard(
+      id: json['id']?.toString() ?? '',
+      amount: ParserUtil.safeParseInt(json['amount']),
+      title: json['title']?.toString() ?? 'Scratch & Win',
+      description: json['description']?.toString() ?? 'Lucky Reward',
+      isScratched: json['is_scratched'] == true || json['is_scratched'] == 1,
+      source: json['source']?.toString(),
     );
   }
 }

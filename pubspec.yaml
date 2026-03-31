@@ -42,6 +42,7 @@ dependencies:
   intl: ^0.20.2
   material_design_icons_flutter: ^7.0.7296
   confetti: ^0.8.0
+  scratcher: ^2.5.0
   geolocator: ^14.0.2
   geocoding: ^4.0.0
   image_picker: ^1.2.1
@@ -65,7 +66,8 @@ dependencies:
   cloud_firestore: any
   firebase_messaging: any
   laravel_echo: ^1.0.0-beta.1
-  pusher_client: ^2.0.0
+  pusher_client:
+    path: local_packages/pusher_client
   uuid: ^4.5.3
 
 dev_dependencies:

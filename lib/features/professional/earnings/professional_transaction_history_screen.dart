@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/models/wallet_transaction.dart';
 import '../models/professional_models.dart' as pro_models;
 import '../services/professional_api_service.dart';
 
@@ -19,8 +21,8 @@ class _ProfessionalTransactionHistoryScreenState
   late TabController _tabController;
 
   // Cash / Coins
-  List<pro_models.WalletTransaction> _cashTxs   = [];
-  List<pro_models.WalletTransaction> _coinTxs   = [];
+  List<WalletTransaction> _cashTxs   = [];
+  List<WalletTransaction> _coinTxs   = [];
   // Kits
   List<pro_models.KitOrderModel> _kitOrders = [];
 
