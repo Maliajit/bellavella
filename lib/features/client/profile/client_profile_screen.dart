@@ -22,6 +22,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
   String? _errorMessage;
   double _walletBalance = 0.0;
   int _addressCount = 0;
+  int _scratchCardCount = 0;
 
   @override
   void initState() {
@@ -78,6 +79,11 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
           _customer = results[0] as Customer;
           final walletData = results[1] as Map<String, dynamic>;
           _walletBalance = (walletData['balance'] as num?)?.toDouble() ?? 0.0;
+
+          // 🛡️ Safe Extraction: Model is now hardened, providing a guaranteed list
+          final wallet = Wallet.fromJson(walletData);
+          _scratchCardCount = wallet.scratchCards.length;
+
           final addresses = results[2] as List;
           _addressCount = addresses.length;
           _isLoading = false;
@@ -279,6 +285,14 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                   onTap: () => context.push('/client/wallet'),
                 ),
                 _ProfileOption(
+                  icon: Icons.card_giftcard_rounded,
+                  title: 'Scratch Cards',
+                  subtitle: 'Try your luck & win rewards',
+                  badgeCount: _scratchCardCount,
+                  onTap: () => context.push('/client/profile/scratch-cards'),
+                  color: const Color(0xFFFF8C00),
+                ),
+                _ProfileOption(
                   icon: Icons.share_outlined,
                   title: 'Refer & Earn',
                   subtitle: 'Invite friends and earn rewards',
@@ -462,19 +476,7 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
                       horizontal: 20,
                       vertical: 4,
                     ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: (option.color ?? Colors.grey.shade600)
-                            .withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        option.icon,
-                        color: option.color ?? Colors.grey.shade700,
-                        size: 22,
-                      ),
-                    ),
+                    leading: _buildOptionLeading(option),
                     title: Text(
                       option.title,
                       style: GoogleFonts.outfit(
@@ -512,6 +514,53 @@ class _ClientProfileScreenState extends State<ClientProfileScreen> {
       ],
     );
   }
+  Widget _buildOptionLeading(_ProfileOption option) {
+    final iconContainer = Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: (option.color ?? Colors.grey.shade600).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        option.icon,
+        color: option.color ?? Colors.grey.shade700,
+        size: 22,
+      ),
+    );
+
+    if (option.badgeCount != null && option.badgeCount! > 0) {
+      return Stack(
+        clipBehavior: Clip.none,
+        children: [
+          iconContainer,
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFF4D4D),
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                '${option.badgeCount}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return iconContainer;
+  }
 }
 
 class _ProfileOption {
@@ -520,6 +569,7 @@ class _ProfileOption {
   final String? subtitle;
   final VoidCallback onTap;
   final Color? color;
+  final int? badgeCount;
 
   _ProfileOption({
     required this.icon,
@@ -527,5 +577,6 @@ class _ProfileOption {
     this.subtitle,
     required this.onTap,
     this.color,
+    this.badgeCount,
   });
 }

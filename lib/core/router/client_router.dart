@@ -29,6 +29,7 @@ import '../../features/client/booking/live_tracking_screen.dart';
 import '../../features/client/services/client_service_types_screen.dart';
 import '../../features/client/services/service_hierarchy_screen.dart';
 import '../../features/client/profile/client_wallet_screen.dart';
+import '../../features/client/profile/scratch_card_screen.dart';
 import '../../features/client/auth/role_selection_screen.dart';
 import '../../features/client/home/models/story_model.dart';
 import '../../features/client/home/screens/story_viewer_screen.dart';
@@ -155,6 +156,11 @@ final _shellRoutes = [
     path: AppRoutes.clientWallet,
     name: AppRoutes.clientWalletName,
     builder: (context, state) => const ClientWalletScreen(),
+  ),
+  GoRoute(
+    path: AppRoutes.clientScratchCards,
+    name: AppRoutes.clientScratchCardsName,
+    builder: (context, state) => const ScratchCardScreen(),
   ),
 ];
 

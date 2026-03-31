@@ -480,30 +480,66 @@ class Wallet {
     required this.scratchCards,
   });
 
+  Wallet copyWith({
+    int? balance,
+    String? walletType,
+    String? currencyLabel,
+    String? exchangeRate,
+    List<Transaction>? transactions,
+    List<ScratchCard>? scratchCards,
+  }) {
+    return Wallet(
+      balance: balance ?? this.balance,
+      walletType: walletType ?? this.walletType,
+      currencyLabel: currencyLabel ?? this.currencyLabel,
+      exchangeRate: exchangeRate ?? this.exchangeRate,
+      transactions: transactions ?? this.transactions,
+      scratchCards: scratchCards ?? this.scratchCards,
+    );
+  }
+
   factory Wallet.fromJson(Map<String, dynamic> json) {
+    // 🛡️ Safe List Extraction
+    final rawCards = json['scratch_cards'];
+    List<ScratchCard> cards = [];
+    if (rawCards is List) {
+      cards = rawCards
+          .where((e) => e != null)
+          .map((e) => ScratchCard.fromJson(e))
+          .toList();
+    }
+
+    final rawTxns = json['transactions'];
+    List<Transaction> txns = [];
+    if (rawTxns is List) {
+      txns = rawTxns
+          .where((e) => e != null && e is Map)
+          .map((e) => Transaction.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    }
+
     return Wallet(
       balance: json['balance'] is num
           ? (json['balance'] as num).toInt()
-          : int.tryParse(json['balance'].toString()) ?? 0,
+          : int.tryParse(json['balance']?.toString() ?? '0') ?? 0,
       walletType: json['wallet_type']?.toString() ?? 'coin',
       currencyLabel: json['currency_label']?.toString() ?? 'BellaVella Coins',
       exchangeRate: json['exchange_rate']?.toString() ?? '1 Coin = ₹1.00',
-      transactions: (json['transactions'] as List? ?? [])
-          .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      scratchCards: (json['scratch_cards'] as List? ?? [])
-          .map((e) => ScratchCard.fromJson(e))
-          .toList(),
+      transactions: txns,
+      scratchCards: cards,
     );
   }
 }
 
 class ScratchCard {
+
   final String id;
   final int amount;
   final String title;
   final String description;
   final bool isScratched;
+  final String status;
+  final DateTime? expiryDate;
   final String? source;
 
   ScratchCard({
@@ -512,6 +548,8 @@ class ScratchCard {
     required this.title,
     required this.description,
     required this.isScratched,
+    this.status = 'pending',
+    this.expiryDate,
     this.source,
   });
 
@@ -519,12 +557,23 @@ class ScratchCard {
     if (json is! Map) {
       return ScratchCard(id: '', amount: 0, title: '', description: '', isScratched: false);
     }
+    final statusVal = json['status']?.toString() ?? 'pending';
+    final unscratched = statusVal != 'scratched' && statusVal != 'claimed';
+
     return ScratchCard(
       id: json['id']?.toString() ?? '',
-      amount: ParserUtil.safeParseInt(json['amount']),
+      amount: ParserUtil.safeParseInt(json['reward'] ?? json['amount']),
       title: json['title']?.toString() ?? 'Scratch & Win',
       description: json['description']?.toString() ?? 'Lucky Reward',
-      isScratched: json['is_scratched'] == true || json['is_scratched'] == 1,
+      isScratched: json['is_scratched'] == true ||
+          json['is_scratched'] == 1 ||
+          !unscratched,
+      status: statusVal,
+      expiryDate: json['expiry'] != null
+          ? DateTime.tryParse(json['expiry'].toString())
+          : (json['expiry_date'] != null
+              ? DateTime.tryParse(json['expiry_date'].toString())
+              : null),
       source: json['source']?.toString(),
     );
   }

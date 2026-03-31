@@ -64,7 +64,9 @@ dependencies:
   # Firebase
   firebase_core: any
   cloud_firestore: any
+  shimmer: ^3.0.0
   firebase_messaging: any
+
   laravel_echo: ^1.0.0-beta.1
   pusher_client:
     path: local_packages/pusher_client

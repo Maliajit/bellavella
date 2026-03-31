@@ -29,6 +29,7 @@ class AppRoutes {
   static const String clientAboutUs = '/client/profile/about-us';
   static const String clientEditProfile = '/client/profile/edit-profile';
   static const String clientWallet = '/client/wallet';
+  static const String clientScratchCards = '/client/profile/scratch-cards';
   static const String clientCheckoutAddress = '/client/checkout-address';
   static const String clientCheckoutSlots = '/client/checkout-slots';
   static const String clientCheckoutReview = '/client/checkout-review';
@@ -112,6 +113,7 @@ class AppRoutes {
   static const String clientAboutUsName = 'clientAboutUs';
   static const String clientEditProfileName = 'clientEditProfile';
   static const String clientWalletName = 'clientWallet';
+  static const String clientScratchCardsName = 'clientScratchCards';
   static const String clientCheckoutAddressName = 'clientCheckoutAddress';
   static const String clientCheckoutSlotsName = 'clientCheckoutSlots';
   static const String clientCheckoutReviewName = 'clientCheckoutReview';

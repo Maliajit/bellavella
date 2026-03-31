@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'firebase_options.dart';
 import 'package:flutter/services.dart';
 import 'core/config/app_config.dart';
 import 'core/theme/app_theme.dart';
+import 'package:bellavella/core/services/client_fcm_service.dart';
+import 'package:bellavella/core/services/firebase_messaging_service.dart';
 import 'core/router/client_router.dart';
 import 'core/router/professional_router.dart';
 import 'core/services/token_manager.dart';
 import 'package:provider/provider.dart';
+
+
 import 'features/professional/controllers/professional_profile_controller.dart';
 import 'features/professional/controllers/dashboard_controller.dart';
 import 'features/client/home/controllers/home_provider.dart';
@@ -27,7 +33,16 @@ void main({RouterConfig<Object>? router}) async {
     );
     debugPrint('🔥 Firebase Initialized Successfully');
     
+    // 🔔 Initialize FCM based on App Type
+    if (appFlavor == 'professional' || AppConfig.flavor == 'professional') {
+      await FirebaseMessagingService.init();
+    } else {
+      await ClientFcmService.init();
+    }
+
     FirebaseFirestore.instance.collection('job_requests').snapshots().listen((event) {
+
+
       debugPrint("🔥 FIRESTORE REALTIME WORKING");
       debugPrint("Job Requests Count: ${event.docs.length}");
     });

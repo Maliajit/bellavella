@@ -1,5 +1,6 @@
 import 'package:bellavella/core/services/api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ClientProfileApiService {
@@ -48,10 +49,23 @@ class ClientProfileApiService {
   }
 
   /// Fetch available scratch cards.
-  static Future<List<dynamic>> getScratchCards() async {
+  static Future<List<ScratchCard>> getScratchCards() async {
     final response = await ApiService.get('$_prefix/scratch-cards');
+    
+    // 🔥 Sharpened Diagnosis Logging
+    debugPrint("🔥 Scratch API Response: $response");
+    
     if (response['success'] == true) {
-      return response['data'] as List<dynamic>;
+      final List<dynamic> data = response['data'] as List<dynamic>;
+      final List<ScratchCard> cards = data.map((e) => ScratchCard.fromJson(e)).toList();
+      
+      // 🕵️ Card-by-Card monitor
+      debugPrint("📦 Total cards: ${cards.length}");
+      for (var c in cards) {
+        debugPrint("➡️ Card: ${c.id}, status: ${c.status}, amount: ${c.amount}");
+      }
+      
+      return cards;
     }
     throw Exception(response['message'] ?? 'Failed to load scratch cards');
   }
@@ -185,4 +199,9 @@ class ClientProfileApiService {
     }
     throw Exception(response['message'] ?? 'Failed to delete address');
   }
+  /// Update customer's FCM component for push notifications.
+  static Future<void> updateFcmToken(String token) async {
+    await ApiService.post('$_prefix/profile/update-fcm-token', {'token': token});
+  }
 }
+

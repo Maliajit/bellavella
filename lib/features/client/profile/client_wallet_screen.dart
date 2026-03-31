@@ -1,7 +1,5 @@
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/features/client/profile/services/client_profile_api_service.dart';
-import 'package:bellavella/features/client/profile/widgets/scratch_card_widget.dart';
-import 'package:bellavella/features/client/profile/widgets/scratch_reveal_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -15,17 +13,33 @@ class ClientWalletScreen extends StatefulWidget {
   State<ClientWalletScreen> createState() => _ClientWalletScreenState();
 }
 
-class _ClientWalletScreenState extends State<ClientWalletScreen> {
+class _ClientWalletScreenState extends State<ClientWalletScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _shimmerController;
+  late Animation<double> _shimmerAnimation;
+
   Wallet? _wallet;
   bool _isLoading = true;
   String? _error;
-  bool _hasCheckedForRewards = false;
 
   @override
   void initState() {
     super.initState();
+    _shimmerController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..repeat();
+    _shimmerAnimation = Tween<double>(begin: -1.0, end: 2.0).animate(
+      CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOutSine),
+    );
     _loadWalletData();
   }
+
+  @override
+  void dispose() {
+    _shimmerController.dispose();
+    super.dispose();
+  }
+
 
   Future<void> _loadWalletData() async {
     try {
@@ -39,53 +53,12 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
         _wallet = Wallet.fromJson(walletData);
         _isLoading = false;
       });
-
-      // Show popup if rewards available and not yet checked this session
-      if (!_hasCheckedForRewards && (_wallet?.scratchCards.isNotEmpty ?? false)) {
-        _hasCheckedForRewards = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _showRewardPopup();
-        });
-      }
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isLoading = false;
       });
     }
-  }
-
-  void _showRewardPopup() {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.card_giftcard_rounded, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'You’ve got a reward 🎁',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: Colors.orange,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        action: SnackBarAction(
-          label: 'OPEN',
-          textColor: Colors.white,
-          onPressed: () {
-          final cards = _wallet?.scratchCards ?? [];
-          if (cards.isNotEmpty) {
-            _openScratchDialog(cards.first);
-          }
-        },
-        ),
-      ),
-    );
   }
 
   @override
@@ -135,8 +108,6 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                   children: [
                     _buildBalanceCard(),
                     const SizedBox(height: 20),
-                    _buildScratchCardsSection(),
-                    const SizedBox(height: 20),
                     _buildEarningHighlightsSection(),
                     const SizedBox(height: 30),
                     _buildTransactionHistory(),
@@ -157,7 +128,8 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withOpacity(0.15),
+
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -183,21 +155,59 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      const Icon(
-                        Icons.stars_rounded,
-                        color: Colors.amber,
-                        size: 24,
+                      AnimatedBuilder(
+                        animation: _shimmerAnimation,
+                        builder: (context, child) {
+                          return Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.amber.withOpacity(0.4),
+
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: ShaderMask(
+                              shaderCallback: (bounds) {
+                                return LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Colors.amber,
+                                    Colors.amber.shade200,
+                                    Colors.amber,
+                                  ],
+                                  stops: [
+                                    _shimmerAnimation.value - 0.3,
+                                    _shimmerAnimation.value,
+                                    _shimmerAnimation.value + 0.3,
+                                  ],
+                                ).createShader(bounds);
+                              },
+                              child: const Icon(
+                                Icons.stars_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          );
+                        },
                       ),
                       const SizedBox(width: 8),
                       Text(
-                    _formatBalance(_wallet?.balance ?? 0),
+                        _formatBalance(_wallet?.balance ?? 0),
                         style: GoogleFonts.outfit(
                           color: Colors.white,
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
+
                   ),
                 ],
               ),
@@ -207,7 +217,8 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Colors.white.withOpacity(0.1),
+
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -258,68 +269,7 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
     );
   }
 
-  Widget _buildScratchCardsSection() {
-    final cards = _wallet?.scratchCards ?? [];
-    if (cards.isEmpty) return const SizedBox.shrink();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            children: [
-              Text(
-                'Your Rewards',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: const BoxDecoration(
-                  color: Colors.orange,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 12),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 220,
-          child: ListView.builder(
-            padding: const EdgeInsets.only(left: 20),
-            scrollDirection: Axis.horizontal,
-            itemCount: cards.length,
-            itemBuilder: (context, index) {
-              return ScratchCardWidget(
-                card: cards[index],
-                onTap: () => _openScratchDialog(cards[index]),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _openScratchDialog(ScratchCard card) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => ScratchRevealDialog(
-        card: card,
-        onScratched: () {
-          _loadWalletData(); // Refresh balance and cards
-        },
-      ),
-    );
-  }
 
   Widget _buildEarningHighlightsSection() {
     return Padding(
@@ -387,10 +337,10 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: accentColor.withValues(alpha: 0.18)),
+          border: Border.all(color: accentColor.withOpacity(0.18)),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withValues(alpha: 0.08),
+              color: accentColor.withOpacity(0.08),
               blurRadius: 18,
               offset: const Offset(0, 8),
             ),
@@ -403,7 +353,7 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.12),
+                color: accentColor.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Icon(icon, color: accentColor, size: 26),
@@ -520,8 +470,9 @@ class _ClientWalletScreenState extends State<ClientWalletScreen> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: isCredit
-                                  ? Colors.green.withValues(alpha: 0.05)
-                                  : Colors.red.withValues(alpha: 0.05),
+                                  ? Colors.green.withOpacity(0.05)
+                                  : Colors.red.withOpacity(0.05),
+
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Icon(
