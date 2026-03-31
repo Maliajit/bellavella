@@ -29,6 +29,7 @@ class ProfessionalBooking {
   final double? lat;
   final double? lng;
   final String phone; // Customer's phone number for the Call button
+  final String paymentStatus; // Added field
 
   ProfessionalBooking({
     required this.id,
@@ -50,6 +51,7 @@ class ProfessionalBooking {
     this.lat,
     this.lng,
     this.phone = '',
+    this.paymentStatus = 'Pending',
   });
 
   ProfessionalBooking copyWith({
@@ -72,6 +74,7 @@ class ProfessionalBooking {
     double? lat,
     double? lng,
     String? phone,
+    String? paymentStatus,
   }) {
     return ProfessionalBooking(
       id: id ?? this.id,
@@ -93,6 +96,7 @@ class ProfessionalBooking {
       lat: lat ?? this.lat,
       lng: lng ?? this.lng,
       phone: phone ?? this.phone,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
     );
   }
 
@@ -143,6 +147,7 @@ class ProfessionalBooking {
     cancelledAt: null,
     lat: null,
     lng: null,
+    paymentStatus: 'Pending',
   );
 
   factory ProfessionalBooking.fromJson(dynamic json) {
@@ -231,6 +236,7 @@ class ProfessionalBooking {
       lat: ParserUtil.safeParseDouble(json['lat']),
       lng: ParserUtil.safeParseDouble(json['lng']),
       phone: (json['customer_phone'] ?? json['phone'] ?? '').toString(),
+      paymentStatus: (json['payment_status'] ?? 'Pending').toString(),
     );
   }
 }

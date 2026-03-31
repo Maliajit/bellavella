@@ -7,6 +7,7 @@ import 'package:bellavella/core/utils/toast_util.dart';
 import 'package:bellavella/core/widgets/base_widgets.dart';
 import 'package:bellavella/features/client/booking/widgets/slot_picker_bottom_sheet.dart';
 import 'package:bellavella/features/client/booking/widgets/booking_cancel_reason_sheet.dart';
+import 'package:intl/intl.dart';
 import 'package:bellavella/features/shared/reviews/user_review_screen.dart';
 
 class BookingStatusScreen extends StatefulWidget {
@@ -338,8 +339,59 @@ class _BookingStatusScreenState extends State<BookingStatusScreen> {
           style: TextStyle(color: Colors.grey.shade600),
           textAlign: TextAlign.center,
         ),
+        if (booking.status == BookingStatus.paymentPending) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF4891).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              booking.paymentMethod == 'COD' || booking.paymentMethod == 'CASH'
+                  ? 'Please pay ${NumberFormat.currency(symbol: '₹', decimalDigits: 0).format(booking.totalPrice)} in cash'
+                  : 'Online Payment is being verified...',
+              style: const TextStyle(
+                color: Color(0xFFFF4891),
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ] else if (booking.paymentStatus == 'SUCCESS') ...[
+           const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.verified, color: Colors.green, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'PAID · ${_formatStatus(booking.paymentMethod)}',
+                  style: const TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  String _formatStatus(String status) {
+    if (status == 'COD') return 'Cash';
+    if (status == 'ONLINE') return 'Online';
+    if (status == 'WALLET') return 'Wallet';
+    return status;
   }
 
   Widget _buildScheduleCard(Booking booking) {

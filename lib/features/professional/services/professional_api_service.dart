@@ -255,6 +255,10 @@ class ProfessionalApiService {
     return await ApiService.post('$_prefix/jobs/$id/complete', {});
   }
 
+  static Future<Map<String, dynamic>> collectCash(String id) async {
+    return await ApiService.post('$_prefix/jobs/$id/collect-cash', {});
+  }
+
   // --- Job Payment (Razorpay) ---
   static Future<Map<String, dynamic>> createJobPaymentOrder(String id) async {
     final response = await ApiService.post('$_prefix/jobs/$id/payment/create-order', {});

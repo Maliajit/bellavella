@@ -138,13 +138,29 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     }
   }
 
+  Future<void> _handleCollectCash() async {
+    setState(() => _isProcessing = true);
+    try {
+      await context.read<DashboardController>().collectCash();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cash collected successfully!')),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ ProPaymentScreen: Cash collection failed: $e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
   Future<void> _completeJob() async {
     setState(() => _isProcessing = true);
     try {
       await context.read<DashboardController>().completeJob();
-      debugPrint('✅ ProPaymentScreen: Job completed (cash) via controller.');
+      debugPrint('✅ ProPaymentScreen: Job completed via controller.');
     } catch (e) {
-      debugPrint('❌ ProPaymentScreen: Cash completion failed: $e');
+      debugPrint('❌ ProPaymentScreen: Job completion failed: $e');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -185,6 +201,9 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
 
   Widget _buildBody() {
     final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    final bool isAlreadyPaid = widget.booking.paymentStatus.toUpperCase() == 'SUCCESS' || 
+                               widget.booking.status == BookingStatus.completed;
+
     return Column(
       children: [
         Expanded(
@@ -213,82 +232,114 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                 ),
                 const SizedBox(height: 48),
                 
-                // QR Section (Only shown for Online)
-                if (_selectedMethod == "online")
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: Colors.grey.shade100),
+                 // QR Section & Payment Methods (Only shown if NOT paid)
+                if (!isAlreadyPaid) ...[
+                  if (_selectedMethod == "online")
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.grey.shade100),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.qr_code_2_rounded, size: 200, color: Colors.black87.withValues(alpha: 0.8)),
+                          const SizedBox(height: 24),
+                          Text(
+                            "Ask customer to scan and pay",
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(32),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(color: Colors.grey.shade100),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.payments_outlined, size: 100, color: Colors.grey.shade400),
+                          const SizedBox(height: 24),
+                          Text(
+                            "Collect cash from customer",
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        Icon(Icons.qr_code_2_rounded, size: 200, color: Colors.black87.withValues(alpha: 0.8)),
-                        const SizedBox(height: 24),
-                        Text(
-                          "Ask customer to scan and pay",
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
+                  
+                  const SizedBox(height: 32),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedMethod = "online"),
+                          child: _paymentMethodOption(
+                            Icons.account_balance_wallet_outlined, 
+                            "UPI / Online", 
+                            _selectedMethod == "online"
                           ),
                         ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    padding: const EdgeInsets.all(32),
-                    width: double.infinity,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _selectedMethod = "cash"),
+                          child: _paymentMethodOption(
+                            Icons.money_rounded, 
+                            "Cash", 
+                            _selectedMethod == "cash"
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Always check status for notification
+                if (isAlreadyPaid)
+                   Container(
+                    margin: const EdgeInsets.only(top: 24),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: Colors.grey.shade100),
+                      color: Colors.green.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
                     ),
-                    child: Column(
+                    child: Row(
                       children: [
-                        Icon(Icons.payments_outlined, size: 100, color: Colors.grey.shade400),
-                        const SizedBox(height: 24),
-                        Text(
-                          "Collect cash from customer",
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade600,
+                        const Icon(Icons.check_circle_rounded, color: Colors.green),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            "Payment has been confirmed. You can now complete the booking.",
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade800,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                
+
                 const SizedBox(height: 32),
-                
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedMethod = "online"),
-                        child: _paymentMethodOption(
-                          Icons.account_balance_wallet_outlined, 
-                          "UPI / Online", 
-                          _selectedMethod == "online"
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedMethod = "cash"),
-                        child: _paymentMethodOption(
-                          Icons.money_rounded, 
-                          "Cash", 
-                          _selectedMethod == "cash"
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ],
             ),
           ),
@@ -298,7 +349,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isProcessing ? null : (_selectedMethod == "online" ? _startRazorpayPayment : _completeJob),
+              onPressed: _isProcessing ? null : (isAlreadyPaid ? _completeJob : (_selectedMethod == "online" ? _startRazorpayPayment : _handleCollectCash)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -309,7 +360,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
               child: _isProcessing 
                   ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : Text(
-                      _selectedMethod == "online" ? "Collect Online Payment" : "Received Cash",
+                      isAlreadyPaid ? "Complete Booking" : (_selectedMethod == "online" ? "Collect Online Payment" : "Received Cash"),
                       style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
                     ),
             ),

@@ -345,6 +345,8 @@ class Booking {
   final DateTime? rescheduleCutoffAt;
   final String? cancelReasonCode;
   final String? cancelReasonNote;
+  final String paymentStatus;
+  final String paymentMethod;
 
   Booking({
     required this.id,
@@ -375,6 +377,8 @@ class Booking {
     this.rescheduleCutoffAt,
     this.cancelReasonCode,
     this.cancelReasonNote,
+    this.paymentStatus = 'PENDING',
+    this.paymentMethod = 'ONLINE',
   });
 
   static BookingStatus _parseStatus(String? status) {
@@ -483,6 +487,8 @@ class Booking {
       rescheduleCutoffAt: _parseDateTime(json['reschedule_cutoff_at']),
       cancelReasonCode: json['cancel_reason_code']?.toString(),
       cancelReasonNote: json['cancel_reason_note']?.toString(),
+      paymentStatus: (json['payment_status'] ?? 'PENDING').toString().toUpperCase(),
+      paymentMethod: (json['payment_method'] ?? 'ONLINE').toString().toUpperCase(),
     );
   }
 }

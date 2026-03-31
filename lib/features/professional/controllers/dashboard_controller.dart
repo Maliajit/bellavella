@@ -24,8 +24,8 @@ class DashboardController extends ChangeNotifier {
   bool get hasCompletedJob =>
       _activeJob != null && _activeJob!.status == BookingStatus.completed;
 
-  void _updateStep(JobStep newStep) {
-    if (newStep.index < _currentWorkflowStep.index) {
+  void _updateStep(JobStep newStep, {bool force = false}) {
+    if (!force && newStep.index < _currentWorkflowStep.index) {
       debugPrint(
         'DashboardController: prevented step downgrade from '
         '${_currentWorkflowStep.name} to ${newStep.name}',
@@ -45,8 +45,13 @@ class DashboardController extends ChangeNotifier {
       return;
     }
 
+    bool isNewJob = _activeJob == null || _activeJob!.id != job.id;
+    if (isNewJob) {
+      _currentWorkflowStep = JobStep.arrived;
+    }
+
     _activeJob = job;
-    _syncWorkflowStep(job.status);
+    _syncWorkflowStep(job.status, force: isNewJob);
     notifyListeners();
 
     if (_isActiveForWorkflow(job.status)) {
@@ -56,7 +61,7 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
-  void _syncWorkflowStep(BookingStatus status) {
+  void _syncWorkflowStep(BookingStatus status, {bool force = false}) {
     JobStep step = JobStep.arrived;
     switch (status) {
       case BookingStatus.assigned:
@@ -80,13 +85,13 @@ class DashboardController extends ChangeNotifier {
       default:
         step = JobStep.arrived;
     }
-    _updateStep(step);
+    _updateStep(step, force: force);
   }
 
   void updateJob(ProfessionalBooking job) {
     if (_activeJob == null || _activeJob?.id == job.id) {
       _activeJob = job;
-      _syncWorkflowStep(job.status);
+      _syncWorkflowStep(job.status, force: true); // Force backend sync on update
 
       if (job.status == BookingStatus.completed) {
         debugPrint(
@@ -127,7 +132,7 @@ class DashboardController extends ChangeNotifier {
         } else {
           _activeJob = await ProfessionalApiService.getBookingDetail(job.id);
         }
-        _syncWorkflowStep(_activeJob!.status);
+        _syncWorkflowStep(_activeJob!.status, force: true);
         return true;
       }
       return false;
@@ -227,6 +232,27 @@ class DashboardController extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('completeJob error: $e');
+    } finally {
+      _isUpdating = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> collectCash() async {
+    if (_activeJob == null || _isUpdating) return;
+    _isUpdating = true;
+    notifyListeners();
+
+    try {
+      final res = await ProfessionalApiService.collectCash(_activeJob!.id);
+      if (res['success'] == true) {
+        _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        // After collecting cash, we stay on this step to allow completion?
+        // Actually, the UI usually progresses to completion.
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('collectCash error: $e');
     } finally {
       _isUpdating = false;
       notifyListeners();
