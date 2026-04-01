@@ -178,6 +178,9 @@ class Professional {
   final String? certificateImg;
   final String? selfieUrl;
   final bool isOnline;
+  final int rejectCount;
+  final String? lastRejectDate;
+  final bool isSuspended;
   final Map<String, dynamic>? documents;
 
   Professional({
@@ -208,8 +211,79 @@ class Professional {
     this.certificateImg,
     this.selfieUrl,
     this.isOnline = false,
+    this.rejectCount = 0,
+    this.lastRejectDate,
+    this.isSuspended = false,
     this.documents,
   });
+
+  Professional copyWith({
+    String? id,
+    String? name,
+    String? photoUrl,
+    double? rating,
+    String? phone,
+    String? email,
+    String? status,
+    String? verification,
+    String? experience,
+    String? joined,
+    String? gender,
+    String? dob,
+    String? bio,
+    List<String>? languages,
+    String? city,
+    String? serviceArea,
+    double? serviceRadius,
+    List<String>? portfolio,
+    PayoutDetails? payout,
+    Map<String, dynamic>? workingHours,
+    List<Service>? services,
+    String? aadhaarFront,
+    String? aadhaarBack,
+    String? panImg,
+    String? certificateImg,
+    String? selfieUrl,
+    bool? isOnline,
+    int? rejectCount,
+    String? lastRejectDate,
+    bool? isSuspended,
+    Map<String, dynamic>? documents,
+  }) {
+    return Professional(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      photoUrl: photoUrl ?? this.photoUrl,
+      rating: rating ?? this.rating,
+      phone: phone ?? this.phone,
+      email: email ?? this.email,
+      status: status ?? this.status,
+      verification: verification ?? this.verification,
+      experience: experience ?? this.experience,
+      joined: joined ?? this.joined,
+      gender: gender ?? this.gender,
+      dob: dob ?? this.dob,
+      bio: bio ?? this.bio,
+      languages: languages ?? this.languages,
+      city: city ?? this.city,
+      serviceArea: serviceArea ?? this.serviceArea,
+      serviceRadius: serviceRadius ?? this.serviceRadius,
+      portfolio: portfolio ?? this.portfolio,
+      payout: payout ?? this.payout,
+      workingHours: workingHours ?? this.workingHours,
+      services: services ?? this.services,
+      aadhaarFront: aadhaarFront ?? this.aadhaarFront,
+      aadhaarBack: aadhaarBack ?? this.aadhaarBack,
+      panImg: panImg ?? this.panImg,
+      certificateImg: certificateImg ?? this.certificateImg,
+      selfieUrl: selfieUrl ?? this.selfieUrl,
+      isOnline: isOnline ?? this.isOnline,
+      rejectCount: rejectCount ?? this.rejectCount,
+      lastRejectDate: lastRejectDate ?? this.lastRejectDate,
+      isSuspended: isSuspended ?? this.isSuspended,
+      documents: documents ?? this.documents,
+    );
+  }
 
   factory Professional.fromJson(dynamic json) {
     if (json is! Map) {
@@ -264,6 +338,9 @@ class Professional {
       certificateImg: _resolveDocUrl(json['certificate_img']?.toString()),
       selfieUrl: _resolveDocUrl(json['selfie']?.toString()),
       isOnline: json['is_online'] == true || json['is_online'] == 1,
+      rejectCount: ParserUtil.safeParseInt(json['reject_count']),
+      lastRejectDate: json['last_reject_date']?.toString(),
+      isSuspended: json['is_suspended'] == true || json['is_suspended'] == 1,
       documents: json['documents'],
     );
   }

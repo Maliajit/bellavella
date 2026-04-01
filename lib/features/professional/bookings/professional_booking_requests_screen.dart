@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
+import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:bellavella/core/widgets/job_request_popup.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/widgets/scale_button.dart';
 
 class ProfessionalBookingRequestsScreen extends StatefulWidget {
   const ProfessionalBookingRequestsScreen({super.key});
@@ -16,6 +20,7 @@ class ProfessionalBookingRequestsScreen extends StatefulWidget {
 class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingRequestsScreen> {
   List<pro_models.ProfessionalBooking> _requests = [];
   bool _isLoading = true;
+  bool _isRejecting = false;
   String? _errorMessage;
 
   @override
@@ -66,42 +71,98 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
   }
 
   Future<void> _rejectBooking(String id) async {
+    if (_isRejecting) return;
+
+    final profileController = Provider.of<ProfessionalProfileController>(context, listen: false);
+
+    // 🚫 HARD BLOCK: Check for suspension FIRST
+    if (profileController.profile?.isSuspended == true) {
+      JobRequestPopup.showRejectionLimit(context, 0, status: 'suspended');
+      return;
+    }
+
+    // ⚡ INSTANT FEEDBACK
+    HapticFeedback.mediumImpact();
+    _isRejecting = true;
+
+    final int currentRejectCount = profileController.profile?.rejectCount ?? 0;
+    
+    // 🔮 PREDICTIVE STATE
+    final int predictedRemaining = (3 - (currentRejectCount + 1)).clamp(0, 3);
+    final bool willBeSuspended = predictedRemaining <= 0;
+
+    // 🔥 OPTIMISTIC UI: Remove from list immediately
+    pro_models.ProfessionalBooking? removedBooking;
+    int? removedIndex;
+    setState(() {
+      removedIndex = _requests.indexWhere((r) => r.id == id);
+      if (removedIndex != -1) {
+        removedBooking = _requests.removeAt(removedIndex!);
+      }
+    });
+
+    // 🚀 SHOW POPUP INSTANTLY
+    JobRequestPopup.showRejectionLimit(
+      context, 
+      predictedRemaining, 
+      status: willBeSuspended ? 'suspended' : 'active',
+      rejectCount: currentRejectCount + 1,
+    );
+
     try {
+      // 🔄 Background API Call
       final res = await ProfessionalApiService.rejectBooking(id);
       
       if (!mounted) return;
       
       if (res['success'] == true) {
+        // 🧩 DESYNC PROTECTION: Always trust backend
         final data = res['data'];
-        final bool isSuspended = data['is_suspended'] ?? false;
-        final int remaining = data['remaining_rejects'] ?? 0;
-
-        // 🔥 REMOVE REQUEST FIRST (Optimistic UI)
-        setState(() {
-          _requests.removeWhere((r) => r.id == id);
-        });
-
-        // 🔥 SHOW DIALOG (Safe Context)
-        JobRequestPopup.showRejectionLimit(
-          context, 
-          remaining, 
-          isSuspended: isSuspended
-        );
+        if (data != null) {
+          final int trueCount = data['reject_count'] ?? (currentRejectCount + 1);
+          final bool isSuspended = data['status'] == 'suspended' || (3 - trueCount) <= 0;
+          profileController.updateRejectionStats(trueCount, isSuspended);
+        } else {
+          profileController.fetchProfile(); 
+        }
       } else {
-        // Handle specific error codes if needed
+        // 🚨 ROLLBACK IF NEEDED (except if already suspended)
         if (res['_http_status'] == 403 || res['_account_suspended'] == true) {
-          context.go(AppRoutes.proSuspended);
+          profileController.updateRejectionStats(3, true);
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (mounted) context.go(AppRoutes.proSuspended);
+          });
+        } else {
+          // General failure rollback
+          if (removedBooking != null && removedIndex != -1) {
+            setState(() => _requests.insert(removedIndex!, removedBooking!));
+          }
         }
       }
     } catch (e) {
+       debugPrint('❌ Reject Error: $e');
       if (!mounted) return;
       if (e.toString().contains('suspended')) {
-        context.go(AppRoutes.proSuspended);
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) context.go(AppRoutes.proSuspended);
+        });
       } else {
+        // Rollback on network error
+        if (removedBooking != null && removedIndex != -1) {
+           setState(() => _requests.insert(removedIndex!, removedBooking!));
+        }
+
+        // 📡 NETWORK FAILURE UX (Elite Polish)
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          const SnackBar(
+            content: Text("Action failed. Check your connection."),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isRejecting = false);
     }
   }
 
@@ -238,30 +299,41 @@ class _RequestCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: onDecline,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: ScaleButton(
+                  onTap: onDecline,
+                  child: OutlinedButton(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      disabledForegroundColor: Colors.red,
+                      disabledMouseCursor: SystemMouseCursors.click,
                     ),
+                    child: const Text('Decline'),
                   ),
-                  child: const Text('Decline'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
-                  onPressed: onAccept,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                child: ScaleButton(
+                  onTap: onAccept,
+                  child: ElevatedButton(
+                    onPressed: null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      disabledBackgroundColor: Colors.green,
+                      disabledForegroundColor: Colors.white,
+                      disabledMouseCursor: SystemMouseCursors.click,
                     ),
+                    child: const Text('Accept'),
                   ),
-                  child: const Text('Accept'),
                 ),
               ),
             ],

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
 import 'package:go_router/go_router.dart';
@@ -195,46 +196,86 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
 
   Future<void> _handleReject() async {
     if (_isProcessing) return;
-    if (mounted) setState(() => _isProcessing = true);
+
+    final profileController = Provider.of<ProfessionalProfileController>(context, listen: false);
+    
+    // 🚫 HARD BLOCK: Check for suspension FIRST
+    if (profileController.profile?.isSuspended == true) {
+      JobRequestPopup.showRejectionLimit(context, 0, status: 'suspended');
+      return;
+    }
+    
+    // ⚡ INSTANT FEEDBACK
+    HapticFeedback.mediumImpact();
+    _isProcessing = true;
 
     _vibrationTimer?.cancel();
     _countdownTimer?.cancel();
     Vibration.cancel();
     _audioPlayer.stop();
 
+    final int currentRejectCount = profileController.profile?.rejectCount ?? 0;
+    
+    // 🔮 PREDICTIVE STATE
+    final int predictedRemaining = (3 - (currentRejectCount + 1)).clamp(0, 3);
+    final bool willBeSuspended = predictedRemaining <= 0;
+
+    // 🚀 SHOW POPUP INSTANTLY
+    JobRequestPopup.showRejectionLimit(
+      context, 
+      predictedRemaining, 
+      status: willBeSuspended ? 'suspended' : 'active',
+      rejectCount: currentRejectCount + 1,
+    );
+
     try {
       final bookingId = widget.notification['booking_id']?.toString() ?? '';
+      
+      // 🔄 Background API Call
       final res = await ProfessionalApiService.rejectBooking(bookingId);
       
       if (!mounted) return;
 
       if (res['success'] == true) {
+        // 🧩 DESYNC PROTECTION: Always trust backend
         final data = res['data'];
-        final int remaining = data['remaining_rejects'] ?? 0;
-        final bool isSuspended = data['is_suspended'] == true;
-        
-        // Show feedback FIRST, then pop/redirect when user acknowledges
-        JobRequestPopup.showRejectionLimit(
-          context, 
-          remaining, 
-          isSuspended: isSuspended
-        );
-      } else {
-        // If already suspended or other explicit error
-        if (res['_account_suspended'] == true) {
-           context.go(AppRoutes.proSuspended);
+        if (data != null) {
+          final int trueCount = data['reject_count'] ?? (currentRejectCount + 1);
+          final bool isSuspended = data['status'] == 'suspended' || (3 - trueCount) <= 0;
+          profileController.updateRejectionStats(trueCount, isSuspended);
         } else {
-           if (mounted) context.pop(false);
+          profileController.fetchProfile(); 
+        }
+      } else {
+        // 🚨 HANDLE ERROR / SUSPENSION
+        if (res['_account_suspended'] == true || res['_http_status'] == 403) {
+           profileController.updateRejectionStats(3, true);
+           Future.delayed(const Duration(milliseconds: 600), () {
+             if (mounted) context.go(AppRoutes.proSuspended);
+           });
         }
       }
     } catch (e) {
+      debugPrint('❌ Reject Error: $e');
       if (mounted) {
         if (e.toString().contains('suspended')) {
-          context.go(AppRoutes.proSuspended);
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (mounted) context.go(AppRoutes.proSuspended);
+          });
         } else {
-          context.pop(false);
+          // 📡 NETWORK FAILURE UX (Elite Polish)
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Action failed. Check your connection."),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.redAccent,
+              duration: Duration(seconds: 4),
+            ),
+          );
         }
       }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 

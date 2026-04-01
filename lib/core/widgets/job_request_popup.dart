@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
 import '../routes/app_routes.dart';
+import '../widgets/scale_button.dart';
 
 class JobRequestPopup extends StatefulWidget {
   final Map<String, dynamic> jobData;
@@ -16,110 +18,28 @@ class JobRequestPopup extends StatefulWidget {
     required this.onReject,
   });
 
-  static void showRejectionLimit(BuildContext context, int remaining, {bool isSuspended = false}) {
-    final bool suspended = isSuspended || remaining <= 0;
+  /// Elite Rejection Limit Popup with Optimistic UI & Progress Bar
+  static void showRejectionLimit(BuildContext context, int remaining, {String status = "active", int? rejectCount}) {
+    HapticFeedback.lightImpact();
     
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                spreadRadius: 5,
-              )
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: (!suspended ? Colors.orange : Colors.red).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  !suspended ? Icons.warning_amber_rounded : Icons.block_flipped,
-                  color: !suspended ? Colors.orange : Colors.red,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                !suspended ? 'REJECTION LIMIT' : 'ACCOUNT SUSPENDED',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 1.2,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                !suspended 
-                  ? 'You have $remaining rejection${remaining == 1 ? '' : 's'} remaining for today. Reaching 0 will suspend your account.'
-                  : 'You have reached your daily rejection limit. Your account is temporarily suspended until tomorrow.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  color: Colors.grey.shade600,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 30),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                    onPressed: () {
-                    Navigator.pop(dialogContext); // Close dialog
-                    
-                    if (suspended) {
-                      context.go(AppRoutes.proSuspended);
-                    } else {
-                      // Just pop the underlying screen if we were in the request screen
-                      try {
-                        if (context.mounted) {
-                           context.pop(false);
-                        }
-                      } catch (_) {
-                        // context might not be poppable if already popped or in different state
-                      }
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: !suspended ? const Color(0xFFFF4891) : Colors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    elevation: 4,
-                    shadowColor: (!suspended ? const Color(0xFFFF4891) : Colors.red).withOpacity(0.3),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: Text(
-                    !suspended ? 'UNDERSTOOD' : 'VIEW STATUS',
-                    style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      isDismissible: status != "suspended",
+      enableDrag: status != "suspended",
+      backgroundColor: Colors.transparent,
+      transitionAnimationController: AnimationController(
+        vsync: Navigator.of(context),
+        duration: const Duration(milliseconds: 250),
+      )..forward(),
+      builder: (bottomSheetContext) => _RejectionLimitContent(
+        remaining: remaining,
+        status: status,
+        rejectCount: rejectCount,
       ),
     );
   }
 
+  /// Original Job Request Dialog
   static void show(
     BuildContext context, {
     required Map<String, dynamic> jobData,
@@ -150,6 +70,205 @@ class JobRequestPopup extends StatefulWidget {
 
   @override
   State<JobRequestPopup> createState() => _JobRequestPopupState();
+}
+
+class _RejectionLimitContent extends StatefulWidget {
+  final int remaining;
+  final String status;
+  final int? rejectCount;
+
+  const _RejectionLimitContent({
+    required this.remaining,
+    required this.status,
+    this.rejectCount,
+  });
+
+  @override
+  State<_RejectionLimitContent> createState() => _RejectionLimitContentState();
+}
+
+class _RejectionLimitContentState extends State<_RejectionLimitContent> with SingleTickerProviderStateMixin {
+  late AnimationController _shakeController;
+
+  @override
+  void initState() {
+    super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    // 🔥 LAST CHANCE VISUAL PUNCH: Shake and Haptic if remaining == 1
+    if (widget.remaining == 1 && widget.status != 'suspended') {
+      _shakeController.repeat(reverse: true);
+      Future.delayed(const Duration(milliseconds: 1000), () => _shakeController.stop());
+      HapticFeedback.vibrate();
+    }
+  }
+
+  @override
+  void dispose() {
+    _shakeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isLastChance = widget.remaining == 1 && widget.status != 'suspended';
+    final bool isSuspended = widget.status == 'suspended';
+
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, child) {
+        final double offset = _shakeController.value * 4.0;
+        return Transform.translate(
+          offset: Offset(isLastChance ? (offset % 2 == 0 ? offset : -offset) : 0, 0),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 34),
+            decoration: BoxDecoration(
+              color: const Color(0xFF121212),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+              border: isLastChance 
+                ? Border.all(color: Colors.redAccent.withOpacity(0.3), width: 2)
+                : null,
+              boxShadow: isLastChance ? [
+                BoxShadow(
+                  color: Colors.red.withOpacity(0.1),
+                  blurRadius: 20,
+                  spreadRadius: 5,
+                )
+              ] : null,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle bar
+                Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                
+                // Icon
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: (isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange)).withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    isSuspended ? Icons.block : Icons.warning_amber_rounded,
+                    color: isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange),
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Title
+                Text(
+                  isSuspended ? 'Account Suspended' : (isLastChance ? 'LAST CHANCE!' : 'Be Careful!'),
+                  style: GoogleFonts.outfit(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: isLastChance ? Colors.redAccent : Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                // Subtitle / Message
+                Text(
+                  isSuspended 
+                    ? 'You have rejected too many requests today.\nYour account is temporarily suspended.'
+                    : 'Frequent rejections may impact your account.\nRemaining chances: ${widget.remaining}/3',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    color: Colors.white70,
+                    height: 1.5,
+                  ),
+                ),
+                
+                const SizedBox(height: 30),
+                
+                // 🎯 MODERN PROGRESS BAR (Elite Polish)
+                Container(
+                  height: 10,
+                  width: 200,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Stack(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeOutCubic,
+                        width: (200 * (3 - widget.remaining) / 3),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isSuspended 
+                              ? [Colors.red, Colors.redAccent] 
+                              : [Colors.orange, Colors.orangeAccent],
+                          ),
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 40),
+                
+                // Action Button
+                ScaleButton(
+                  onTap: () {
+                    Navigator.pop(context); // Close bottom sheet
+                    
+                    if (isSuspended) {
+                      context.go(AppRoutes.proSuspended);
+                    } else {
+                      try {
+                        if (context.mounted && Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
+                      } catch (_) {}
+                    }
+                  },
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: null, // Logic handled by ScaleButton onTap
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange),
+                        disabledForegroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        isSuspended ? 'UNDERSTOOD' : 'OK',
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _JobRequestPopupState extends State<JobRequestPopup> {
@@ -287,21 +406,26 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
               child: Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {
+                    child: ScaleButton(
+                      onTap: () {
                         widget.onReject();
                         Navigator.pop(context);
                       },
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        side: const BorderSide(color: Colors.grey),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: Text(
-                        'REJECT',
-                        style: GoogleFonts.outfit(
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.bold,
+                      child: OutlinedButton(
+                        onPressed: null,
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: Colors.grey),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          disabledForegroundColor: Colors.grey.shade700,
+                          disabledMouseCursor: SystemMouseCursors.click,
+                        ),
+                        child: Text(
+                          'REJECT',
+                          style: GoogleFonts.outfit(
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -309,24 +433,30 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
                   const SizedBox(width: 16),
                   Expanded(
                     flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () {
+                    child: ScaleButton(
+                      onTap: () {
                         widget.onAccept();
                         Navigator.pop(context);
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFF4891),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 4,
-                        shadowColor: const Color(0xFFFF4891).withOpacity(0.4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      ),
-                      child: Text(
-                        'ACCEPT JOB',
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      child: ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFF4891),
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: const Color(0xFFFF4891),
+                          disabledForegroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          elevation: 4,
+                          shadowColor: const Color(0xFFFF4891).withOpacity(0.4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          disabledMouseCursor: SystemMouseCursors.click,
+                        ),
+                        child: Text(
+                          'ACCEPT JOB',
+                          style: GoogleFonts.outfit(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),

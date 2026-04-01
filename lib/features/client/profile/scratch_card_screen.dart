@@ -96,17 +96,21 @@ class _ScratchCardScreenState extends State<ScratchCardScreen> {
       ),
     );
 
-    if (result == true && mounted) {
+    if (result != null && mounted) {
+      // 🏆 UPDATED: Instant UI Update (GPay-style)
+      if (result is Map<String, dynamic>) {
+        final newBalance = result['new_balance'] ?? result['wallet_balance'];
+        if (newBalance != null) {
+          setState(() {
+            _walletBalance = (newBalance as num).toInt();
+          });
+        }
+      }
+
       // Reward was collected, remove card from list
       setState(() {
         _cards.removeWhere((c) => c.id == card.id);
       });
-
-      // Cards list is updated automatically via setState
-      if (_cards.isNotEmpty) {
-        // We could add a scroll-to-top or similar here if needed, 
-        // but for a Grid, it often feels better to stay where you are.
-      }
     }
   }
 
@@ -410,6 +414,7 @@ class _ScratchPlayScreenState extends State<ScratchPlayScreen>
   bool _isActivated = false;
   double _progress = 0;
   bool _userHasStarted = false;
+  Map<String, dynamic>? _scratchedData;
 
   @override
   void initState() {
@@ -469,12 +474,13 @@ class _ScratchPlayScreenState extends State<ScratchPlayScreen>
     });
 
     try {
-      await ClientProfileApiService.scratchCard(widget.card.id);
+      final response = await ClientProfileApiService.scratchCard(widget.card.id);
 
       if (mounted) {
         setState(() {
           _revealed = true;
           _isProcessing = false;
+          _scratchedData = response;
         });
         HapticFeedback.lightImpact(); // 🔥 Crisp reveal confirmation
       }
@@ -499,7 +505,7 @@ class _ScratchPlayScreenState extends State<ScratchPlayScreen>
     }
   }
 
-  void _collect() => Navigator.pop(context, true);
+  void _collect() => Navigator.pop(context, _scratchedData);
   void _cancel() => Navigator.pop(context, false);
 
   @override
