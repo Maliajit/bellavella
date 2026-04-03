@@ -41,10 +41,10 @@ class AppConfig {
 
         // Fallback for local development
         if (kIsWeb) {
-          return 'http://localhost:8000/api';
+          return 'http://localhost:8000/api/v1';
         }
         // For Android Emulator, use 10.0.2.2
-        return 'http://10.0.2.2:8000/api';
+        return 'http://10.0.2.2:8000/api/v1';
       }
       throw StateError(
         'Missing API_BASE_URL. Pass it with --dart-define=API_BASE_URL=http://host:8000/api',

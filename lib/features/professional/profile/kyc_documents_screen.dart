@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/services/api_service.dart';
+import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class KycDocumentsScreen extends StatefulWidget {
   final Professional professional;
@@ -19,6 +21,8 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
   final _picker = ImagePicker();
   bool _uploading = false;
   String? _uploadingField;
+  late Professional _professional;
+  bool _isRefreshing = false;
 
   // Locally picked files (if any during pending state)
   XFile? _pickedAadhaarFront;
@@ -26,7 +30,37 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
   XFile? _pickedPan;
   XFile? _pickedCertificate;
 
-  bool get isVerified => widget.professional.verification == 'Verified';
+  bool get isVerified => _professional.verification == 'Verified';
+
+  @override
+  void initState() {
+    super.initState();
+    _professional = widget.professional;
+    _refreshData();
+  }
+
+  Future<void> _refreshData() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    try {
+      final updatedPro = await ProfessionalApiService.getProfile();
+      if (mounted) {
+        setState(() {
+          _professional = updatedPro;
+        });
+      }
+    } catch (e) {
+      debugPrint("KycDocumentsScreen: Refresh failed: $e");
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshData(); // Ensures fresh data when dependencies change (like returning to screen)
+  }
 
   Future<void> _pickAndUpload(String field) async {
     if (isVerified) return; // Guard clause
@@ -83,6 +117,12 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
     }
     
     debugPrint("KycDocumentsScreen: Viewing document '$title' with URL: $url");
+    
+    if (url != null && url.toLowerCase().endsWith('.pdf')) {
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -93,7 +133,10 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final docs = widget.professional.documents ?? {};
+    if (_isRefreshing && _professional.id.isEmpty) {
+       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    final docs = _professional.documents ?? {};
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -110,89 +153,58 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
           style: GoogleFonts.outfit(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatusHeader(),
-            const SizedBox(height: 24),
-            Text(
-              "Document Status",
-              style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Track your verification progress below",
-              style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            _buildSectionHeader("Identity Documents"),
-            const SizedBox(height: 12),
-            _buildDocTile(
-              "Aadhaar Card (Front)",
-              "aadhaar_front",
-              docs['aadhaar_front']?['url']?.toString(),
-              _pickedAadhaarFront,
-              docs['aadhaar_front']?['status']?.toString() ?? 'pending',
-              Icons.badge_outlined,
-            ),
-            const SizedBox(height: 12),
-            _buildDocTile(
-              "Aadhaar Card (Back)",
-              "aadhaar_back",
-              docs['aadhaar_back']?['url']?.toString(),
-              _pickedAadhaarBack,
-              docs['aadhaar_back']?['status']?.toString() ?? 'pending',
-              Icons.badge_outlined,
-            ),
-            const SizedBox(height: 12),
-            _buildDocTile(
-              "PAN Card Image",
-              "pan_img",
-              docs['pan_card']?['url']?.toString(),
-              _pickedPan,
-              docs['pan_card']?['status']?.toString() ?? 'pending',
-              Icons.description_outlined,
-            ),
-            
-            const SizedBox(height: 24),
-            _buildSectionHeader("Address & Payout Verification"),
-            const SizedBox(height: 12),
-            _buildDocTile(
-              "Light Bill (Address Proof)",
-              "light_bill",
-              docs['light_bill']?['url']?.toString(),
-              null, // Not locally pickable in this screen yet but can be added
-              docs['light_bill']?['status']?.toString() ?? 'pending',
-              Icons.bolt_outlined,
-            ),
-            const SizedBox(height: 12),
-            _buildDocTile(
-              "Bank Proof (Passbook/Cheque)",
-              "bank_proof",
-              docs['bank_proof']?['url']?.toString(),
-              null,
-              docs['bank_proof']?['status']?.toString() ?? 'pending',
-              Icons.account_balance_outlined,
-            ),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        color: AppTheme.primaryColor,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStatusHeader(),
+              const SizedBox(height: 24),
+              Text(
+                "Document Status",
+                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "Track your verification progress below",
+                style: GoogleFonts.outfit(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              _buildSectionHeader("Identity Documents"),
+              const SizedBox(height: 12),
+              _buildDocTile("Aadhaar Card (Front)", "aadhaar_front", docs['aadhaar_front'], _pickedAadhaarFront, Icons.badge_outlined),
+              const SizedBox(height: 12),
+              _buildDocTile("Aadhaar Card (Back)", "aadhaar_back", docs['aadhaar_back'], _pickedAadhaarBack, Icons.badge_outlined),
+              const SizedBox(height: 12),
+              _buildDocTile("PAN Card Image", "pan_img", docs['pan_card'], _pickedPan, Icons.description_outlined),
+              
+              const SizedBox(height: 24),
+              _buildSectionHeader("Address & Payout Verification"),
+              const SizedBox(height: 12),
+              _buildDocTile("Light Bill (Address Proof)", "light_bill", docs['light_bill'], null, Icons.bolt_outlined),
+              const SizedBox(height: 12),
+              _buildDocTile("Bank Proof (Passbook/Cheque)", "bank_proof", docs['bank_proof'], null, Icons.account_balance_outlined),
 
-            const SizedBox(height: 24),
-            _buildSectionHeader("Skill Verification"),
-            const SizedBox(height: 12),
-            _buildDocTile(
-              "Professional Certificate",
-              "certificate_img",
-              widget.professional.certificateImg, // Fallback to old field
-              _pickedCertificate,
-              'pending', // Status not yet implemented for certificates in API specifically but can be added
-              Icons.school_outlined,
-            ),
-            const SizedBox(height: 32),
-            if (!isVerified)
-              _buildNoteCard(),
-            const SizedBox(height: 50),
-          ],
+              const SizedBox(height: 24),
+              _buildSectionHeader("Skill Verification"),
+              const SizedBox(height: 12),
+              _buildDocTile(
+                "Professional Certificate",
+                "certificate_img",
+                _professional.certificateImg != null ? KycDocument(url: _professional.certificateImg, status: 'pending') : null,
+                _pickedCertificate,
+                Icons.school_outlined,
+              ),
+              const SizedBox(height: 32),
+              if (!isVerified)
+                _buildNoteCard(),
+              const SizedBox(height: 100),
+            ],
+          ),
         ),
       ),
     );
@@ -213,7 +225,7 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
   }
 
   Widget _buildStatusHeader() {
-    final status = widget.professional.verification;
+    final status = _professional.verification;
     final isVerified = status == 'Verified';
     final color = isVerified ? Colors.green : (status == 'Rejected' ? Colors.red : Colors.orange);
     
@@ -260,15 +272,18 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
     );
   }
 
-  Widget _buildDocTile(String title, String field, String? url, XFile? local, String status, IconData icon) {
+  Widget _buildDocTile(String title, String field, KycDocument? doc, XFile? local, IconData icon) {
+    final url = doc?.url;
+    final status = doc?.status ?? 'not_uploaded';
     final hasDoc = url != null || local != null;
     final isLoading = _uploading && _uploadingField == field;
 
-    // Status mapping
+    // Status mapping (Premium Hardened)
     Color statusColor;
     String statusText;
     switch (status.toLowerCase()) {
       case 'approved':
+      case 'verified':
         statusColor = Colors.green;
         statusText = "Approved";
         break;
@@ -276,8 +291,12 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
         statusColor = Colors.red;
         statusText = "Rejected";
         break;
-      default:
+      case 'pending':
         statusColor = Colors.orange;
+        statusText = hasDoc ? "Pending Review" : "Not Uploaded";
+        break;
+      default:
+        statusColor = Colors.grey;
         statusText = hasDoc ? "Pending Review" : "Not Uploaded";
     }
 
@@ -309,7 +328,22 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
                 color: const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Icon(icon, color: Colors.blueGrey.shade600, size: 22),
+              child: hasDoc && url != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: doc!.isPdf 
+                      ? const Icon(Icons.picture_as_pdf, color: Colors.red, size: 24)
+                      : Image.network(
+                          url,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Icon(icon, color: Colors.blueGrey.shade600, size: 22),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(child: SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2)));
+                          },
+                        ),
+                  )
+                : Icon(icon, color: Colors.blueGrey.shade600, size: 22),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -325,20 +359,28 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: statusColor,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          statusText,
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: statusColor,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (doc?.isPdf == true) ...[
+                        const SizedBox(width: 8),
+                        Text("(PDF)", style: GoogleFonts.outfit(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -355,10 +397,10 @@ class _KycDocumentsScreenState extends State<KycDocumentsScreen> {
             else ...[
               if (hasDoc)
                 IconButton(
-                  icon: const Icon(Icons.visibility_outlined, color: Colors.blue),
+                  icon: Icon(doc?.isPdf == true ? Icons.open_in_new_rounded : Icons.visibility_outlined, color: Colors.blue),
                   onPressed: () => _viewDocument(context, title, url, local),
                 ),
-              if (!isVerified && status.toLowerCase() != 'approved')
+              if (!isVerified && status.toLowerCase() != 'approved' && status.toLowerCase() != 'verified')
                 IconButton(
                   icon: Icon(hasDoc ? Icons.refresh_rounded : Icons.file_upload_outlined, color: AppTheme.primaryColor),
                   onPressed: () => _pickAndUpload(field),

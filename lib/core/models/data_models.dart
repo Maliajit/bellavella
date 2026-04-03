@@ -110,6 +110,30 @@ class PayoutDetails {
   };
 }
 
+class KycDocument {
+  final String? url;
+  final String status;
+  final String? type;
+
+  KycDocument({
+    this.url,
+    required this.status,
+    this.type,
+  });
+
+  factory KycDocument.fromJson(dynamic json) {
+    if (json is! Map) return KycDocument(status: 'not_uploaded');
+    return KycDocument(
+      url: json['url']?.toString(),
+      status: json['status']?.toString() ?? 'not_uploaded',
+      type: json['type']?.toString(),
+    );
+  }
+
+  bool get isUploaded => url != null;
+  bool get isPdf => type?.toLowerCase() == 'pdf';
+}
+
 class Customer {
   final String id;
   final String name;
@@ -175,13 +199,21 @@ class Professional {
   final String? aadhaarFront;
   final String? aadhaarBack;
   final String? panImg;
+  final String? panCard;
   final String? certificateImg;
+  final String? lightBill;
+  final String? bankProof;
   final String? selfieUrl;
+  final String? aadhaarFrontStatus;
+  final String? aadhaarBackStatus;
+  final String? panCardStatus;
+  final String? lightBillStatus;
+  final String? bankProofStatus;
   final bool isOnline;
   final int rejectCount;
   final String? lastRejectDate;
   final bool isSuspended;
-  final Map<String, dynamic>? documents;
+  final Map<String, KycDocument>? documents;
 
   Professional({
     required this.id,
@@ -208,8 +240,16 @@ class Professional {
     this.aadhaarFront,
     this.aadhaarBack,
     this.panImg,
+    this.panCard,
     this.certificateImg,
+    this.lightBill,
+    this.bankProof,
     this.selfieUrl,
+    this.aadhaarFrontStatus,
+    this.aadhaarBackStatus,
+    this.panCardStatus,
+    this.lightBillStatus,
+    this.bankProofStatus,
     this.isOnline = false,
     this.rejectCount = 0,
     this.lastRejectDate,
@@ -242,13 +282,21 @@ class Professional {
     String? aadhaarFront,
     String? aadhaarBack,
     String? panImg,
+    String? panCard,
     String? certificateImg,
+    String? lightBill,
+    String? bankProof,
     String? selfieUrl,
+    String? aadhaarFrontStatus,
+    String? aadhaarBackStatus,
+    String? panCardStatus,
+    String? lightBillStatus,
+    String? bankProofStatus,
     bool? isOnline,
     int? rejectCount,
     String? lastRejectDate,
     bool? isSuspended,
-    Map<String, dynamic>? documents,
+    Map<String, KycDocument>? documents,
   }) {
     return Professional(
       id: id ?? this.id,
@@ -275,8 +323,16 @@ class Professional {
       aadhaarFront: aadhaarFront ?? this.aadhaarFront,
       aadhaarBack: aadhaarBack ?? this.aadhaarBack,
       panImg: panImg ?? this.panImg,
+      panCard: panCard ?? this.panCard,
       certificateImg: certificateImg ?? this.certificateImg,
+      lightBill: lightBill ?? this.lightBill,
+      bankProof: bankProof ?? this.bankProof,
       selfieUrl: selfieUrl ?? this.selfieUrl,
+      aadhaarFrontStatus: aadhaarFrontStatus ?? this.aadhaarFrontStatus,
+      aadhaarBackStatus: aadhaarBackStatus ?? this.aadhaarBackStatus,
+      panCardStatus: panCardStatus ?? this.panCardStatus,
+      lightBillStatus: lightBillStatus ?? this.lightBillStatus,
+      bankProofStatus: bankProofStatus ?? this.bankProofStatus,
       isOnline: isOnline ?? this.isOnline,
       rejectCount: rejectCount ?? this.rejectCount,
       lastRejectDate: lastRejectDate ?? this.lastRejectDate,
@@ -334,14 +390,24 @@ class Professional {
       services: services,
       aadhaarFront: _resolveDocUrl(json['aadhaar_front']?.toString()),
       aadhaarBack: _resolveDocUrl(json['aadhaar_back']?.toString()),
-      panImg: _resolveDocUrl(json['pan_img']?.toString()),
+      panImg: _resolveDocUrl(json['pan_img']?.toString() ?? json['pan_card']?.toString()),
+      panCard: _resolveDocUrl(json['pan_card']?.toString() ?? json['pan_img']?.toString()),
       certificateImg: _resolveDocUrl(json['certificate_img']?.toString()),
+      lightBill: _resolveDocUrl(json['light_bill']?.toString()),
+      bankProof: _resolveDocUrl(json['bank_proof']?.toString()),
       selfieUrl: _resolveDocUrl(json['selfie']?.toString()),
+      aadhaarFrontStatus: json['aadhaar_front_status']?.toString(),
+      aadhaarBackStatus: json['aadhaar_back_status']?.toString(),
+      panCardStatus: json['pan_card_status']?.toString(),
+      lightBillStatus: json['light_bill_status']?.toString(),
+      bankProofStatus: json['bank_proof_status']?.toString(),
       isOnline: json['is_online'] == true || json['is_online'] == 1,
       rejectCount: ParserUtil.safeParseInt(json['reject_count']),
       lastRejectDate: json['last_reject_date']?.toString(),
       isSuspended: json['is_suspended'] == true || json['is_suspended'] == 1,
-      documents: json['documents'],
+      documents: json['documents'] is Map 
+        ? (json['documents'] as Map).map((k, v) => MapEntry(k.toString(), KycDocument.fromJson(v))) 
+        : null,
     );
   }
 

@@ -23,7 +23,7 @@ class WalletTransaction {
       title: json['title'] ?? '',
       description: json['title'] ?? '', // Mapping title to description for UI compatibility
       type: json['type'] ?? '',
-      amount: (json['amount'] ?? 0).toDouble(),
+      amount: (json['amount'] as num? ?? 0).toDouble(),
       status: json['status'] ?? '',
       date: json['created_at'] ?? '',
     );

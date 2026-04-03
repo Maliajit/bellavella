@@ -219,19 +219,6 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
 
                   const SizedBox(height: 16),
                   _buildSectionWrapper([
-                    _buildSectionHeader("Verification"),
-                    _buildListOption(
-                      Icons.badge_outlined,
-                      "ID Verification",
-                      subtitle: "Aadhaar & PAN Card",
-                      value: profile?.verification == 'Verified' ? "Verified" : "Pending",
-                      isVerified: profile?.verification == 'Verified',
-                      onTap: () => context.pushNamed(AppRoutes.proKycDocumentsName, extra: profile),
-                    ),
-                  ]),
-
-                  const SizedBox(height: 16),
-                  _buildSectionWrapper([
                     _buildSectionHeader("Rewards & Referrals"),
                     _buildListOption(
                       Icons.card_giftcard_rounded,

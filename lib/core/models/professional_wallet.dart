@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:bellavella/core/models/wallet_transaction.dart';
 
 class ProfessionalWallet {
@@ -19,9 +20,16 @@ class ProfessionalWallet {
   final DateTime? nextWithdrawalAt;
   final int withdrawDelayDays;
   final int remainingSeconds;
+  final DateTime serverTime;
+  final bool withdrawUnlocked;
+  final String? lockReason;
+  final DateTime? unlockDate;
+  final int daysRemaining;
+  final int cooldownDays;
+  final bool isProfessional;
 
-  final List<dynamic> kits;
-  final List<dynamic> kitOrders;
+  final List<WalletKitItem> kits;
+  final List<WalletKitOrder> kitOrders;
 
   final List<WalletTransaction> transactions;
 
@@ -41,36 +49,60 @@ class ProfessionalWallet {
     this.nextWithdrawalAt,
     required this.withdrawDelayDays,
     required this.remainingSeconds,
+    required this.serverTime,
+    this.withdrawUnlocked = true,
+    this.lockReason,
+    this.unlockDate,
+    this.daysRemaining = 0,
+    this.cooldownDays = 7,
+    this.isProfessional = false,
     required this.kits,
     required this.kitOrders,
     required this.transactions,
   });
 
   factory ProfessionalWallet.fromJson(Map<String, dynamic> json) {
+    if (kDebugMode) {
+      debugPrint('ProfessionalWallet.fromJson data: $json');
+    }
+
     return ProfessionalWallet(
-      availableBalance: (json['available_balance'] ?? 0).toDouble(),
-      pendingBalance: (json['pending_balance'] ?? 0).toDouble(),
-      depositBalance: (json['deposit_balance'] ?? 0).toDouble(),
-      cashBalance: (json['cash_balance'] ?? 0).toDouble(),
-      lockedBalance: (json['locked_balance'] ?? 0).toDouble(),
-      earningsBalance: (json['earnings_balance'] ?? 0).toDouble(),
+      availableBalance: (json['available_balance'] as num? ?? 0).toDouble(),
+      pendingBalance: (json['pending_balance'] as num? ?? 0).toDouble(),
+      depositBalance: (json['deposit_balance'] as num? ?? 0).toDouble(),
+      cashBalance: (json['cash_balance'] as num? ?? 0).toDouble(),
+      lockedBalance: (json['locked_balance'] as num? ?? 0).toDouble(),
+      earningsBalance: (json['earnings_balance'] as num? ?? 0).toDouble(),
 
-      todayEarnings: (json['today_earnings'] ?? 0).toDouble(),
-      weeklyEarnings: (json['weekly_earnings'] ?? 0).toDouble(),
-      monthlyEarnings: (json['monthly_earnings'] ?? 0).toDouble(),
+      todayEarnings: (json['today_earnings'] as num? ?? 0).toDouble(),
+      weeklyEarnings: (json['weekly_earnings'] as num? ?? 0).toDouble(),
+      monthlyEarnings: (json['monthly_earnings'] as num? ?? 0).toDouble(),
 
-      totalJobs: json['total_jobs'] ?? 0,
-      coins: json['coins'] ?? 0,
+      totalJobs: (json['total_jobs'] as num? ?? json['total_completed_jobs'] as num? ?? 0).toInt(),
+      coins: (json['coins'] as num? ?? json['coins_balance'] as num? ?? 0).toInt(),
 
       canWithdraw: json['can_withdraw'] ?? false,
       nextWithdrawalAt: json['next_withdrawal_at'] != null 
           ? DateTime.tryParse(json['next_withdrawal_at'].toString()) 
           : null,
-      withdrawDelayDays: json['withdraw_delay_days'] ?? 0,
-      remainingSeconds: json['remaining_seconds'] ?? 0,
+      withdrawDelayDays: (json['withdraw_delay_days'] as num? ?? 0).toInt(),
+      remainingSeconds: (json['remaining_seconds'] as num? ?? 0).toInt(),
+      serverTime: json['server_time'] != null 
+          ? (DateTime.tryParse(json['server_time'].toString()) ?? DateTime.now().toUtc()) 
+          : DateTime.now().toUtc(),
+      withdrawUnlocked: json['withdraw_unlocked'] ?? true,
+      lockReason: json['lock_reason']?.toString(),
+      unlockDate: json['unlock_date'] != null ? DateTime.tryParse(json['unlock_date'].toString()) : null,
+      daysRemaining: (json['days_remaining'] as num? ?? 0).toInt(),
+      cooldownDays: (json['cooldown_days'] as num? ?? 7).toInt(),
+      isProfessional: json['is_professional'] ?? false,
 
-      kits: json['kits'] ?? [],
-      kitOrders: json['kit_orders'] ?? [],
+      kits: (json['kits'] as List? ?? [])
+          .map((e) => WalletKitItem.fromJson(e))
+          .toList(),
+      kitOrders: (json['kit_orders'] as List? ?? [])
+          .map((e) => WalletKitOrder.fromJson(e))
+          .toList(),
       transactions: (json['transactions'] as List? ?? [])
           .map((e) => WalletTransaction.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -79,4 +111,36 @@ class ProfessionalWallet {
 
   double get totalBalance => availableBalance + depositBalance + cashBalance;
   int get kitCount => kits.length;
+}
+
+class WalletKitItem {
+  final String name;
+  final String status;
+
+  WalletKitItem({required this.name, required this.status});
+
+  factory WalletKitItem.fromJson(dynamic json) {
+    if (json is! Map) return WalletKitItem(name: '', status: '');
+    return WalletKitItem(
+      name: (json['name'] ?? json['product_name'] ?? 'Kit Item').toString(),
+      status: (json['status'] ?? 'Active').toString(),
+    );
+  }
+}
+
+class WalletKitOrder {
+  final String description;
+  final String date;
+  final double amount;
+
+  WalletKitOrder({required this.description, required this.date, required this.amount});
+
+  factory WalletKitOrder.fromJson(dynamic json) {
+    if (json is! Map) return WalletKitOrder(description: '', date: '', amount: 0);
+    return WalletKitOrder(
+      description: (json['description'] ?? json['title'] ?? 'Kit Assigned').toString(),
+      date: (json['date'] ?? json['created_at'] ?? '').toString(),
+      amount: (json['amount'] ?? json['quantity'] ?? 0).toDouble(),
+    );
+  }
 }
