@@ -1,20 +1,26 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart';
-import 'package:bellavella/features/professional/services/professional_api_service.dart';
-import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+
+import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
-import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+
 import '../widgets/workflow_stepper.dart';
 
 class ProServiceScreen extends StatefulWidget {
   final ProfessionalBooking booking;
   final bool isInsideContainer;
-  const ProServiceScreen({super.key, required this.booking, this.isInsideContainer = false});
+
+  const ProServiceScreen({
+    super.key,
+    required this.booking,
+    this.isInsideContainer = false,
+  });
 
   @override
   State<ProServiceScreen> createState() => _ProServiceScreenState();
@@ -23,7 +29,8 @@ class ProServiceScreen extends StatefulWidget {
 class _ProServiceScreenState extends State<ProServiceScreen> {
   bool _isProcessing = false;
   Timer? _timer;
-  String _timeDisplay = "00:00:00";
+  String _timeDisplay = '00:00:00';
+
   @override
   void initState() {
     super.initState();
@@ -38,43 +45,58 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
 
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          _timeDisplay = _calculateElapsedTime();
-        });
-      }
+      if (!mounted) return;
+
+      setState(() {
+        _timeDisplay = _calculateElapsedTime();
+      });
     });
-    // Initial calculation
+
     _timeDisplay = _calculateElapsedTime();
   }
 
   String _calculateElapsedTime() {
     final startTime = widget.booking.serviceStartedAt;
-    if (startTime == null) return "00:00:00";
+    if (startTime == null) return '00:00:00';
 
-    final now = DateTime.now();
-    final difference = now.difference(startTime);
-
-    if (difference.isNegative) return "00:00:00";
+    final difference = DateTime.now().difference(startTime);
+    if (difference.isNegative) return '00:00:00';
 
     final hours = difference.inHours.toString().padLeft(2, '0');
     final minutes = (difference.inMinutes % 60).toString().padLeft(2, '0');
     final seconds = (difference.inSeconds % 60).toString().padLeft(2, '0');
 
-    return "$hours:$minutes:$seconds";
+    return '$hours:$minutes:$seconds';
   }
 
   Future<void> _proceedToPayment() async {
     if (_isProcessing) return;
-    
+
     setState(() => _isProcessing = true);
-    
+
     try {
-      // 🔥 Call centralized controller method instead of direct API + Navigation
-      await context.read<DashboardController>().finishService();
-      debugPrint('✅ ProServiceScreen: Service finished via controller.');
+      final success = await context.read<DashboardController>().finishService();
+      if (!mounted) return;
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to finish service. Please try again.'),
+          ),
+        );
+        return;
+      }
+
+      context.goNamed(
+        AppRoutes.proCollectPaymentName,
+        pathParameters: {'id': widget.booking.id},
+      );
     } catch (e) {
-      debugPrint('❌ ProServiceScreen: Finish service failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Finish service failed: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -99,7 +121,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
         title: Column(
           children: [
             Text(
-              "Service In Progress",
+              'Service In Progress',
               style: GoogleFonts.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -113,7 +135,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                 const Icon(Icons.circle, size: 6, color: Colors.green),
                 const SizedBox(width: 4),
                 Text(
-                  "Step 3 of 5",
+                  'Step 3 of 5',
                   style: GoogleFonts.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -143,7 +165,6 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Active Job Header Section
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 20),
@@ -169,8 +190,6 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                     ],
                   ),
                 ),
-
-                // Job Timer Section (Mockup)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 28),
@@ -194,7 +213,7 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "Service in progress",
+                        'Service in progress',
                         style: GoogleFonts.inter(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -204,11 +223,9 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 32),
-
                 Text(
-                  "Service Checklist",
+                  'Service Checklist',
                   style: GoogleFonts.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
@@ -217,16 +234,14 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                 ),
                 const SizedBox(height: 16),
                 _checklistItem(widget.booking.serviceName, true),
-                _checklistItem("Post-service Cleanup", false),
-
+                _checklistItem('Post-service Cleanup', false),
                 const SizedBox(height: 24),
-                
                 Center(
                   child: TextButton.icon(
                     onPressed: () {},
                     icon: const Icon(Icons.report_problem_outlined, size: 16),
                     label: Text(
-                      "Report Issue",
+                      'Report Issue',
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -244,18 +259,32 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _proceedToPayment,
+              onPressed: _isProcessing ? null : _proceedToPayment,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
-              child: Text(
-                "Finish Service",
-                style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-              ),
+              child: _isProcessing
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      'Finish Service',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
+                    ),
             ),
           ),
         ),
@@ -272,7 +301,9 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
           color: isDone ? Colors.green.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDone ? Colors.green.withValues(alpha: 0.1) : Colors.grey.shade100,
+            color: isDone
+                ? Colors.green.withValues(alpha: 0.1)
+                : Colors.grey.shade100,
           ),
         ),
         child: Row(

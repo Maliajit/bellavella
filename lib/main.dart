@@ -55,8 +55,6 @@ void main({RouterConfig<Object>? router}) async {
     debugPrint('💡 TIP: If on Web, run "flutterfire configure" to generate lib/firebase_options.dart');
   }
 
-  await TokenManager.init();
-  
   if (AppConfig.type == null) {
     final flavor = appFlavor ?? AppConfig.flavor;
     if (flavor == 'professional') {
@@ -65,6 +63,8 @@ void main({RouterConfig<Object>? router}) async {
       AppConfig.type = AppType.client;
     }
   }
+
+  await TokenManager.init();
 
   final effectiveRouter = router ?? (AppConfig.isProfessional ? professionalRouter : clientRouter);
   

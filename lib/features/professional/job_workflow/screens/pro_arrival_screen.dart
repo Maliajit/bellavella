@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:pinput/pinput.dart';
 import 'package:provider/provider.dart';
 
+import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 
@@ -38,7 +39,22 @@ class _ProArrivalScreenState extends State<ProArrivalScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      await context.read<DashboardController>().confirmArrival();
+      final success = await context.read<DashboardController>().confirmArrival();
+      if (!mounted) return;
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Arrival confirmation failed. Please try again.'),
+          ),
+        );
+        return;
+      }
+
+      context.goNamed(
+        AppRoutes.proScanKitName,
+        pathParameters: {'id': widget.booking.id},
+      );
       debugPrint('ProArrivalScreen: arrival confirmed via OTP + controller.');
     } catch (e) {
       debugPrint('ProArrivalScreen: arrival confirmation failed: $e');

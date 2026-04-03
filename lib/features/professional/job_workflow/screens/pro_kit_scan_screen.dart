@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart';
-import 'package:bellavella/core/routes/app_routes.dart';
-import 'package:bellavella/features/professional/services/professional_api_service.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
-import 'package:provider/provider.dart';
-import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+
 import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
+import 'package:bellavella/features/professional/models/professional_models.dart';
+
 import '../widgets/workflow_stepper.dart';
 
 class ProKitScanScreen extends StatefulWidget {
   final ProfessionalBooking booking;
   final bool isInsideContainer;
-  const ProKitScanScreen({super.key, required this.booking, this.isInsideContainer = false});
+
+  const ProKitScanScreen({
+    super.key,
+    required this.booking,
+    this.isInsideContainer = false,
+  });
 
   @override
   State<ProKitScanScreen> createState() => _ProKitScanScreenState();
@@ -22,36 +26,79 @@ class ProKitScanScreen extends StatefulWidget {
 
 class _ProKitScanScreenState extends State<ProKitScanScreen> {
   bool _isScanned = false;
-  bool _isStarting = false;
+  bool _isProcessing = false;
+
   @override
   void initState() {
     super.initState();
-  }
-
-  Future<void> _startService() async {
-    if (_isStarting) return;
-    
-    setState(() => _isStarting = true);
-    
-    try {
-      // 🔥 Call centralized controller method instead of direct API + Navigation
-      await context.read<DashboardController>().startService();
-      debugPrint('✅ ProKitScanScreen: Service started via controller.');
-    } catch (e) {
-      debugPrint('❌ ProKitScanScreen: Start service failed: $e');
-    } finally {
-      if (mounted) setState(() => _isStarting = false);
-    }
+    _isScanned = widget.booking.status == BookingStatus.scanKit ||
+        widget.booking.status == BookingStatus.inProgress ||
+        widget.booking.status == BookingStatus.paymentPending ||
+        widget.booking.status == BookingStatus.completed;
   }
 
   Future<void> _simulateScan() async {
-    // 🔥 Call centralized controller method
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
     try {
-      if (mounted) setState(() => _isScanned = true); // Optimistic UI for scan feedback
-      await context.read<DashboardController>().verifyKit();
-      debugPrint('✅ ProKitScanScreen: Kit verified via controller.');
+      final success = await context.read<DashboardController>().verifyKit();
+      if (!mounted) return;
+
+      if (!success) {
+        setState(() => _isScanned = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kit verification failed. Please scan again.'),
+          ),
+        );
+        return;
+      }
+
+      setState(() => _isScanned = true);
     } catch (e) {
-      debugPrint('❌ ProKitScanScreen: Kit verification failed: $e');
+      if (mounted) {
+        setState(() => _isScanned = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Kit verification failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _startService() async {
+    if (_isProcessing) return;
+
+    setState(() => _isProcessing = true);
+
+    try {
+      final success = await context.read<DashboardController>().startService();
+      if (!mounted) return;
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to start service. Please try again.'),
+          ),
+        );
+        return;
+      }
+
+      context.goNamed(
+        AppRoutes.proActiveJobName,
+        pathParameters: {'id': widget.booking.id},
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Start service failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -71,7 +118,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          "Scan Service Kit",
+          'Scan Service Kit',
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w800,
@@ -98,9 +145,8 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
               children: [
                 if (!_isScanned) ...[
                   const SizedBox(height: 20),
-                  // Camera Mockup Area
                   GestureDetector(
-                    onTap: _simulateScan,
+                    onTap: _isProcessing ? null : _simulateScan,
                     child: Container(
                       width: double.infinity,
                       height: 300,
@@ -111,7 +157,6 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          // Scanning Frame
                           Container(
                             width: 200,
                             height: 200,
@@ -120,7 +165,6 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                           ),
-                          // Scanning Line Animation Mock
                           Positioned(
                             top: 150,
                             child: Container(
@@ -129,12 +173,24 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                               color: Colors.blue.withValues(alpha: 0.5),
                             ),
                           ),
-                          const Positioned(
+                          Positioned(
                             bottom: 20,
-                            child: Text(
-                              "Tap to simulate scan",
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
-                            ),
+                            child: _isProcessing
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Tap to simulate scan',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
                           ),
                         ],
                       ),
@@ -142,7 +198,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                   ),
                   const SizedBox(height: 32),
                   Text(
-                    "Scan the barcode on the assigned service kit.",
+                    'Scan the barcode on the assigned service kit.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       fontSize: 15,
@@ -154,7 +210,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                   TextButton(
                     onPressed: () {},
                     child: Text(
-                      "Enter Code Manually",
+                      'Enter Code Manually',
                       style: GoogleFonts.inter(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -164,13 +220,14 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                   ),
                 ] else ...[
                   const SizedBox(height: 40),
-                  // Confirmation Card
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(28),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.1)),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.1),
+                      ),
                     ),
                     child: Column(
                       children: [
@@ -180,11 +237,15 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                             color: Colors.green,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check_rounded, size: 32, color: Colors.white),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            size: 32,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          "Kit Verified",
+                          'Kit Verified',
                           style: GoogleFonts.inter(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -193,7 +254,7 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          "Kit ID: BK-2034",
+                          'Kit ID: BK-2034',
                           style: GoogleFonts.inter(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -214,18 +275,32 @@ class _ProKitScanScreenState extends State<ProKitScanScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _startService,
+                onPressed: _isProcessing ? null : _startService,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                child: Text(
-                  "Start Service",
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
-                ),
+                child: _isProcessing
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Start Service',
+                        style: GoogleFonts.inter(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                        ),
+                      ),
               ),
             ),
           ),

@@ -1,24 +1,31 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+
 import 'package:bellavella/core/config/app_config.dart';
+import 'package:bellavella/core/models/data_models.dart';
+import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/theme/app_theme.dart';
+import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
+import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
+import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import 'package:bellavella/features/professional/models/professional_models.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
-import 'package:intl/intl.dart';
-import 'package:bellavella/core/utils/razorpay/razorpay_helper.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
-import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
-import 'package:bellavella/core/routes/app_routes.dart';
-import 'package:provider/provider.dart';
-import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
-import 'package:bellavella/core/models/data_models.dart';
+
 import '../widgets/workflow_stepper.dart';
 
 class ProPaymentScreen extends StatefulWidget {
   final ProfessionalBooking booking;
   final bool isInsideContainer;
-  const ProPaymentScreen({super.key, required this.booking, this.isInsideContainer = false});
+
+  const ProPaymentScreen({
+    super.key,
+    required this.booking,
+    this.isInsideContainer = false,
+  });
 
   @override
   State<ProPaymentScreen> createState() => _ProPaymentScreenState();
@@ -27,7 +34,7 @@ class ProPaymentScreen extends StatefulWidget {
 class _ProPaymentScreenState extends State<ProPaymentScreen> {
   bool _isProcessing = false;
   RazorpayService? _razorpayService;
-  String _selectedMethod = "online"; // "online" or "cash"
+  String _selectedMethod = 'online';
 
   void _initRazorpay() {
     if (_razorpayService != null) return;
@@ -51,25 +58,38 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     super.dispose();
   }
 
+  void _goToCompletion() {
+    context.goNamed(
+      AppRoutes.proJobCompleteName,
+      pathParameters: {'id': widget.booking.id},
+    );
+  }
+
   void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    if (!mounted) return;
+
     setState(() => _isProcessing = true);
+
     try {
       final success = await context.read<DashboardController>().verifyPayment(
-        razorpayPaymentId: response.paymentId!,
-        razorpayOrderId: response.orderId!,
-        razorpaySignature: response.signature!,
+        razorpayPaymentId: response.paymentId ?? '',
+        razorpayOrderId: response.orderId ?? '',
+        razorpaySignature: response.signature ?? '',
       );
-      
-      if (!success && mounted) {
+      if (!mounted) return;
+
+      if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification Failed')),
+          const SnackBar(content: Text('Payment verification failed.')),
         );
+        return;
       }
-      // 🔥 Navigation happens reactively in the container based on controller state
+
+      _goToCompletion();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment Error: $e')),
+          SnackBar(content: Text('Payment error: $e')),
         );
       }
     } finally {
@@ -78,20 +98,24 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   }
 
   void _handlePaymentError(PaymentFailureResponse response) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Payment Failed: ${response.message}')),
+      SnackBar(content: Text('Payment failed: ${response.message}')),
     );
   }
 
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    // Handle external wallet
-  }
+  void _handleExternalWallet(ExternalWalletResponse response) {}
 
   Future<void> _startRazorpayPayment() async {
+    if (_isProcessing) return;
+
     setState(() => _isProcessing = true);
+
     try {
-      final orderRes = await ProfessionalApiService.createJobPaymentOrder(widget.booking.id);
-      
+      final orderRes =
+          await ProfessionalApiService.createJobPaymentOrder(widget.booking.id);
+
       final options = {
         'key': AppConfig.razorpayKeyId,
         'amount': orderRes['amount'],
@@ -100,18 +124,19 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
         'description': 'Payment for ${widget.booking.serviceName}',
         'timeout': 300,
         'prefill': {
-          'contact': '', // Professional mobile or client mobile?
+          'contact': '',
           'email': '',
         },
         'theme': {
           'color': '#FF3366',
-        }
+        },
       };
 
       _initRazorpay();
-      
+
       if (orderRes['is_mock'] == true) {
         if (!mounted) return;
+
         MockRazorpayDialog.show(
           context,
           options: {
@@ -139,28 +164,63 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   }
 
   Future<void> _handleCollectCash() async {
+    if (_isProcessing) return;
+
     setState(() => _isProcessing = true);
+
     try {
-      await context.read<DashboardController>().collectCash();
+      final success = await context.read<DashboardController>().collectCash();
+      if (!mounted) return;
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cash collection failed. Please try again.'),
+          ),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cash collected successfully!')),
+      );
+      _goToCompletion();
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cash collected successfully!')),
+          SnackBar(content: Text('Cash collection failed: $e')),
         );
       }
-    } catch (e) {
-      debugPrint('❌ ProPaymentScreen: Cash collection failed: $e');
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   Future<void> _completeJob() async {
+    if (_isProcessing) return;
+
     setState(() => _isProcessing = true);
+
     try {
-      await context.read<DashboardController>().completeJob();
-      debugPrint('✅ ProPaymentScreen: Job completed via controller.');
+      final success = await context.read<DashboardController>().completeJob();
+      if (!mounted) return;
+
+      if (!success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to complete booking. Please try again.'),
+          ),
+        );
+        return;
+      }
+
+      _goToCompletion();
     } catch (e) {
-      debugPrint('❌ ProPaymentScreen: Job completion failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Job completion failed: $e')),
+        );
+      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -182,7 +242,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
           onPressed: () => context.pop(),
         ),
         title: Text(
-          "Collect Payment",
+          'Collect Payment',
           style: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w800,
@@ -200,9 +260,10 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   }
 
   Widget _buildBody() {
-    final currencyFormat = NumberFormat.currency(symbol: '₹', decimalDigits: 0);
-    final bool isAlreadyPaid = widget.booking.paymentStatus.toUpperCase() == 'SUCCESS' || 
-                               widget.booking.status == BookingStatus.completed;
+    final currencyFormat = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
+    final bool isAlreadyPaid =
+        widget.booking.paymentStatus.toUpperCase() == 'SUCCESS' ||
+            widget.booking.status == BookingStatus.completed;
 
     return Column(
       children: [
@@ -213,7 +274,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
               children: [
                 const SizedBox(height: 20),
                 Text(
-                  "Total Amount to Collect",
+                  'Total Amount to Collect',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -231,10 +292,8 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                   ),
                 ),
                 const SizedBox(height: 48),
-                
-                 // QR Section & Payment Methods (Only shown if NOT paid)
                 if (!isAlreadyPaid) ...[
-                  if (_selectedMethod == "online")
+                  if (_selectedMethod == 'online')
                     Container(
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
@@ -244,10 +303,14 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                       ),
                       child: Column(
                         children: [
-                          Icon(Icons.qr_code_2_rounded, size: 200, color: Colors.black87.withValues(alpha: 0.8)),
+                          Icon(
+                            Icons.qr_code_2_rounded,
+                            size: 200,
+                            color: Colors.black87.withValues(alpha: 0.8),
+                          ),
                           const SizedBox(height: 24),
                           Text(
-                            "Ask customer to scan and pay",
+                            'Ask customer to scan and pay',
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -268,10 +331,14 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                       ),
                       child: Column(
                         children: [
-                          Icon(Icons.payments_outlined, size: 100, color: Colors.grey.shade400),
+                          Icon(
+                            Icons.payments_outlined,
+                            size: 100,
+                            color: Colors.grey.shade400,
+                          ),
                           const SizedBox(height: 24),
                           Text(
-                            "Collect cash from customer",
+                            'Collect cash from customer',
                             style: GoogleFonts.inter(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -281,53 +348,54 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                         ],
                       ),
                     ),
-                  
                   const SizedBox(height: 32),
-                  
                   Row(
                     children: [
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => _selectedMethod = "online"),
+                          onTap: () => setState(() => _selectedMethod = 'online'),
                           child: _paymentMethodOption(
-                            Icons.account_balance_wallet_outlined, 
-                            "UPI / Online", 
-                            _selectedMethod == "online"
+                            Icons.account_balance_wallet_outlined,
+                            'UPI / Online',
+                            _selectedMethod == 'online',
                           ),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => _selectedMethod = "cash"),
+                          onTap: () => setState(() => _selectedMethod = 'cash'),
                           child: _paymentMethodOption(
-                            Icons.money_rounded, 
-                            "Cash", 
-                            _selectedMethod == "cash"
+                            Icons.money_rounded,
+                            'Cash',
+                            _selectedMethod == 'cash',
                           ),
                         ),
                       ),
                     ],
                   ),
                 ],
-
-                // Always check status for notification
                 if (isAlreadyPaid)
-                   Container(
+                  Container(
                     margin: const EdgeInsets.only(top: 24),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.2)),
+                      border: Border.all(
+                        color: Colors.green.withValues(alpha: 0.2),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Colors.green),
+                        const Icon(
+                          Icons.check_circle_rounded,
+                          color: Colors.green,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            "Payment has been confirmed. You can now complete the booking.",
+                            'Payment has been confirmed. You can now complete the booking.',
                             style: GoogleFonts.inter(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
@@ -338,7 +406,6 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                       ],
                     ),
                   ),
-
                 const SizedBox(height: 32),
               ],
             ),
@@ -349,19 +416,41 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isProcessing ? null : (isAlreadyPaid ? _completeJob : (_selectedMethod == "online" ? _startRazorpayPayment : _handleCollectCash)),
+              onPressed: _isProcessing
+                  ? null
+                  : (isAlreadyPaid
+                      ? _completeJob
+                      : (_selectedMethod == 'online'
+                          ? _startRazorpayPayment
+                          : _handleCollectCash)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 20),
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
-              child: _isProcessing 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              child: _isProcessing
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                   : Text(
-                      isAlreadyPaid ? "Complete Booking" : (_selectedMethod == "online" ? "Collect Online Payment" : "Received Cash"),
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 16),
+                      isAlreadyPaid
+                          ? 'Complete Booking'
+                          : (_selectedMethod == 'online'
+                              ? 'Collect Online Payment'
+                              : 'Received Cash'),
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                      ),
                     ),
             ),
           ),
@@ -375,7 +464,9 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
-        color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.white,
+        color: isSelected
+            ? AppTheme.primaryColor.withValues(alpha: 0.05)
+            : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isSelected ? AppTheme.primaryColor : Colors.grey.shade200,
@@ -384,7 +475,10 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
       ),
       child: Column(
         children: [
-          Icon(icon, color: isSelected ? AppTheme.primaryColor : Colors.grey.shade400),
+          Icon(
+            icon,
+            color: isSelected ? AppTheme.primaryColor : Colors.grey.shade400,
+          ),
           const SizedBox(height: 8),
           Text(
             label,

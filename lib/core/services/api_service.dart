@@ -160,6 +160,7 @@ class ApiService {
     return normalized != _refreshEndpoint.toLowerCase() &&
         !normalized.endsWith('/send-otp') &&
         !normalized.endsWith('/verify-otp') &&
+        !normalized.endsWith('/register') &&
         !normalized.endsWith('/login');
   }
 
@@ -223,9 +224,20 @@ class ApiService {
     }
   }
 
-  static Future<void> _handleAuthFailure() async {
+  static Future<void> _handleAuthFailure([String? endpoint]) async {
     debugPrint('ApiService: auth failure, clearing key=$_activeTokenKeyName');
     await TokenManager.clearToken();
+    
+    // Skip redirect if we are on an auth route (prevents loops on registration/otp failure)
+    final path = endpoint?.toLowerCase() ?? '';
+    if (path.endsWith('/login') || 
+        path.endsWith('/register') || 
+        path.endsWith('/verify-otp') || 
+        path.endsWith('/send-otp')) {
+       debugPrint('ApiService: skipping redirect, auth failure occurred on auth route: $path');
+       return;
+    }
+
     if (_isRedirectingToLogin) {
       return;
     }
@@ -287,9 +299,10 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> _unauthorizedResponse(
-    Map<String, dynamic> decodedResponse,
-  ) async {
-    await _handleAuthFailure();
+    Map<String, dynamic> decodedResponse, [
+    String? endpoint,
+  ]) async {
+    await _handleAuthFailure(endpoint);
     throw _ApiAuthExpiredException(decodedResponse);
   }
 
@@ -401,7 +414,7 @@ class ApiService {
             );
           }
         }
-        return _unauthorizedResponse(decodedResponse);
+        return _unauthorizedResponse(decodedResponse, endpoint);
       }
 
       if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
@@ -462,7 +475,7 @@ class ApiService {
             );
           }
         }
-        return _unauthorizedResponse(decodedResponse);
+        return _unauthorizedResponse(decodedResponse, endpoint);
       }
 
       if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {

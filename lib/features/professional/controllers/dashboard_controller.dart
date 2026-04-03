@@ -67,9 +67,9 @@ class DashboardController extends ChangeNotifier {
       case BookingStatus.assigned:
       case BookingStatus.accepted:
       case BookingStatus.onTheWay:
-      case BookingStatus.arrived:
         step = JobStep.arrived;
         break;
+      case BookingStatus.arrived:
       case BookingStatus.scanKit:
         step = JobStep.scanKit;
         break;
@@ -145,114 +145,191 @@ class DashboardController extends ChangeNotifier {
     }
   }
 
-  Future<void> confirmArrival() async {
-    if (_activeJob == null || _isUpdating) return;
+  Future<bool> confirmArrival() async {
+    if (_activeJob == null || _isUpdating) return false;
     _isUpdating = true;
     notifyListeners();
 
     try {
       final res = await ProfessionalApiService.jobArrived(_activeJob!.id);
       if (res['success'] == true) {
-        _updateStep(JobStep.scanKit);
-        _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        final dynamic data = res['data'];
+        if (data != null) {
+          _activeJob = ProfessionalBooking.fromJson(data);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } else {
+          _updateStep(JobStep.scanKit, force: true);
+        }
+
+        try {
+          _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } catch (e) {
+          debugPrint('confirmArrival detail refresh error: $e');
+        }
+
+        return true;
       }
+      return false;
     } catch (e) {
       debugPrint('confirmArrival error: $e');
+      return false;
     } finally {
       _isUpdating = false;
       notifyListeners();
     }
   }
 
-  Future<void> verifyKit() async {
-    if (_activeJob == null || _isUpdating) return;
+  Future<bool> verifyKit() async {
+    if (_activeJob == null || _isUpdating) return false;
     _isUpdating = true;
     notifyListeners();
 
     try {
-      await ProfessionalApiService.jobScanKit(_activeJob!.id);
-      _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+      final res = await ProfessionalApiService.jobScanKit(_activeJob!.id);
+      if (res['success'] == true) {
+        final dynamic data = res['data'];
+        if (data != null) {
+          _activeJob = ProfessionalBooking.fromJson(data);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        }
+
+        try {
+          _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } catch (e) {
+          debugPrint('verifyKit detail refresh error: $e');
+        }
+
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('verifyKit error: $e');
+      return false;
     } finally {
       _isUpdating = false;
       notifyListeners();
     }
   }
 
-  Future<void> startService() async {
-    if (_activeJob == null || _isUpdating) return;
+  Future<bool> startService() async {
+    if (_activeJob == null || _isUpdating) return false;
     _isUpdating = true;
     notifyListeners();
 
     try {
       final res = await ProfessionalApiService.jobStartService(_activeJob!.id);
       if (res['success'] == true) {
-        _updateStep(JobStep.service);
-        _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        final dynamic data = res['data'];
+        if (data != null) {
+          _activeJob = ProfessionalBooking.fromJson(data);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } else {
+          _updateStep(JobStep.service, force: true);
+        }
+
+        try {
+          _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } catch (e) {
+          debugPrint('startService detail refresh error: $e');
+        }
+
+        return true;
       }
+      return false;
     } catch (e) {
       debugPrint('startService error: $e');
+      return false;
     } finally {
       _isUpdating = false;
       notifyListeners();
     }
   }
 
-  Future<void> finishService() async {
-    if (_activeJob == null || _isUpdating) return;
+  Future<bool> finishService() async {
+    if (_activeJob == null || _isUpdating) return false;
     _isUpdating = true;
     notifyListeners();
 
     try {
       final res = await ProfessionalApiService.jobFinishService(_activeJob!.id);
       if (res['success'] == true) {
-        _updateStep(JobStep.payment);
-        _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        final dynamic data = res['data'];
+        if (data != null) {
+          _activeJob = ProfessionalBooking.fromJson(data);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } else {
+          _updateStep(JobStep.payment, force: true);
+        }
+
+        try {
+          _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } catch (e) {
+          debugPrint('finishService detail refresh error: $e');
+        }
+
+        return true;
       }
+      return false;
     } catch (e) {
       debugPrint('finishService error: $e');
+      return false;
     } finally {
       _isUpdating = false;
       notifyListeners();
     }
   }
 
-  Future<void> completeJob() async {
-    if (_activeJob == null || _isUpdating) return;
+  Future<bool> completeJob() async {
+    if (_activeJob == null || _isUpdating) return false;
     _isUpdating = true;
     notifyListeners();
 
     try {
       final res = await ProfessionalApiService.jobComplete(_activeJob!.id);
       if (res['success'] == true) {
-        _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
-        _updateStep(JobStep.complete);
+        try {
+          _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+        } catch (e) {
+          debugPrint('completeJob detail refresh error: $e');
+        }
+        _updateStep(JobStep.complete, force: true);
         stopJobPolling();
+        return true;
       }
+      return false;
     } catch (e) {
       debugPrint('completeJob error: $e');
+      return false;
     } finally {
       _isUpdating = false;
       notifyListeners();
     }
   }
 
-  Future<void> collectCash() async {
-    if (_activeJob == null || _isUpdating) return;
+  Future<bool> collectCash() async {
+    if (_activeJob == null || _isUpdating) return false;
     _isUpdating = true;
     notifyListeners();
 
     try {
       final res = await ProfessionalApiService.collectCash(_activeJob!.id);
       if (res['success'] == true) {
-        _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
-        // After collecting cash, we stay on this step to allow completion?
-        // Actually, the UI usually progresses to completion.
-        notifyListeners();
+        try {
+          _activeJob = await ProfessionalApiService.getBookingDetail(_activeJob!.id);
+          _syncWorkflowStep(_activeJob!.status, force: true);
+        } catch (e) {
+          debugPrint('collectCash detail refresh error: $e');
+        }
+        return true;
       }
+      return false;
     } catch (e) {
       debugPrint('collectCash error: $e');
+      return false;
     } finally {
       _isUpdating = false;
       notifyListeners();

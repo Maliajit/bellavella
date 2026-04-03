@@ -5,14 +5,27 @@ enum AppType { client, professional }
 class AppConfig {
   static AppType? type;
 
-  static const String _apiBaseUrlDefine =
-      String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  static const String _apiBaseUrlDefine = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
 
-  static const String _razorpayKeyDefine =
-      String.fromEnvironment('RAZORPAY_KEY_ID', defaultValue: '');
+  /// Optional debug-only override for physical device testing.
+  /// For example: --dart-define=API_BASE_URL_DEBUG=http://192.168.1.100:8000/api
+  static const String _apiBaseUrlDebugDefine = String.fromEnvironment(
+    'API_BASE_URL_DEBUG',
+    defaultValue: '',
+  );
 
-  static const String _googleMapsApiKeyDefine =
-      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
+  static const String _razorpayKeyDefine = String.fromEnvironment(
+    'RAZORPAY_KEY_ID',
+    defaultValue: '',
+  );
+
+  static const String _googleMapsApiKeyDefine = String.fromEnvironment(
+    'GOOGLE_MAPS_API_KEY',
+    defaultValue: '',
+  );
 
   static bool get isClient => type == AppType.client;
   static bool get isProfessional => type == AppType.professional;
@@ -21,6 +34,11 @@ class AppConfig {
     final raw = _sanitizeApiBaseUrl(_apiBaseUrlDefine);
     if (raw.isEmpty) {
       if (kDebugMode) {
+        final debugOverride = _sanitizeApiBaseUrl(_apiBaseUrlDebugDefine);
+        if (debugOverride.isNotEmpty) {
+          return debugOverride;
+        }
+
         // Fallback for local development
         if (kIsWeb) {
           return 'http://localhost:8000/api';
@@ -91,8 +109,7 @@ class AppConfig {
     while (sanitized.endsWith('/')) {
       sanitized = sanitized.substring(0, sanitized.length - 1);
     }
-    while (
-        sanitized.endsWith('?') ||
+    while (sanitized.endsWith('?') ||
         sanitized.endsWith('#') ||
         sanitized.endsWith('/?') ||
         sanitized.endsWith('/#')) {
