@@ -111,16 +111,9 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
           _wallet = wallet; 
           _isLoading = false; 
           _lastSyncedAt = DateTime.now();
-          
-          // UTC SERVER-SYNC LOGIC
-          if (wallet.unlockDate != null) {
-            final now = wallet.serverTime;
-            final diff = wallet.unlockDate!.difference(now).inSeconds;
-            _remainingSeconds = diff > 0 ? diff : 0;
-          } else {
-            _remainingSeconds = 0;
-          }
-          
+
+          _remainingSeconds = wallet.remainingSeconds;
+
           if (_remainingSeconds > 0) {
             _startTimer();
           } else {
@@ -158,6 +151,10 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     if (hours > 0) return '${hours}h ${minutes}m';
     if (minutes > 0) return '${minutes}m ${seconds}s';
     return '${seconds}s';
+  }
+
+  bool get _withdrawUnlocked {
+    return _wallet?.withdrawUnlocked ?? false;
   }
 
   String _getLastSyncedText() {
@@ -489,8 +486,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     final jobs    = _wallet?.totalJobs ?? 0;
     final active  = _stats?.activeJobsCount ?? 0;
 
-    final canWithdraw = _wallet?.withdrawUnlocked ?? false;
-    final nextWithdrawal = _wallet?.unlockDate;
+    final canWithdraw = _withdrawUnlocked;
     final kitsItems = _wallet?.kits ?? [];
 
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -504,7 +500,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       Row(children: [
         Expanded(child: _actionCard(
           Icons.call_received_rounded, 
-          canWithdraw ? 'Withdraw ₹${_wallet?.availableBalance.toStringAsFixed(0)}' : 'Withdraw', 
+          canWithdraw ? "Withdraw ₹${(_wallet?.availableBalance ?? 0).toStringAsFixed(0)}" : "Withdraw Locked", 
           canWithdraw ? _primary : Colors.grey, 
           canWithdraw ? () => _handleWithdrawClick(isEarnings: true) : null,
         )),
@@ -513,23 +509,16 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       ]),
       const SizedBox(height: 12),
 
-      if (!_wallet!.isProfessional || !canWithdraw) 
-        Text(
-          canWithdraw 
-            ? "🎉 You can withdraw now."
-            : "Next withdrawal available in ${_formatPreciseRemainingTime(_remainingSeconds)}.",
-          style: GoogleFonts.outfit(
-            fontSize: 14, 
-            color: canWithdraw ? _green : _textSecondary, 
-            fontWeight: canWithdraw ? FontWeight.w800 : FontWeight.w500
-          ),
+      Text(
+        canWithdraw
+            ? '🔓 You can withdraw now'
+            : '🔒 Next withdrawal available in ${_formatPreciseRemainingTime(_remainingSeconds)}',
+        style: GoogleFonts.outfit(
+          fontSize: 14,
+          color: canWithdraw ? _green : Colors.red.shade400,
+          fontWeight: canWithdraw ? FontWeight.w800 : FontWeight.w500,
         ),
-      const SizedBox(height: 8),
-      if (_wallet?.isProfessional == false || !canWithdraw)
-        Text(
-          "You can withdraw once every ${_wallet?.cooldownDays} days.",
-          style: GoogleFonts.outfit(fontSize: 11, color: _textSecondary.withOpacity(0.5)),
-        ),
+      ),
       const SizedBox(height: 24),
 
       // Summary
@@ -1054,28 +1043,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
             }
           },
         ));
-  }
-
-  void _showVerificationDialog({required String title, required String desc, required String btnLabel, required VoidCallback onPressed}) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
-        content: Text(desc, style: GoogleFonts.outfit(color: Colors.grey.shade600, height: 1.5)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: Colors.grey.shade500))),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              onPressed();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: _primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-            child: Text(btnLabel, style: const TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _smallHeroStat(String label, double val, Color color, {required String subtitle}) {

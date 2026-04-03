@@ -66,6 +66,21 @@ class ProfessionalWallet {
       debugPrint('ProfessionalWallet.fromJson data: $json');
     }
 
+    final remainingSeconds = (json['remaining_seconds'] as num? ?? 0).toInt().clamp(0, 1 << 31);
+    final unlockDate = json['unlock_date'] != null
+        ? DateTime.tryParse(json['unlock_date'].toString())
+        : (json['next_withdrawal_at'] != null
+            ? DateTime.tryParse(json['next_withdrawal_at'].toString())
+            : null);
+    final withdrawUnlocked = json['withdraw_unlocked'] is bool
+        ? json['withdraw_unlocked'] as bool
+        : (json['can_withdraw'] is bool
+            ? json['can_withdraw'] as bool
+            : remainingSeconds == 0);
+    final canWithdraw = json['can_withdraw'] is bool
+        ? json['can_withdraw'] as bool
+        : (withdrawUnlocked || remainingSeconds == 0);
+
     return ProfessionalWallet(
       availableBalance: (json['available_balance'] as num? ?? 0).toDouble(),
       pendingBalance: (json['pending_balance'] as num? ?? 0).toDouble(),
@@ -81,20 +96,20 @@ class ProfessionalWallet {
       totalJobs: (json['total_jobs'] as num? ?? json['total_completed_jobs'] as num? ?? 0).toInt(),
       coins: (json['coins'] as num? ?? json['coins_balance'] as num? ?? 0).toInt(),
 
-      canWithdraw: json['can_withdraw'] ?? false,
+      canWithdraw: canWithdraw,
       nextWithdrawalAt: json['next_withdrawal_at'] != null 
           ? DateTime.tryParse(json['next_withdrawal_at'].toString()) 
           : null,
       withdrawDelayDays: (json['withdraw_delay_days'] as num? ?? 0).toInt(),
-      remainingSeconds: (json['remaining_seconds'] as num? ?? 0).toInt(),
+      remainingSeconds: remainingSeconds,
       serverTime: json['server_time'] != null 
           ? (DateTime.tryParse(json['server_time'].toString()) ?? DateTime.now().toUtc()) 
           : DateTime.now().toUtc(),
-      withdrawUnlocked: json['withdraw_unlocked'] ?? true,
+      withdrawUnlocked: withdrawUnlocked,
       lockReason: json['lock_reason']?.toString(),
-      unlockDate: json['unlock_date'] != null ? DateTime.tryParse(json['unlock_date'].toString()) : null,
+      unlockDate: unlockDate,
       daysRemaining: (json['days_remaining'] as num? ?? 0).toInt(),
-      cooldownDays: (json['cooldown_days'] as num? ?? 7).toInt(),
+      cooldownDays: (json['cooldown_days'] as num? ?? json['withdraw_delay_days'] as num? ?? 7).toInt(),
       isProfessional: json['is_professional'] ?? false,
 
       kits: (json['kits'] as List? ?? [])

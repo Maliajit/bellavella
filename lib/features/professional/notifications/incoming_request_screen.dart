@@ -15,6 +15,7 @@ import 'package:bellavella/features/professional/controllers/professional_profil
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/widgets/job_request_popup.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
+import 'package:bellavella/core/utils/navigation_utils.dart';
 
 class IncomingRequestScreen extends StatefulWidget {
   final Map<String, dynamic> notification;
@@ -197,79 +198,70 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
   Future<void> _handleReject() async {
     if (_isProcessing) return;
 
-    final profileController = Provider.of<ProfessionalProfileController>(context, listen: false);
-    
-    // 🚫 HARD BLOCK: Check for suspension FIRST
-    if (profileController.profile?.isSuspended == true) {
-      JobRequestPopup.showRejectionLimit(context, 0, status: 'suspended');
-      return;
-    }
-    
-    // ⚡ INSTANT FEEDBACK
+    // ⚡ UI Feedback
     HapticFeedback.mediumImpact();
-    _isProcessing = true;
+    if (mounted) setState(() => _isProcessing = true);
 
     _vibrationTimer?.cancel();
     _countdownTimer?.cancel();
     Vibration.cancel();
     _audioPlayer.stop();
 
-    final int currentRejectCount = profileController.profile?.rejectCount ?? 0;
-    
-    // 🔮 PREDICTIVE STATE
-    final int predictedRemaining = (3 - (currentRejectCount + 1)).clamp(0, 3);
-    final bool willBeSuspended = predictedRemaining <= 0;
-
-    // 🚀 SHOW POPUP INSTANTLY
-    JobRequestPopup.showRejectionLimit(
-      context, 
-      predictedRemaining, 
-      status: willBeSuspended ? 'suspended' : 'active',
-      rejectCount: currentRejectCount + 1,
-    );
+    final profileController = Provider.of<ProfessionalProfileController>(context, listen: false);
 
     try {
       final bookingId = widget.notification['booking_id']?.toString() ?? '';
       
-      // 🔄 Background API Call
+      // 🚀 STEP 1: Call API (Direct source of truth)
       final res = await ProfessionalApiService.rejectBooking(bookingId);
+      debugPrint("🎯 REJECT API RESPONSE: $res");
       
       if (!mounted) return;
 
+      // 🧠 STEP 2: Handle Response (Locked logic)
+      final bool isSuspended = res['suspended'] == true || res['data']?['suspended'] == true;
+      final int remaining = res['data']?['remaining_rejects'] ?? 0;
+
+      // 🚫 CASE 1: ACCOUNT SUSPENDED (Immediate Redirect)
+      if (isSuspended) {
+         profileController.updateRejectionStats(3, true);
+         if (!mounted) return;
+         _goToSuspend();
+         return;
+      }
+
+      // ✅ CASE 2: SUCCESSFUL REJECTION
       if (res['success'] == true) {
-        // 🧩 DESYNC PROTECTION: Always trust backend
-        final data = res['data'];
-        if (data != null) {
-          final int trueCount = data['reject_count'] ?? (currentRejectCount + 1);
-          final bool isSuspended = data['status'] == 'suspended' || (3 - trueCount) <= 0;
-          profileController.updateRejectionStats(trueCount, isSuspended);
-        } else {
-          profileController.fetchProfile(); 
+        // ⚠️ STEP 3: SHOW POPUP & WAIT (Critical for flow)
+        await JobRequestPopup.showRejectionLimit(context, remaining, status: 'active');
+
+        if (!mounted) return;
+        
+        // 🛡️ Safe Centralized Navigation (Replaces 300ms delay)
+        await SafeNavigation.toDashboard(context);
+        if (!mounted) return;
+
+        // 🔄 STEP 4: CLEANUP STATS
+        if (res['data'] != null) {
+          final int trueCount = res['data']['reject_count'] ?? 0;
+          profileController.updateRejectionStats(trueCount, false);
         }
       } else {
-        // 🚨 HANDLE ERROR / SUSPENSION
-        if (res['_account_suspended'] == true || res['_http_status'] == 403) {
-           profileController.updateRejectionStats(3, true);
-           Future.delayed(const Duration(milliseconds: 600), () {
-             if (mounted) context.go(AppRoutes.proSuspended);
-           });
-        }
+        throw Exception(res['message'] ?? 'Failed to reject booking');
       }
+
     } catch (e) {
       debugPrint('❌ Reject Error: $e');
       if (mounted) {
-        if (e.toString().contains('suspended')) {
-          Future.delayed(const Duration(milliseconds: 600), () {
-            if (mounted) context.go(AppRoutes.proSuspended);
-          });
+        if (e.toString().contains('suspended') || e.toString().contains('403')) {
+          profileController.updateRejectionStats(3, true);
+          if (mounted) _goToSuspend();
         } else {
-          // 📡 NETWORK FAILURE UX (Elite Polish)
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Action failed. Check your connection."),
+              content: Text("Failed to reject. Try again"),
               behavior: SnackBarBehavior.floating,
               backgroundColor: Colors.redAccent,
-              duration: Duration(seconds: 4),
             ),
           );
         }
@@ -277,6 +269,16 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  void _goToDashboard() {
+    if (mounted) {
+      context.pushReplacement(AppRoutes.proDashboard);
+    }
+  }
+
+  void _goToSuspend() {
+    context.pushReplacement(AppRoutes.proSuspended);
   }
 
   @override

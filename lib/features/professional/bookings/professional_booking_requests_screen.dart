@@ -9,6 +9,7 @@ import 'package:bellavella/features/professional/controllers/professional_profil
 import 'package:bellavella/core/widgets/job_request_popup.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import 'package:bellavella/core/widgets/scale_button.dart';
+import '../../../core/utils/navigation_utils.dart';
 
 class ProfessionalBookingRequestsScreen extends StatefulWidget {
   const ProfessionalBookingRequestsScreen({super.key});
@@ -20,7 +21,7 @@ class ProfessionalBookingRequestsScreen extends StatefulWidget {
 class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingRequestsScreen> {
   List<pro_models.ProfessionalBooking> _requests = [];
   bool _isLoading = true;
-  bool _isRejecting = false;
+  String? _rejectingId;
   String? _errorMessage;
 
   @override
@@ -71,99 +72,83 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
   }
 
   Future<void> _rejectBooking(String id) async {
-    if (_isRejecting) return;
+    if (_rejectingId != null) return;
+
+    // ⚡ UI Feedback
+    HapticFeedback.mediumImpact();
+    setState(() => _rejectingId = id);
 
     final profileController = Provider.of<ProfessionalProfileController>(context, listen: false);
 
-    // 🚫 HARD BLOCK: Check for suspension FIRST
-    if (profileController.profile?.isSuspended == true) {
-      JobRequestPopup.showRejectionLimit(context, 0, status: 'suspended');
-      return;
-    }
-
-    // ⚡ INSTANT FEEDBACK
-    HapticFeedback.mediumImpact();
-    _isRejecting = true;
-
-    final int currentRejectCount = profileController.profile?.rejectCount ?? 0;
-    
-    // 🔮 PREDICTIVE STATE
-    final int predictedRemaining = (3 - (currentRejectCount + 1)).clamp(0, 3);
-    final bool willBeSuspended = predictedRemaining <= 0;
-
-    // 🔥 OPTIMISTIC UI: Remove from list immediately
-    pro_models.ProfessionalBooking? removedBooking;
-    int? removedIndex;
-    setState(() {
-      removedIndex = _requests.indexWhere((r) => r.id == id);
-      if (removedIndex != -1) {
-        removedBooking = _requests.removeAt(removedIndex!);
-      }
-    });
-
-    // 🚀 SHOW POPUP INSTANTLY
-    JobRequestPopup.showRejectionLimit(
-      context, 
-      predictedRemaining, 
-      status: willBeSuspended ? 'suspended' : 'active',
-      rejectCount: currentRejectCount + 1,
-    );
-
     try {
-      // 🔄 Background API Call
+      // 🚀 STEP 1: Call API (Direct source of truth)
       final res = await ProfessionalApiService.rejectBooking(id);
-      
+      debugPrint("🎯 REJECT API RESPONSE: $res");
+
       if (!mounted) return;
-      
-      if (res['success'] == true) {
-        // 🧩 DESYNC PROTECTION: Always trust backend
-        final data = res['data'];
-        if (data != null) {
-          final int trueCount = data['reject_count'] ?? (currentRejectCount + 1);
-          final bool isSuspended = data['status'] == 'suspended' || (3 - trueCount) <= 0;
-          profileController.updateRejectionStats(trueCount, isSuspended);
-        } else {
-          profileController.fetchProfile(); 
-        }
-      } else {
-        // 🚨 ROLLBACK IF NEEDED (except if already suspended)
-        if (res['_http_status'] == 403 || res['_account_suspended'] == true) {
-          profileController.updateRejectionStats(3, true);
-          Future.delayed(const Duration(milliseconds: 600), () {
-            if (mounted) context.go(AppRoutes.proSuspended);
-          });
-        } else {
-          // General failure rollback
-          if (removedBooking != null && removedIndex != -1) {
-            setState(() => _requests.insert(removedIndex!, removedBooking!));
-          }
-        }
+
+      // 🧠 STEP 2: Handle Response (Locked logic)
+      final bool isSuspended = res['suspended'] == true || res['data']?['suspended'] == true;
+      final int remaining = res['data']?['remaining_rejects'] ?? 0;
+
+      // 🚫 CASE 1: ACCOUNT SUSPENDED (Immediate Redirect)
+      if (isSuspended) {
+         profileController.updateRejectionStats(3, true);
+         if (!mounted) return;
+         _goToSuspend();
+         return;
       }
-    } catch (e) {
-       debugPrint('❌ Reject Error: $e');
-      if (!mounted) return;
-      if (e.toString().contains('suspended')) {
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (mounted) context.go(AppRoutes.proSuspended);
-        });
-      } else {
-        // Rollback on network error
-        if (removedBooking != null && removedIndex != -1) {
-           setState(() => _requests.insert(removedIndex!, removedBooking!));
+
+      // ✅ CASE 2: SUCCESSFUL REJECTION
+      if (res['success'] == true) {
+        // ⚠️ STEP 3: SHOW POPUP & WAIT (Critical for flow)
+        await JobRequestPopup.showRejectionLimit(context, remaining, status: 'active');
+
+        if (!mounted) return;
+
+        // 🛡️ Safe Centralized Navigation (Replaces 300ms delay)
+        await SafeNavigation.toDashboard(context);
+        if (!mounted) return;
+
+        // 🔄 STEP 4: CLEANUP & NAVIGATE (Safe list removal)
+        if (_requests.isNotEmpty) {
+          setState(() => _requests.removeWhere((r) => r.id == id));
         }
 
-        // 📡 NETWORK FAILURE UX (Elite Polish)
+        // Sync profile stats
+        if (res['data'] != null) {
+          final int trueCount = res['data']['reject_count'] ?? 0;
+          profileController.updateRejectionStats(trueCount, false);
+        }
+
+        // If list is now empty, go to dashboard
+        if (!mounted) return;
+        if (_requests.isEmpty) {
+          await SafeNavigation.toDashboard(context);
+        }
+      } else {
+        throw Exception(res['message'] ?? 'Failed to reject booking');
+      }
+
+    } catch (e) {
+      debugPrint('❌ Reject Error: $e');
+      if (!mounted) return;
+
+      if (e.toString().contains('suspended') || e.toString().contains('403')) {
+        profileController.updateRejectionStats(3, true);
+        if (mounted) _goToSuspend();
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Action failed. Check your connection."),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(content: Text("Error: ${e.toString().replaceAll('Exception: ', '')}")),
         );
       }
     } finally {
-      if (mounted) setState(() => _isRejecting = false);
+      if (mounted) setState(() => _rejectingId = null);
     }
+  }
+
+  void _goToSuspend() {
+    context.pushReplacement(AppRoutes.proSuspended);
   }
 
   @override
@@ -209,6 +194,7 @@ class _ProfessionalBookingRequestsScreenState extends State<ProfessionalBookingR
                     service: booking.serviceName,
                     time: booking.time,
                     price: '₹${booking.totalPrice}',
+                    isRejecting: _rejectingId == booking.id,
                     onAccept: () => _acceptBooking(booking.id),
                     onDecline: () => _rejectBooking(booking.id),
                   );
@@ -224,6 +210,7 @@ class _RequestCard extends StatelessWidget {
   final String service;
   final String time;
   final String price;
+  final bool isRejecting;
   final VoidCallback onAccept;
   final VoidCallback onDecline;
 
@@ -232,6 +219,7 @@ class _RequestCard extends StatelessWidget {
     required this.service,
     required this.time,
     required this.price,
+    required this.isRejecting,
     required this.onAccept,
     required this.onDecline,
   });
@@ -312,7 +300,16 @@ class _RequestCard extends StatelessWidget {
                       disabledForegroundColor: Colors.red,
                       disabledMouseCursor: SystemMouseCursors.click,
                     ),
-                    child: const Text('Decline'),
+                    child: isRejecting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.red,
+                            ),
+                          )
+                        : const Text('Decline'),
                   ),
                 ),
               ),

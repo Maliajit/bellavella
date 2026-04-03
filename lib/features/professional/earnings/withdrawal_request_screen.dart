@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
@@ -19,6 +21,8 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   String? _error;
+  Timer? _countdownTimer;
+  int _remainingSeconds = 0;
   
   ProfessionalWallet? _wallet;
   Professional? _profile;
@@ -42,6 +46,7 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _amountCtrl.dispose();
     super.dispose();
   }
@@ -55,8 +60,14 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
         setState(() {
           _wallet = wallet;
           _profile = profile;
+          _remainingSeconds = wallet.remainingSeconds;
           _isLoading = false;
         });
+        if (_remainingSeconds > 0) {
+          _startTimer();
+        } else {
+          _countdownTimer?.cancel();
+        }
       }
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
@@ -64,11 +75,59 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
   }
 
   double get _available => _wallet?.availableBalance ?? 0.0;
-  bool get _canWithdraw => _wallet?.canWithdraw ?? true;
+  bool get _canWithdraw {
+    if (_wallet == null) return false;
+    return _wallet!.withdrawUnlocked || _remainingSeconds <= 0;
+  }
   bool get _hasBank => _profile?.payout.accountNumber.isNotEmpty ?? false;
   bool get _hasUpi => _profile?.payout.upiId.isNotEmpty ?? false;
 
+  void _startTimer() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_remainingSeconds > 0) {
+        setState(() => _remainingSeconds--);
+        return;
+      }
+
+      timer.cancel();
+      _fetchData();
+    });
+  }
+
+  String _formatTime(int seconds) {
+    final duration = Duration(seconds: seconds);
+    final days = duration.inDays;
+    final hours = duration.inHours % 24;
+    final minutes = duration.inMinutes % 60;
+
+    if (days > 0) {
+      return '${days}d ${hours}h';
+    }
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    }
+    if (minutes > 0) {
+      return '${minutes}m';
+    }
+    return '${seconds.clamp(0, 59)}s';
+  }
+
   void _submitRequest() async {
+    if (!_canWithdraw) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Next withdrawal available in ${_formatTime(_remainingSeconds)}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     if (_amount == null || _amount! < 500 || _amount! > 50000) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Amount must be between ₹500 and ₹50,000'), backgroundColor: Colors.red),
@@ -97,14 +156,20 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
     setState(() => _isSubmitting = true);
     try {
       final requestId = const Uuid().v4();
-      await ProfessionalApiService.requestWithdrawal(_amount!, method: _selectedMethod, requestId: requestId);
+      final response = await ProfessionalApiService.requestWithdrawal(_amount!, method: _selectedMethod, requestId: requestId);
       if (mounted) {
         setState(() => _isSubmitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Withdrawal request submitted successfully!'), backgroundColor: _green),
-        );
-        // Refresh wallet and navigate back
-        context.pop(true);
+        if (response['success'] == true) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Withdrawal request submitted successfully!'), backgroundColor: _green),
+          );
+          context.pop(true);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(response['message'] ?? 'Failed to request withdrawal'), backgroundColor: Colors.red),
+          );
+          _fetchData();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -281,7 +346,7 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
                 ),
                 child: _isSubmitting 
                   ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                  : Text(_canWithdraw ? 'Submit Request' : 'Withdrawal Locked', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800)),
+                  : Text(_canWithdraw ? "Withdraw ₹${(_amount ?? 0).toStringAsFixed(0)}" : "Withdraw Locked", style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w800)),
               ),
             ),
           ),
@@ -306,8 +371,11 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Withdrawal Locked', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.red.shade900)),
-                Text('You can only withdraw once every 7 days. Check the countdown on the main wallet screen.', style: GoogleFonts.outfit(fontSize: 12, color: Colors.red.shade700)),
+                Text('🔓 Withdrawal Locked', style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 13, color: Colors.red.shade900)),
+                Text(
+                  'Next withdrawal available in ${_formatTime(_remainingSeconds)}',
+                  style: GoogleFonts.outfit(fontSize: 12, color: Colors.red.shade700),
+                ),
               ],
             ),
           ),

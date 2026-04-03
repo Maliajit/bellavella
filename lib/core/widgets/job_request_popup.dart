@@ -18,19 +18,13 @@ class JobRequestPopup extends StatefulWidget {
     required this.onReject,
   });
 
-  /// Elite Rejection Limit Popup with Optimistic UI & Progress Bar
-  static void showRejectionLimit(BuildContext context, int remaining, {String status = "active", int? rejectCount}) {
-    HapticFeedback.lightImpact();
-    
-    showModalBottomSheet(
+  /// Elite Rejection Limit Popup with Pink Theme & Strict Flow
+  static Future<bool?> showRejectionLimit(BuildContext context, int remaining, {String status = "active", int? rejectCount}) {
+    return showModalBottomSheet<bool>(
       context: context,
       isDismissible: status != "suspended",
       enableDrag: status != "suspended",
       backgroundColor: Colors.transparent,
-      transitionAnimationController: AnimationController(
-        vsync: Navigator.of(context),
-        duration: const Duration(milliseconds: 250),
-      )..forward(),
       builder: (bottomSheetContext) => _RejectionLimitContent(
         remaining: remaining,
         status: status,
@@ -90,6 +84,8 @@ class _RejectionLimitContent extends StatefulWidget {
 class _RejectionLimitContentState extends State<_RejectionLimitContent> with SingleTickerProviderStateMixin {
   late AnimationController _shakeController;
 
+  Timer? _autoDismissTimer;
+
   @override
   void initState() {
     super.initState();
@@ -98,171 +94,196 @@ class _RejectionLimitContentState extends State<_RejectionLimitContent> with Sin
       duration: const Duration(milliseconds: 500),
     );
 
-    // 🔥 LAST CHANCE VISUAL PUNCH: Shake and Haptic if remaining == 1
-    if (widget.remaining == 1 && widget.status != 'suspended') {
+    // 🔥 POPUP OPEN HAPTIC
+    HapticFeedback.mediumImpact();
+
+    if (widget.remaining == 0 && widget.status != 'suspended') {
       _shakeController.repeat(reverse: true);
       Future.delayed(const Duration(milliseconds: 1000), () => _shakeController.stop());
       HapticFeedback.vibrate();
+    }
+
+    // 🕒 AUTO-DISMISS (3s) - Only for active warnings
+    if (widget.status != 'suspended' && widget.remaining >= 0) {
+      _autoDismissTimer = Timer(const Duration(milliseconds: 3000), () {
+        if (mounted) {
+          Navigator.pop(context, true);
+        }
+      });
     }
   }
 
   @override
   void dispose() {
     _shakeController.dispose();
+    _autoDismissTimer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isLastChance = widget.remaining == 1 && widget.status != 'suspended';
+    final bool isFinalWarning = widget.remaining == 0 && widget.status != 'suspended';
     final bool isSuspended = widget.status == 'suspended';
+    
+    // 🎨 COLOR SHIFT (Pink -> Red on Final Warning)
+    final Color themeColor = isFinalWarning 
+        ? const Color(0xFFE53935) // Alert Red
+        : const Color(0xFFFF4D6D); // Theme Pink
 
     return AnimatedBuilder(
       animation: _shakeController,
       builder: (context, child) {
         final double offset = _shakeController.value * 4.0;
-        return Transform.translate(
-          offset: Offset(isLastChance ? (offset % 2 == 0 ? offset : -offset) : 0, 0),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 34),
-            decoration: BoxDecoration(
-              color: const Color(0xFF121212),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-              border: isLastChance 
-                ? Border.all(color: Colors.redAccent.withOpacity(0.3), width: 2)
-                : null,
-              boxShadow: isLastChance ? [
-                BoxShadow(
-                  color: Colors.red.withOpacity(0.1),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                )
-              ] : null,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Handle bar
-                Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(height: 30),
-                
-                // Icon
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: (isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange)).withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    isSuspended ? Icons.block : Icons.warning_amber_rounded,
-                    color: isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange),
-                    size: 40,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Title
-                Text(
-                  isSuspended ? 'Account Suspended' : (isLastChance ? 'LAST CHANCE!' : 'Be Careful!'),
-                  style: GoogleFonts.outfit(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: isLastChance ? Colors.redAccent : Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                
-                // Subtitle / Message
-                Text(
-                  isSuspended 
-                    ? 'You have rejected too many requests today.\nYour account is temporarily suspended.'
-                    : 'Frequent rejections may impact your account.\nRemaining chances: ${widget.remaining}/3',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    color: Colors.white70,
-                    height: 1.5,
-                  ),
-                ),
-                
-                const SizedBox(height: 30),
-                
-                // 🎯 MODERN PROGRESS BAR (Elite Polish)
-                Container(
-                  height: 10,
-                  width: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  child: Stack(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 600),
-                        curve: Curves.easeOutCubic,
-                        width: (200 * (3 - widget.remaining) / 3),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isSuspended 
-                              ? [Colors.red, Colors.redAccent] 
-                              : [Colors.orange, Colors.orangeAccent],
-                          ),
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
-                const SizedBox(height: 40),
-                
-                // Action Button
-                ScaleButton(
-                  onTap: () {
-                    Navigator.pop(context); // Close bottom sheet
-                    
-                    if (isSuspended) {
-                      context.go(AppRoutes.proSuspended);
-                    } else {
-                      try {
-                        if (context.mounted && Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        }
-                      } catch (_) {}
-                    }
-                  },
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: null, // Logic handled by ScaleButton onTap
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange),
-                        foregroundColor: Colors.white,
-                        disabledBackgroundColor: isSuspended ? Colors.red : (isLastChance ? Colors.redAccent : Colors.orange),
-                        disabledForegroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        return PopScope(
+          canPop: false, // Prevents closing with the back button
+          child: Transform.translate(
+            offset: Offset(isFinalWarning ? (offset % 2 == 0 ? offset : -offset) : 0, 0),
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 34),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    spreadRadius: 5,
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Top Indicator (Drag Handle)
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  
+                  // Icon (Color Shifted Circle)
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: themeColor.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isSuspended ? Icons.block : (isFinalWarning ? Icons.error_outline : Icons.warning_amber_rounded),
+                      color: themeColor,
+                      size: 40,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // Title (Expert Refinement)
+                  Text(
+                    isSuspended ? 'Account Suspended' : (isFinalWarning ? 'Final Warning' : 'Be Careful'),
+                    style: GoogleFonts.outfit(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  // Subtitle / Message
+                  Text(
+                    isSuspended 
+                      ? 'You have rejected too many requests today.\nYour account is temporarily suspended.'
+                      : (isFinalWarning 
+                          ? 'You’ve reached your rejection limit.\nOne more rejection will suspend your account.'
+                          : 'Frequent rejections may impact your account.'),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      height: 1.5,
+                    ),
+                  ),
+
+                  if (!isSuspended) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      isFinalWarning ? 'FINAL WARNING!' : 'Remaining: ${widget.remaining} of 3',
+                      style: GoogleFonts.outfit(
+                        color: themeColor,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        letterSpacing: 1.2,
                       ),
-                      child: Text(
-                        isSuspended ? 'UNDERSTOOD' : 'OK',
-                        style: GoogleFonts.outfit(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // 🎯 EXPERT ANIMATED STRIKE DOTS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(3, (index) {
+                        final bool isStrike = index < (3 - widget.remaining);
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeOutBack,
+                          width: isStrike ? 14 : 12,
+                          height: isStrike ? 14 : 12,
+                          margin: const EdgeInsets.symmetric(horizontal: 6),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isStrike ? themeColor : Colors.grey[200],
+                            border: isStrike ? null : Border.all(color: Colors.grey[300]!, width: 1),
+                            boxShadow: isStrike ? [
+                              BoxShadow(
+                                color: themeColor.withOpacity(0.3),
+                                blurRadius: 8,
+                                spreadRadius: 1,
+                              )
+                            ] : null,
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+
+                  const SizedBox(height: 40),
+                  
+                  // Action Button (Full Width, Pink)
+                  ScaleButton(
+                    onTap: () {
+                      Navigator.pop(context, true); 
+                      if (isSuspended) {
+                        context.go(AppRoutes.proSuspended);
+                      }
+                    },
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: null, 
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themeColor,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: themeColor,
+                          disabledForegroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: Text(
+                          isSuspended ? 'UNDERSTOOD' : 'OK',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -284,11 +305,17 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeLeft == 0) {
-        timer.cancel();
-        widget.onReject();
-        Navigator.pop(context);
+        if (mounted) {
+          timer.cancel();
+          widget.onReject();
+          Navigator.pop(context);
+        }
       } else {
-        setState(() => _timeLeft--);
+        if (mounted) {
+          setState(() => _timeLeft--);
+        } else {
+          timer.cancel();
+        }
       }
     });
   }
@@ -304,7 +331,7 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
     final String service = widget.jobData['service'] ?? 'Premium Service';
     final String client = widget.jobData['client_name'] ?? 'Guest';
     final String location = widget.jobData['location'] ?? 'Nearby';
-    final String price = widget.jobData['price'] ?? '0';
+    final String price = widget.jobData['price']?.toString() ?? '0';
 
     return Dialog(
       backgroundColor: Colors.transparent,
@@ -325,7 +352,6 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Status/Timer Header
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: const BoxDecoration(
@@ -347,10 +373,7 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
                 ),
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // Service Icon & Title
             Container(
               width: 80,
               height: 80,
@@ -361,9 +384,7 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
               ),
               child: const Icon(Icons.auto_awesome, color: Color(0xFFFF4891), size: 40),
             ),
-
             const SizedBox(height: 20),
-
             Text(
               service,
               style: GoogleFonts.outfit(
@@ -372,9 +393,7 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
                 color: Colors.black,
               ),
             ),
-
             const SizedBox(height: 8),
-
             Text(
               'Earnings: ₹$price',
               style: GoogleFonts.outfit(
@@ -383,10 +402,7 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
                 color: Colors.green.shade700,
               ),
             ),
-
             const SizedBox(height: 30),
-
-            // Info Section
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Column(
@@ -397,10 +413,7 @@ class _JobRequestPopupState extends State<JobRequestPopup> {
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
-
-            // Buttons
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
               child: Row(
