@@ -1,5 +1,4 @@
 import 'package:bellavella/core/widgets/skeleton_box.dart';
-import 'package:bellavella/core/config/app_config.dart';
 import 'package:bellavella/core/utils/media_url.dart';
 import 'package:flutter/material.dart';
 
@@ -37,25 +36,7 @@ class AppNetworkImage extends StatelessWidget {
 
   String _resolvedUrl() {
     if (url == null || url!.isEmpty) return '';
-    var u = resolveMediaUrl(url);
-    if (u.isEmpty) return '';
-    
-    // In local development, the backend might return URLs with its own local IP
-    // like 192.168.1.x or 127.0.0.1 from the .env APP_URL. We need to replace
-    // these with the AppConfig.origin to ensure the emulator/web app can reach them.
-    if (u.startsWith('http')) {
-      final uri = Uri.tryParse(u);
-      if (uri != null && (uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host.startsWith('192.168.') || uri.host == '10.0.2.2')) {
-        final originUri = Uri.parse(AppConfig.origin);
-        u = uri.replace(
-          scheme: originUri.scheme,
-          host: originUri.host,
-          port: originUri.port,
-        ).toString();
-      }
-    }
-    
-    return u;
+    return resolveMediaUrl(url);
   }
 
   Widget _buildImage() {

@@ -310,7 +310,7 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                             i as Map<String, dynamic>,
                                           ),
                                         )
-                                        .where((b) => b.imageUrl.isNotEmpty)
+                                        .where((b) => b.hasVisual)
                                         .toList();
                                     if (banners.isNotEmpty) {
                                       sectionWidget = HomeHeroBanner(
@@ -328,11 +328,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                       final img =
                                           section.items.first as Map<String, dynamic>;
                                       final banner = HomeBanner.fromJson(img);
-                                      if (banner.imageUrl.isNotEmpty) {
+                                      if (banner.hasVisual) {
                                         sectionWidget = HomeImageBanner(
-                                          title: banner.title.trim(),
-                                          subtitle: banner.subtitle?.trim() ?? '',
-                                          image: banner.imageUrl,
+                                          banner: banner,
                                           height: 150,
                                           onTap: () => _navigateToTarget(
                                             context,
@@ -394,15 +392,11 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
 
                                   case 'video_stories':
                                     final stories = section.items
-                                        .map((i) {
-                                          final map = i as Map<String, dynamic>;
-                                          return Story(
-                                            videoUrl: map['url'] ?? '',
-                                            thumbnail: map['thumbnail'] ?? '',
-                                            title: map['title'] ?? '',
-                                            serviceCategory: map['subtitle'] ?? '',
-                                          );
-                                        })
+                                        .map(
+                                          (i) => Story.fromJson(
+                                            i as Map<String, dynamic>,
+                                          ),
+                                        )
                                         .where((s) => s.videoUrl.isNotEmpty)
                                         .toList();
                                     if (stories.isNotEmpty) {
@@ -421,11 +415,9 @@ class _ClientHomeScreenState extends State<ClientHomeScreen> {
                                       final img =
                                           section.items.first as Map<String, dynamic>;
                                       final banner = HomeBanner.fromJson(img);
-                                      if (banner.imageUrl.isNotEmpty) {
+                                      if (banner.hasVisual) {
                                         sectionWidget = HomeImageBanner(
-                                          title: banner.title.trim(),
-                                          subtitle: banner.subtitle?.trim() ?? '',
-                                          image: banner.imageUrl,
+                                          banner: banner,
                                           onTap: () => _navigateToTarget(
                                             context,
                                             banner.targetPage,

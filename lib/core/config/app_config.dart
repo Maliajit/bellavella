@@ -87,6 +87,13 @@ class AppConfig {
     return '${parsed.scheme}://${parsed.host}$portPart';
   }
 
+  static String get mediaOrigin {
+    final parsed = Uri.parse(baseUrl);
+    final portPart = parsed.hasPort ? ':${parsed.port}' : '';
+    final mediaPath = _mediaBasePath(parsed.path);
+    return '${parsed.scheme}://${parsed.host}$portPart$mediaPath';
+  }
+
   static String get flavor =>
       const String.fromEnvironment('APP_FLAVOR', defaultValue: '');
 
@@ -119,5 +126,36 @@ class AppConfig {
       }
     }
     return sanitized;
+  }
+
+  static String _mediaBasePath(String rawPath) {
+    final normalized = rawPath.trim().replaceAll(RegExp(r'/+'), '/');
+    if (normalized.isEmpty || normalized == '/') {
+      return '';
+    }
+
+    final segments = normalized
+        .split('/')
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+
+    if (segments.isEmpty) {
+      return '';
+    }
+
+    if (segments.length >= 2 &&
+        segments[segments.length - 2] == 'api' &&
+        RegExp(r'^v\d+$').hasMatch(segments.last)) {
+      segments.removeLast();
+      segments.removeLast();
+    } else if (segments.last == 'api') {
+      segments.removeLast();
+    }
+
+    if (segments.isEmpty) {
+      return '';
+    }
+
+    return '/${segments.join('/')}';
   }
 }

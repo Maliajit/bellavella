@@ -3,6 +3,49 @@ import 'package:bellavella/core/utils/media_url.dart';
 
 // All data models used by the Home feature.
 
+String _normalizeHomeSectionType(String? rawType) {
+  final normalized = (rawType ?? '').trim().toLowerCase();
+  switch (normalized) {
+    case 'hero_banners':
+      return 'hero_banner';
+    case 'promo_banners':
+      return 'promo_banner';
+    case 'image_banners':
+      return 'image_banner';
+    case 'video_story':
+      return 'video_stories';
+    default:
+      return normalized;
+  }
+}
+
+String _inferHomeMediaType(Map<String, dynamic> json) {
+  final explicitType = (json['media_type'] ?? json['type'] ?? '')
+      .toString()
+      .trim()
+      .toLowerCase();
+  if (explicitType == 'video' || explicitType == 'image') {
+    return explicitType;
+  }
+
+  final rawMedia = (json['media_url'] ??
+          json['media_path'] ??
+          json['url'] ??
+          json['image'] ??
+          '')
+      .toString()
+      .toLowerCase();
+  if (rawMedia.endsWith('.mp4') ||
+      rawMedia.endsWith('.mov') ||
+      rawMedia.endsWith('.m4v') ||
+      rawMedia.endsWith('.webm') ||
+      rawMedia.endsWith('.m3u8')) {
+    return 'video';
+  }
+
+  return 'image';
+}
+
 class HomeSection {
   final int id;
   final String type;
@@ -37,18 +80,18 @@ class HomeSection {
   factory HomeSection.fromJson(Map<String, dynamic> json) {
     return HomeSection(
       id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
-      type:        json['type'] ?? '',
+      type:        _normalizeHomeSectionType(json['type']?.toString()),
       name:        json['name'],
       title:       json['title'] ?? '',
       subtitle:    json['subtitle'],
-      mediaType:   json['media_type'] ?? 'banner',
+      mediaType:   json['media_type']?.toString() ?? 'banner',
       contentType: json['content_type'] ?? 'dynamic',
       dataSource:  json['data_source'],
       description: json['description'],
       btnText:     json['btn_text'],
       btnLink:     json['btn_link'],
       sortOrder:   int.tryParse(json['sort_order']?.toString() ?? '0') ?? 0,
-      items:       json['items'] ?? [],
+      items:       json['items'] ?? json['banners'] ?? json['data'] ?? [],
     );
   }
 }
@@ -57,7 +100,9 @@ class HomeBanner {
   final int id;
   final String title;
   final String? subtitle;
-  final String imageUrl;
+  final String mediaType;
+  final String mediaUrl;
+  final String? thumbnailUrl;
   final String? targetPage;   // e.g. 'services', 'packages', 'none'
   final String? description;
 
@@ -65,20 +110,38 @@ class HomeBanner {
     required this.id,
     required this.title,
     this.subtitle,
-    required this.imageUrl,
+    required this.mediaType,
+    required this.mediaUrl,
+    this.thumbnailUrl,
     this.targetPage,
     this.description,
   });
 
+  bool get isVideo => mediaType == 'video';
+  String get imageUrl => isVideo ? (thumbnailUrl ?? '') : mediaUrl;
+  bool get hasVisual => mediaUrl.isNotEmpty || (thumbnailUrl?.isNotEmpty ?? false);
+
   factory HomeBanner.fromJson(Map<String, dynamic> json) {
+    final mediaType = _inferHomeMediaType(json);
     return HomeBanner(
       id:          int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title:       json['title'] ?? '',
       subtitle:    json['subtitle'],
-      imageUrl:    resolveMediaUrl(
-        json['url']?.toString() ?? json['image']?.toString(),
+      mediaType:   mediaType,
+      mediaUrl:    resolveMediaUrl(
+        json['media_url']?.toString() ??
+            json['media_path']?.toString() ??
+            json['url']?.toString() ??
+            json['image']?.toString() ??
+            json['file_url']?.toString(),
       ),
-      targetPage:  json['target_page'],
+      thumbnailUrl: resolveNullableMediaUrl(
+        json['thumbnail_url']?.toString() ??
+            json['thumbnail']?.toString() ??
+            json['preview_image']?.toString() ??
+            json['poster']?.toString(),
+      ),
+      targetPage:  json['target_page']?.toString() ?? json['targetPage']?.toString(),
       description: json['description'],
     );
   }
@@ -104,7 +167,9 @@ class HomeCategory {
       id:       int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       name:     json['name'] ?? '',
       slug:     json['slug'] ?? '',
-      imageUrl: json['image'] ?? '',
+      imageUrl: resolveMediaUrl(
+        json['image']?.toString() ?? json['image_url']?.toString(),
+      ),
       badge:    json['badge'],
     );
   }
@@ -167,7 +232,9 @@ class HomeService {
         }
         return null;
       })(),
-      imageUrl:    json['image'] ?? '',
+      imageUrl:    resolveMediaUrl(
+        json['image']?.toString() ?? json['image_url']?.toString(),
+      ),
       badge:       json['badge'],
     );
   }
@@ -214,8 +281,14 @@ class HomeVideoStory {
       id:         int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title:      json['title'] ?? '',
       subtitle:   json['subtitle'],
-      url:        json['url'] ?? '',
-      thumbnail:  json['thumbnail'],
+      url:        resolveMediaUrl(
+        json['url']?.toString() ??
+            json['video_url']?.toString() ??
+            json['media_url']?.toString(),
+      ),
+      thumbnail:  resolveNullableMediaUrl(
+        json['thumbnail']?.toString() ?? json['thumbnail_url']?.toString(),
+      ),
       targetPage: json['target_page'],
     );
   }
