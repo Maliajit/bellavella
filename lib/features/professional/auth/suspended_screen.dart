@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,28 +17,109 @@ class SuspendedScreen extends StatefulWidget {
 
 class _SuspendedScreenState extends State<SuspendedScreen> {
   bool _isChecking = false;
+  bool _hasNavigated = false;
+  Timer? _timer;
+  int _timerAttempt = 0;
 
-  Future<void> _checkStatus() async {
-    setState(() => _isChecking = true);
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initial check
+    _checkStatus(showMessage: false);
+
+    // Setup adaptive polling for auto-unlock
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _stopTimer();
+    final interval = _getInterval();
+    debugPrint('Starting status poll timer with ${interval}s interval (Attempt: $_timerAttempt)');
+    
+    _timer = Timer.periodic(Duration(seconds: interval), (_) {
+      _checkStatus(showMessage: false);
+      _timerAttempt++;
+      
+      // Adaptive backoff: Adjust frequency after specific attempts
+      if (_timerAttempt == 2 || _timerAttempt == 4) {
+         _startTimer(); 
+      }
+    });
+  }
+
+  int _getInterval() {
+    if (_timerAttempt < 2) return 5;   // First 2 attempts: 5s
+    if (_timerAttempt < 4) return 10;  // Next 2 attempts: 10s
+    return 15;                         // Thereafter: 15s (Reduce server load)
+  }
+
+  @override
+  void dispose() {
+    _stopTimer();
+    super.dispose();
+  }
+
+  void _stopTimer() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  Future<void> _checkStatus({bool showMessage = true}) async {
+    // Request lock to prevent API spam/race conditions
+    if (_isChecking || _hasNavigated) return;
+    
+    if (mounted) setState(() => _isChecking = true);
     try {
-      final data = await ProfessionalApiService.getVerificationStatus();
+      final dynamic root = await ProfessionalApiService.getVerificationStatus();
+      debugPrint('FULL API RESPONSE: $root');
+
+      // 🔥 BULLETPROOF SAFE EXTRACTION (Handles data vs root vs double-wrap)
+      final Map<String, dynamic> responseData =
+          (root is Map && root['data'] is Map)
+              ? Map<String, dynamic>.from(root['data'])
+              : (root is Map ? Map<String, dynamic>.from(root) : {});
+
+      final String currentStatus = (responseData['status'] ?? '')
+          .toString()
+          .toLowerCase()
+          .trim();
+
+      debugPrint('INNER DATA: $responseData');
+      debugPrint('FINAL STATUS USED: $currentStatus');
+
       if (mounted) {
-        final String currentStatus = (data['status'] ?? '').toString().toLowerCase();
-        
-        if (currentStatus == 'active') {
+        if (currentStatus == 'active' && !_hasNavigated) {
+          _hasNavigated = true;
+          _stopTimer(); // 🔥 IMMEDIATELY stop timer
           context.go(AppRoutes.proDashboard);
+          return;
         } else if (currentStatus == 'pending' || currentStatus == 'review') {
-          context.go(AppRoutes.proVerificationStatus);
-        } else {
+          if (!_hasNavigated) {
+            _hasNavigated = true;
+            _stopTimer();
+            context.go(AppRoutes.proVerificationStatus);
+            return;
+          }
+        } else if (showMessage) {
+          // Only show message if it was a manual refresh and still suspended
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Account is still suspended.')),
           );
         }
       }
     } catch (e) {
-      if (mounted) {
+      debugPrint('Status check error: $e (Account state unknown)');
+      
+      // 🛡️ NETWORK RESILIENCE: 
+      // Do not show error snackbars during background auto-polling.
+      // Only show them if the user manually tapped 'Refresh'.
+      if (mounted && showMessage) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to refresh status: ${e.toString()}')),
+          const SnackBar(
+            content: Text('Network error. Please check your connection and try again.'),
+            duration: Duration(seconds: 2),
+          ),
         );
       }
     } finally {
@@ -113,16 +195,6 @@ class _SuspendedScreenState extends State<SuspendedScreen> {
                         fontSize: 18,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Account Suspended',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.outfit(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF1F2937),
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Please contact support to appeal your suspension.',
@@ -160,7 +232,7 @@ class _SuspendedScreenState extends State<SuspendedScreen> {
                 children: [
                    _buildPrimaryButton(
                     label: _isChecking ? 'Checking...' : 'Refresh Status',
-                    onPressed: _isChecking ? null : _checkStatus,
+                    onPressed: _isChecking ? null : () => _checkStatus(showMessage: true),
                     color: AppTheme.primaryColor,
                     textColor: Colors.white,
                   ),

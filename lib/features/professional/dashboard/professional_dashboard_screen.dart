@@ -526,7 +526,6 @@ class _ProfessionalDashboardScreenState
                       const SizedBox(height: 20),
                       _buildReferralBanner(),
                       const SizedBox(height: 32),
-                      _buildTodayOverviewStrip(),
                       if (_stats?.recentBookings.isNotEmpty ?? false) ...[
                         const SizedBox(height: 32),
                         _buildScheduleTimeline(),
@@ -1142,54 +1141,6 @@ class _ProfessionalDashboardScreenState
     );
   }
 
-  // 3️⃣ Today Overview Strip
-  Widget _buildTodayOverviewStrip() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-      decoration: BoxDecoration(
-        border: Border.symmetric(horizontal: BorderSide(color: Colors.grey.shade100)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _overviewItem("AVAILABLE", "₹${(_stats?.availableBalance ?? 0).toStringAsFixed(0)}"),
-          _verticalDivider(),
-          _overviewItem("PENDING", "₹${(_stats?.pendingBalance ?? 0).toStringAsFixed(0)}"),
-          _verticalDivider(),
-          _overviewItem("RATING", "⭐ ${_stats?.rating ?? 4.5}"),
-        ],
-      ),
-    );
-  }
-
-  Widget _overviewItem(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            color: Colors.grey.shade400,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _verticalDivider() {
-    return Container(height: 24, width: 1, color: Colors.grey.shade100);
-  }
 
   // 4️⃣ Today Schedule (Timeline View)
   Widget _buildScheduleTimeline() {
