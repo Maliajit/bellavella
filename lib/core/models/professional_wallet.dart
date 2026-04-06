@@ -66,17 +66,19 @@ class ProfessionalWallet {
       debugPrint('ProfessionalWallet.fromJson data: $json');
     }
 
-    final remainingSeconds = (json['remaining_seconds'] as num? ?? 0).toInt().clamp(0, 1 << 31);
+    final remainingSeconds = (json['remaining_seconds'] as num? ?? 0)
+        .toInt()
+        .clamp(0, 1 << 31);
     final unlockDate = json['unlock_date'] != null
         ? DateTime.tryParse(json['unlock_date'].toString())
         : (json['next_withdrawal_at'] != null
-            ? DateTime.tryParse(json['next_withdrawal_at'].toString())
-            : null);
+              ? DateTime.tryParse(json['next_withdrawal_at'].toString())
+              : null);
     final withdrawUnlocked = json['withdraw_unlocked'] is bool
         ? json['withdraw_unlocked'] as bool
         : (json['can_withdraw'] is bool
-            ? json['can_withdraw'] as bool
-            : remainingSeconds == 0);
+              ? json['can_withdraw'] as bool
+              : remainingSeconds == 0);
     final canWithdraw = json['can_withdraw'] is bool
         ? json['can_withdraw'] as bool
         : (withdrawUnlocked || remainingSeconds == 0);
@@ -93,23 +95,33 @@ class ProfessionalWallet {
       weeklyEarnings: (json['weekly_earnings'] as num? ?? 0).toDouble(),
       monthlyEarnings: (json['monthly_earnings'] as num? ?? 0).toDouble(),
 
-      totalJobs: (json['total_jobs'] as num? ?? json['total_completed_jobs'] as num? ?? 0).toInt(),
-      coins: (json['coins'] as num? ?? json['coins_balance'] as num? ?? 0).toInt(),
+      totalJobs:
+          (json['total_jobs'] as num? ??
+                  json['total_completed_jobs'] as num? ??
+                  0)
+              .toInt(),
+      coins: (json['coins'] as num? ?? json['coins_balance'] as num? ?? 0)
+          .toInt(),
 
       canWithdraw: canWithdraw,
-      nextWithdrawalAt: json['next_withdrawal_at'] != null 
-          ? DateTime.tryParse(json['next_withdrawal_at'].toString()) 
+      nextWithdrawalAt: json['next_withdrawal_at'] != null
+          ? DateTime.tryParse(json['next_withdrawal_at'].toString())
           : null,
       withdrawDelayDays: (json['withdraw_delay_days'] as num? ?? 0).toInt(),
       remainingSeconds: remainingSeconds,
-      serverTime: json['server_time'] != null 
-          ? (DateTime.tryParse(json['server_time'].toString()) ?? DateTime.now().toUtc()) 
+      serverTime: json['server_time'] != null
+          ? (DateTime.tryParse(json['server_time'].toString()) ??
+                DateTime.now().toUtc())
           : DateTime.now().toUtc(),
       withdrawUnlocked: withdrawUnlocked,
       lockReason: json['lock_reason']?.toString(),
       unlockDate: unlockDate,
       daysRemaining: (json['days_remaining'] as num? ?? 0).toInt(),
-      cooldownDays: (json['cooldown_days'] as num? ?? json['withdraw_delay_days'] as num? ?? 7).toInt(),
+      cooldownDays:
+          (json['cooldown_days'] as num? ??
+                  json['withdraw_delay_days'] as num? ??
+                  7)
+              .toInt(),
       isProfessional: json['is_professional'] ?? false,
 
       kits: (json['kits'] as List? ?? [])
@@ -148,12 +160,18 @@ class WalletKitOrder {
   final String date;
   final double amount;
 
-  WalletKitOrder({required this.description, required this.date, required this.amount});
+  WalletKitOrder({
+    required this.description,
+    required this.date,
+    required this.amount,
+  });
 
   factory WalletKitOrder.fromJson(dynamic json) {
-    if (json is! Map) return WalletKitOrder(description: '', date: '', amount: 0);
+    if (json is! Map)
+      return WalletKitOrder(description: '', date: '', amount: 0);
     return WalletKitOrder(
-      description: (json['description'] ?? json['title'] ?? 'Kit Assigned').toString(),
+      description: (json['description'] ?? json['title'] ?? 'Kit Assigned')
+          .toString(),
       date: (json['date'] ?? json['created_at'] ?? '').toString(),
       amount: (json['amount'] ?? json['quantity'] ?? 0).toDouble(),
     );
