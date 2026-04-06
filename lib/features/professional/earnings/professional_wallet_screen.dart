@@ -18,7 +18,7 @@ import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 
-enum WalletTab { earnings, deposit, coins, kits }
+enum WalletTab { earnings, deposit, coins }
 
 class ProfessionalWalletScreen extends StatefulWidget {
   const ProfessionalWalletScreen({super.key});
@@ -57,7 +57,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) return;
       setState(() => _activeTab = WalletTab.values[_tabController.index]);
@@ -101,6 +101,8 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     WidgetsBinding.instance.removeObserver(this);
     super.dispose(); 
   }
+
+
 
   Future<void> _fetchData({bool isSilent = false}) async {
     if (!isSilent) setState(() { _isLoading = true; _error = null; });
@@ -364,7 +366,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
           _tab(Icons.trending_up_rounded, 'Earnings', WalletTab.earnings, _primary),
           _tab(Icons.savings_outlined, 'Deposit', WalletTab.deposit, _blue),
           _tab(Icons.toll_rounded, 'Coins', WalletTab.coins, _amber),
-          _tab(Icons.inventory_2_outlined, 'Kits', WalletTab.kits, _violet),
+
         ],
       ),
     );
@@ -396,7 +398,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       case WalletTab.earnings: return _earningsTab();
       case WalletTab.deposit:  return _depositTab();
       case WalletTab.coins:    return _coinsTab();
-      case WalletTab.kits:     return _kitsTab();
+
     }
   }
 
@@ -487,8 +489,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     final active  = _stats?.activeJobsCount ?? 0;
 
     final canWithdraw = _withdrawUnlocked;
-    final kitsItems = _wallet?.kits ?? [];
-
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
 
@@ -533,14 +533,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       ]),
       const SizedBox(height: 24),
 
-      // Assigned kits list
-      _sLabel('Kit Inventory History'),
-      const SizedBox(height: 12),
-      if (kitsItems.isEmpty) _emptyState(Icons.inventory_2_outlined, 'No kits assigned', 'Kits purchased will appear here.')
-      else Column(children: kitsItems.map((WalletKitItem kit) {
-        return _jobRow(Icons.work_outline_rounded, kit.name, kit.status, Colors.indigo);
-      }).toList()),
-      const SizedBox(height: 24),
+
 
       // Jobs
       _sLabel('Active Jobs'),
@@ -665,98 +658,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       const SizedBox(height: 12),
       _txSection(),
     ]));
-  }
-
-  // ══════════════════════════════════════════════════════
-  //  KITS TAB
-  // ══════════════════════════════════════════════════════
-  Widget _kitsTab() {
-    final kitsCount = _wallet?.kitCount ?? 0;
-    return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SizedBox(height: 20),
-
-      // Kits card
-      Container(
-        width: double.infinity, padding: const EdgeInsets.all(26),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [Color(0xFF8B5CF6), Color(0xFF5B21B6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [BoxShadow(color: _violet.withOpacity(0.4), blurRadius: 24, offset: const Offset(0, 10))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Service Kits', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
-            const Icon(Icons.inventory_2_outlined, color: Colors.white54, size: 22),
-          ]),
-          const SizedBox(height: 10),
-          Text('$kitsCount', style: GoogleFonts.outfit(color: Colors.white, fontSize: 52, fontWeight: FontWeight.w900, letterSpacing: -2, height: 1)),
-          Text('remaining kits', style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13)),
-          if (kitsCount < 5) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                const Icon(Icons.warning_amber_rounded, color: Colors.yellowAccent, size: 16),
-                const SizedBox(width: 8),
-                Expanded(child: Text('Min 5 kits required. Add ${5 - kitsCount} more.', style: GoogleFonts.outfit(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500))),
-              ]),
-            ),
-          ],
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => context.goNamed(AppRoutes.proKitStoreName),
-              icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text('Get More Kits', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white, foregroundColor: _violet,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                padding: const EdgeInsets.symmetric(vertical: 14), elevation: 0,
-              ),
-            ),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 24),
-
-      _sLabel('Inventory Log'),
-      const SizedBox(height: 12),
-      _kitSection(),
-    ]));
-  }
-
-  Widget _kitSection() {
-    final kits = _wallet?.kitOrders ?? [];
-    if (kits.isEmpty) return _emptyState(Icons.inventory_2_outlined, 'No kit log yet', 'Kit assignments will appear here.');
-    
-    return Column(children: kits.map((WalletKitOrder kit) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)]),
-        child: Row(children: [
-          Container(width: 44, height: 44,
-              decoration: BoxDecoration(color: _violet.withOpacity(0.08), borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.inventory_2_outlined, color: _violet, size: 20)),
-          const SizedBox(width: 14),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(kit.description.isEmpty ? 'Kit Assigned' : kit.description, 
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 14, color: Colors.black87)),
-            const SizedBox(height: 2),
-            Text(kit.date, style: GoogleFonts.outfit(fontSize: 11, color: Colors.grey.shade400)),
-          ])),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(color: _violet.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text('Qty: ${kit.amount.toInt()}', 
-                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w800, color: _violet)),
-          ),
-        ]),
-      );
-    }).toList());
   }
 
   // ─── Shared small widgets ────────────────────────────────────────────────────

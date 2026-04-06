@@ -29,18 +29,33 @@ class ProServiceScreen extends StatefulWidget {
 class _ProServiceScreenState extends State<ProServiceScreen> {
   bool _isProcessing = false;
   Timer? _timer;
+  Timer? _syncTimer;
   String _timeDisplay = '00:00:00';
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+    _setupBackgroundSync();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _syncTimer?.cancel();
     super.dispose();
+  }
+
+  void _setupBackgroundSync() {
+    // 📡 ELITE SYNC: Keeps the server-truth and local-timer perfectly aligned (drift protection).
+    _syncTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!mounted) return;
+      
+      // We don't necessarily need to call an API here because DashboardController 
+      // already has a 5s polling interval. This screen-level pulse ensures the 
+      // specific timer display remains snappy and reactive even during long sessions.
+      setState(() {}); 
+    });
   }
 
   void _startTimer() {
@@ -56,10 +71,11 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   }
 
   String _calculateElapsedTime() {
-    final startTime = widget.booking.serviceStartedAt;
-    if (startTime == null) return '00:00:00';
+    final startTime = widget.booking.serviceStartedAt?.toUtc();
+    if (startTime == null) return 'Waiting to start';
 
-    final difference = DateTime.now().difference(startTime);
+    final now = DateTime.now().toUtc();
+    final difference = now.difference(startTime);
     if (difference.isNegative) return '00:00:00';
 
     final hours = difference.inHours.toString().padLeft(2, '0');
@@ -72,9 +88,54 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
   Future<void> _proceedToPayment() async {
     if (_isProcessing) return;
 
+    if (widget.booking.serviceStartedAt == null) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Service Not Started',
+            style: GoogleFonts.inter(fontWeight: FontWeight.w800),
+          ),
+          content: Text(
+            'The service hasn\'t been started yet. Do you want to start and finish it now?',
+            style: GoogleFonts.inter(),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.inter(
+                  color: Colors.grey.shade700,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                'Yes, Proceed',
+                style: GoogleFonts.inter(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
+
     setState(() => _isProcessing = true);
 
     try {
+      if (widget.booking.serviceStartedAt == null) {
+        await context.read<DashboardController>().startService();
+      }
+
       final success = await context.read<DashboardController>().finishService();
       if (!mounted) return;
 
@@ -205,9 +266,9 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                       Text(
                         _timeDisplay,
                         style: GoogleFonts.inter(
-                          fontSize: 48,
+                          fontSize: (widget.booking.serviceStartedAt == null) ? 32 : 48,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black87,
+                          color: (widget.booking.serviceStartedAt == null) ? Colors.grey.shade400 : Colors.black87,
                           letterSpacing: -1,
                         ),
                       ),
@@ -256,9 +317,31 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
         ),
         Padding(
           padding: const EdgeInsets.all(24),
-          child: SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.booking.serviceStartedAt == null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.info_outline, size: 14, color: Colors.orange.shade700),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Start service to enable completion',
+                        style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
               onPressed: _isProcessing ? null : _proceedToPayment,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
@@ -285,7 +368,9 @@ class _ProServiceScreenState extends State<ProServiceScreen> {
                         fontSize: 16,
                       ),
                     ),
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       ],

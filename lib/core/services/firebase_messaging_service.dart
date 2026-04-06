@@ -31,8 +31,12 @@ class FirebaseMessagingService {
     if (token != null) {
       debugPrint('🔔 FCM Token: $token');
       // Update token on backend (silent)
-      await ProfessionalApiService.updateFcmToken(token);
+      await ProfessionalApiService.saveFcmToken(token);
     }
+
+    _messaging.onTokenRefresh.listen((newToken) {
+      ProfessionalApiService.saveFcmToken(newToken);
+    });
 
     // 3. Setup Listeners
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -71,6 +75,14 @@ class FirebaseMessagingService {
       if (job != null) {
         DashboardController.instance.setActiveJob(job);
       }
+    } else if (type == 'kit_updated') {
+      // Show local notification as a toast or flutter_local_notifications if not focused on wallet
+      if (message.notification != null) {
+        final screen = message.data['screen'];
+        if (screen == 'wallet') {
+           // Provide UI a way to pull latest (using our built-in timer logic in wallet screen or profile trigger)
+        }
+      }
     }
   }
 
@@ -86,6 +98,10 @@ class FirebaseMessagingService {
         AppRoutes.proIncomingRequestName,
         extra: message.data,
       );
+    } else if (type == 'kit_updated') {
+      if (message.data['screen'] == 'wallet') {
+        proNavigatorKey.currentContext?.pushNamed(AppRoutes.proWallet);
+      }
     }
   }
 }

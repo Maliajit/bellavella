@@ -318,6 +318,15 @@ class ProfessionalApiService {
     return await ApiService.get('$_prefix/withdrawals/history');
   }
 
+  // --- FCM Token Management ---
+  static Future<void> saveFcmToken(String token) async {
+    try {
+      await ApiService.post('/professional/save-fcm-token', {'token': token});
+    } catch (e) {
+      debugPrint('Failed to save FCM token: $e');
+    }
+  }
+
   // --- Profile ---
   static Future<Professional> getProfile() async {
     final response = await ApiService.get('$_prefix/profile');
@@ -386,6 +395,16 @@ class ProfessionalApiService {
     final response = await ApiService.get('/professional/kit-products');
     final List data = response['data'] ?? [];
     return data.map((e) => pro_models.KitProductModel.fromJson(e)).toList();
+  }
+
+  static Future<List<Map<String, dynamic>>> getOwnedKits() async {
+    final response = await ApiService.get('/professional/kits');
+    if (response['success'] == true) {
+      if (response['data'] is List) {
+        return List<Map<String, dynamic>>.from(response['data']);
+      }
+    }
+    return [];
   }
 
   /// Step 1: Create Razorpay Order on Backend
