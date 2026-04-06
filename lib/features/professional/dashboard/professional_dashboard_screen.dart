@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/utils/permission_handler_util.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
@@ -16,6 +17,7 @@ import './widgets/job_card.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import 'package:bellavella/core/services/realtime_job_service.dart';
 import 'package:bellavella/features/professional/screens/kit_store/kit_store_screen.dart';
+import './widgets/live_timer.dart';
 
 class ProfessionalDashboardScreen extends StatefulWidget {
   const ProfessionalDashboardScreen({super.key});
@@ -41,6 +43,7 @@ class _ProfessionalDashboardScreenState
   double _shiftProgress = 0;
   int _totalShiftSeconds = 28800;
   pro_models.ShiftInfo? _shiftInfo;
+  DateTime? _onlineStartedAt; // Added to track session duration
   String? _lastNotificationId;
   Timer? _pollingTimer;
   Timer? _countdownTimer;
@@ -48,6 +51,7 @@ class _ProfessionalDashboardScreenState
   late AnimationController _radarController;
   int _failureCount = 0; // ✅ BURST PROTECTION
   bool _isSyncHalted = false; // ✅ SYNC STATE
+  bool _isResuming = false; // ✅ RESUME DEBOUNCE
 
   @override
   void initState() {
@@ -79,7 +83,6 @@ class _ProfessionalDashboardScreenState
     }
     
     debugPrint("🆔 Dashboard Init: Professional ID = ${profileController.profile?.id}, isOnline = ${profileController.isOnline}");
-
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
@@ -132,6 +135,8 @@ class _ProfessionalDashboardScreenState
           _remainingSeconds = stats.remainingSeconds;
           _shiftProgress = stats.shiftProgress;
           _shiftInfo = stats.shiftInfo;
+          _onlineStartedAt = stats.onlineStartedAt; // Sync from backend
+          
           _totalShiftSeconds = stats.shiftDuration * 60;
           if (_totalShiftSeconds <= 0) _totalShiftSeconds = 28800;
           _isLoading = false;
@@ -304,6 +309,7 @@ class _ProfessionalDashboardScreenState
       }
 
       if (value) {
+        _onlineStartedAt = DateTime.now(); // Local fallback for immediate feedback
         _fetchDashboardData(isSilent: true);
       }
     } catch (e) {
@@ -343,13 +349,7 @@ class _ProfessionalDashboardScreenState
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && mounted) {
-      _startHeartbeat();
-      _loadActiveJob(); // re-check active job when app returns to foreground
-    }
-  }
+  // Lifecycle handled by _handleResume
 
   // bool get _isOnline => mounted ? context.watch<ProfessionalProfileController>().isOnline : false; // Replaced by local _isOnline state
 
@@ -404,12 +404,13 @@ class _ProfessionalDashboardScreenState
     return "${seconds}s";
   }
 
-  String _formatRemainingTimeDigital(int totalSeconds) {
-    if (totalSeconds <= 0) return "00:00:00";
-    final h = totalSeconds ~/ 3600;
-    final m = (totalSeconds % 3600) ~/ 60;
-    final s = totalSeconds % 60;
-    return "${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  String _getSafeImageUrl(String? image, String name, {DateTime? updatedAt}) {
+    if (image != null && image.isNotEmpty) {
+      // ✅ ENTERPRISE CACHE BUSTING: Use backend updatedAt timestamp
+      final v = updatedAt?.millisecondsSinceEpoch ?? _onlineStartedAt?.millisecondsSinceEpoch ?? 1;
+      return "$image${image.contains('?') ? '&' : '?'}v=$v";
+    }
+    return "https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random&size=128";
   }
 
   String _formatDateTime(DateTime? dt) {
@@ -481,19 +482,70 @@ class _ProfessionalDashboardScreenState
       );
     }
 
-    if (_errorMessage != null) {
+    if (_errorMessage != null && _stats == null) {
       return Scaffold(
+        backgroundColor: Colors.white,
         body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('Error: $_errorMessage', textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _fetchDashboardData,
-                child: const Text('Retry'),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red.shade400),
+                ),
+                const SizedBox(height: 32),
+                Text(
+                  "Connection Error",
+                  style: GoogleFonts.inter(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 40),
+                SizedBox(
+                  width: 200,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _errorMessage = null;
+                        _isLoading = true;
+                      });
+                      _fetchDashboardData();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      "Retry Connection",
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -605,12 +657,47 @@ class _ProfessionalDashboardScreenState
     try {
       final items = await ProfessionalApiService.getLeaderboard();
       if (mounted) {
+        // 🔥 SAFE PRE-CACHE: Avoid collisions during build phase
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          for (var item in items) {
+            if (item.image.isNotEmpty) {
+              final url = _getSafeImageUrl(item.image, item.name, updatedAt: item.updatedAt);
+              precacheImage(CachedNetworkImageProvider(url), context).catchError((e) {
+                debugPrint('Failed to precache image for ${item.name}: $e');
+              });
+            }
+          }
+        });
+
         setState(() {
           _leaderboard = items;
         });
       }
     } catch (e) {
       debugPrint('Leaderboard fetch error: $e');
+    }
+  }
+
+  Future<void> _handleResume() async {
+    if (_isResuming || !mounted) return;
+    
+    _isResuming = true;
+    debugPrint("🔄 Dashboard Resumed: Debounced refresh starting...");
+    
+    try {
+      _startHeartbeat();
+      await _loadActiveJob();
+      await _fetchLeaderboard();
+    } finally {
+      _isResuming = false;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _handleResume();
     }
   }
 
@@ -643,13 +730,17 @@ class _ProfessionalDashboardScreenState
           ],
         ),
         const SizedBox(height: 20),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: _leaderboard.map((pro) {
-            return Expanded(
-              child: _buildLeaderboardCard(pro),
-            );
-          }).toList(),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: Row(
+            key: ValueKey<int>(_leaderboard.hashCode),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: _leaderboard.map((pro) {
+              return Expanded(
+                child: _buildLeaderboardCard(pro),
+              );
+            }).toList(),
+          ),
         ),
       ],
     );
@@ -680,10 +771,28 @@ class _ProfessionalDashboardScreenState
                 backgroundColor: isFirst ? Colors.amber.shade400 : Colors.grey.shade200,
                 child: CircleAvatar(
                   radius: avatarSize,
-                  backgroundColor: Colors.white,
-                  backgroundImage: pro.image.isNotEmpty 
-                      ? NetworkImage(pro.image) 
-                      : const AssetImage('assets/images/default-avatar.png') as ImageProvider,
+                  backgroundColor: Colors.grey.shade100,
+                  child: ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: _getSafeImageUrl(pro.image, pro.name, updatedAt: pro.updatedAt),
+                      width: avatarSize * 2,
+                      height: avatarSize * 2,
+                      memCacheWidth: (avatarSize * 2 * 2).toInt(), // Optimized for pixel density
+                      maxWidthDiskCache: 400,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                      errorWidget: (_, __, ___) => Center(
+                        child: Text(
+                          pro.name.isNotEmpty ? pro.name[0].toUpperCase() : "?",
+                          style: GoogleFonts.inter(
+                            fontSize: avatarSize * 0.8,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -882,8 +991,8 @@ class _ProfessionalDashboardScreenState
                       children: [
                         Icon(Icons.access_time_filled_rounded, size: 14, color: Colors.green.shade600),
                         const SizedBox(width: 6),
-                        Text(
-                          _formatRemainingTimeDigital(_remainingSeconds),
+                        LiveTimer(
+                          startTime: _onlineStartedAt,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -893,7 +1002,7 @@ class _ProfessionalDashboardScreenState
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          "remaining",
+                          "session duration",
                           style: GoogleFonts.inter(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,

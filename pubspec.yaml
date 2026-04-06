@@ -66,6 +66,7 @@ dependencies:
   cloud_firestore: any
   shimmer: ^3.0.0
   firebase_messaging: any
+  cached_network_image: ^3.3.1
 
   laravel_echo: ^1.0.0-beta.1
   pusher_client:

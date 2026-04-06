@@ -244,6 +244,7 @@ class ProfessionalBooking {
 class ShiftInfo {
   final DateTime? startTime;
   final DateTime? endTime;
+  final DateTime? onlineStartedAt;
   final int remainingSeconds;
   final bool isActive;
   final double progress;
@@ -251,6 +252,7 @@ class ShiftInfo {
   ShiftInfo({
     this.startTime,
     this.endTime,
+    this.onlineStartedAt,
     this.remainingSeconds = 0,
     this.isActive = false,
     this.progress = 0,
@@ -261,6 +263,7 @@ class ShiftInfo {
     return ShiftInfo(
       startTime: json['start_time'] != null ? DateTime.tryParse(json['start_time'].toString()) : null,
       endTime: json['end_time'] != null ? DateTime.tryParse(json['end_time'].toString()) : null,
+      onlineStartedAt: json['online_started_at'] != null ? DateTime.tryParse(json['online_started_at'].toString()) : null,
       remainingSeconds: int.tryParse(json['remaining_seconds']?.toString() ?? '0') ?? 0,
       isActive: json['is_active'] == true,
       progress: ParserUtil.safeParseDouble(json['progress']),
@@ -284,6 +287,7 @@ class ProfessionalDashboardStats {
   final int shiftDuration;
   final String? sessionId;
   final ShiftInfo? shiftInfo;
+  final DateTime? onlineStartedAt;
   final double availableBalance;
   final double pendingBalance;
   final int withdrawDelayDays;
@@ -305,6 +309,7 @@ class ProfessionalDashboardStats {
     this.shiftDuration = 480,
     this.sessionId,
     this.shiftInfo,
+    this.onlineStartedAt,
     this.availableBalance = 0,
     this.pendingBalance = 0,
     this.withdrawDelayDays = 3,
@@ -345,6 +350,9 @@ class ProfessionalDashboardStats {
       shiftDuration: int.tryParse(json['shift_duration']?.toString() ?? '480') ?? 480,
       sessionId: json['session_id']?.toString(),
       shiftInfo: json['shift_info'] != null ? ShiftInfo.fromJson(json['shift_info']) : null,
+      onlineStartedAt: json['shift_info'] != null && json['shift_info']['online_started_at'] != null 
+          ? DateTime.tryParse(json['shift_info']['online_started_at'].toString()) 
+          : null,
       availableBalance: ParserUtil.safeParseDouble(json['available_balance']),
       pendingBalance: ParserUtil.safeParseDouble(json['pending_balance']),
       withdrawDelayDays: int.tryParse(json['withdraw_delay_days']?.toString() ?? '3') ?? 3,
@@ -360,6 +368,7 @@ class LeaderboardItem {
   final String image;
   final int completedJobs;
   final int rank;
+  final DateTime? updatedAt;
 
   LeaderboardItem({
     required this.id,
@@ -368,6 +377,7 @@ class LeaderboardItem {
     required this.image,
     required this.completedJobs,
     required this.rank,
+    this.updatedAt,
   });
 
   factory LeaderboardItem.fromJson(Map<String, dynamic> json) {
@@ -378,6 +388,7 @@ class LeaderboardItem {
       image: (json['image'] ?? '').toString(),
       completedJobs: int.tryParse(json['completed_jobs_count']?.toString() ?? '0') ?? 0,
       rank: int.tryParse(json['rank']?.toString() ?? '0') ?? 0,
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
     );
   }
 }
