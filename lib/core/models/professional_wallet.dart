@@ -124,7 +124,7 @@ class ProfessionalWallet {
     );
   }
 
-  double get totalBalance => availableBalance + depositBalance + cashBalance;
+  double get totalBalance => availableBalance + depositBalance;
   int get kitCount => kits.length;
 }
 

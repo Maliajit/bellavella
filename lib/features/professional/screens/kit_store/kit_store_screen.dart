@@ -89,13 +89,13 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
     try {
       final products = await ProfessionalApiService.getKitProducts();
       final stats = await ProfessionalApiService.getDashboardStats();
-      final wallet = await ProfessionalApiService.getWallet();
+      final wallet = await ProfessionalApiService.getWallet(tab: 'coins');
       
       if (!mounted) return;
       setState(() {
         _kits = products;
         _currentKits = stats.kitCount;
-        _walletBalance = wallet.totalBalance;
+        _walletBalance = wallet.coins.toDouble();
         _isLoading = false;
       });
     } catch (e) {
@@ -560,7 +560,7 @@ class _KitStoreScreenState extends State<KitStoreScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Wallet Balance', style: GoogleFonts.poppins(fontSize: 12, color: const Color(0xFF6B7280))),
-                            Text('₹${_walletBalance.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
+                            Text('${_walletBalance.toStringAsFixed(0)} coins', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF111827))),
                           ],
                         ),
                       ),
