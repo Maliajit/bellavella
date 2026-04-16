@@ -22,6 +22,7 @@ import 'features/client/home/controllers/home_provider.dart';
 import 'features/client/packages/controllers/package_provider.dart';
 import 'features/client/services/controllers/service_provider.dart';
 import 'package:bellavella/features/client/cart/controllers/cart_provider.dart';
+import 'features/professional/auth/suspended_screen.dart';
 
 void main({RouterConfig<Object>? router}) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -96,6 +97,19 @@ class BellavellaApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       routerConfig: routerConfig, 
       debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        if (AppConfig.isProfessional) {
+          return Consumer<ProfessionalProfileController>(
+            builder: (context, profileCtrl, _) {
+              if (profileCtrl.isSuspended) {
+                return const SuspendedScreen();
+              }
+              return child ?? const SizedBox();
+            },
+          );
+        }
+        return child ?? const SizedBox();
+      },
     );
   }
 }

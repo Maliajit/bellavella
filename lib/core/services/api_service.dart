@@ -4,10 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../routes/app_routes.dart';
 import '../config/app_config.dart';
 import '../router/client_router.dart';
 import '../router/professional_router.dart';
+import '../../features/professional/controllers/professional_profile_controller.dart';
 import 'token_manager.dart';
 
 class _ApiAuthExpiredException implements Exception {
@@ -26,7 +28,7 @@ class ApiService {
   static String get _baseUrl => AppConfig.baseUrl;
   static Completer<bool>? _refreshCompleter;
   static bool _isRedirectingToLogin = false;
-  static bool _isRedirectingToSuspended = false;
+  static bool _isHandlingSuspend = false;
   static const String sessionExpiredMessage =
       'Your session expired. Please sign in again to continue.';
 
@@ -258,22 +260,53 @@ class ApiService {
     });
   }
 
-  static Future<void> _handleSuspendedAccount() async {
-    debugPrint('ApiService: accounts suspended, redirecting to SuspendedScreen');
-    if (_isRedirectingToSuspended) {
+  static bool _isSuspendedResponse(Map<String, dynamic> decodedResponse) {
+    final nestedData =
+        decodedResponse['data'] is Map
+            ? Map<String, dynamic>.from(decodedResponse['data'] as Map)
+            : null;
+
+    return decodedResponse['is_suspended'] == true ||
+        nestedData?['is_suspended'] == true ||
+        decodedResponse['status'] == 'suspended' ||
+        nestedData?['status'] == 'suspended';
+  }
+
+  static String? _extractSuspensionReason(Map<String, dynamic> decodedResponse) {
+    final nestedData =
+        decodedResponse['data'] is Map
+            ? Map<String, dynamic>.from(decodedResponse['data'] as Map)
+            : null;
+
+    return decodedResponse['suspension_reason']?.toString() ??
+        nestedData?['suspension_reason']?.toString();
+  }
+
+  static Future<void> _handleSuspendedAccount([
+    Map<String, dynamic>? decodedResponse,
+  ]) async {
+    debugPrint('ApiService: suspended response detected, forcing suspend flow.');
+    if (_isHandlingSuspend) {
       return;
     }
 
-    _isRedirectingToSuspended = true;
+    _isHandlingSuspend = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
-        if (AppConfig.isProfessional) {
+        final context = proNavigatorKey.currentContext;
+        if (AppConfig.isProfessional && context != null) {
+          context.read<ProfessionalProfileController>().forceSuspendFlow(
+            reason: _extractSuspensionReason(
+              decodedResponse ?? <String, dynamic>{},
+            ),
+          );
+        } else if (AppConfig.isProfessional) {
           professionalRouter.go(AppRoutes.proSuspended);
         }
       } catch (e) {
-        debugPrint('ApiService: suspended redirect failed -> $e');
+        debugPrint('ApiService: suspended handoff failed -> $e');
       } finally {
-        _isRedirectingToSuspended = false;
+        _isHandlingSuspend = false;
       }
     });
   }
@@ -330,6 +363,8 @@ class ApiService {
           decodedResponse?['message']?.toString() ??
           'Your account has been suspended. Please contact support.',
       'status': 'suspended',
+      'is_suspended': true,
+      'suspension_reason': decodedResponse?['suspension_reason']?.toString(),
       '_account_suspended': true,
       '_http_status': 403,
     };
@@ -417,8 +452,8 @@ class ApiService {
         return _unauthorizedResponse(decodedResponse, endpoint);
       }
 
-      if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
-        await _handleSuspendedAccount();
+      if (response.statusCode == 403 && _isSuspendedResponse(decodedResponse)) {
+        await _handleSuspendedAccount(decodedResponse);
         throw _ApiSuspendedException(decodedResponse);
       }
 
@@ -478,8 +513,8 @@ class ApiService {
         return _unauthorizedResponse(decodedResponse, endpoint);
       }
 
-      if (response.statusCode == 403 && decodedResponse['status'] == 'suspended') {
-        await _handleSuspendedAccount();
+      if (response.statusCode == 403 && _isSuspendedResponse(decodedResponse)) {
+        await _handleSuspendedAccount(decodedResponse);
         throw _ApiSuspendedException(decodedResponse);
       }
 

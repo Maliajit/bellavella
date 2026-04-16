@@ -213,6 +213,7 @@ class Professional {
   final int rejectCount;
   final String? lastRejectDate;
   final bool isSuspended;
+  final String? suspensionReason;
   final Map<String, KycDocument>? documents;
 
   Professional({
@@ -254,6 +255,7 @@ class Professional {
     this.rejectCount = 0,
     this.lastRejectDate,
     this.isSuspended = false,
+    this.suspensionReason,
     this.documents,
   });
 
@@ -296,6 +298,7 @@ class Professional {
     int? rejectCount,
     String? lastRejectDate,
     bool? isSuspended,
+    String? suspensionReason,
     Map<String, KycDocument>? documents,
   }) {
     return Professional(
@@ -337,6 +340,7 @@ class Professional {
       rejectCount: rejectCount ?? this.rejectCount,
       lastRejectDate: lastRejectDate ?? this.lastRejectDate,
       isSuspended: isSuspended ?? this.isSuspended,
+      suspensionReason: suspensionReason ?? this.suspensionReason,
       documents: documents ?? this.documents,
     );
   }
@@ -405,6 +409,7 @@ class Professional {
       rejectCount: ParserUtil.safeParseInt(json['reject_count']),
       lastRejectDate: json['last_reject_date']?.toString(),
       isSuspended: json['is_suspended'] == true || json['is_suspended'] == 1,
+      suspensionReason: json['suspension_reason']?.toString(),
       documents: json['documents'] is Map 
         ? (json['documents'] as Map).map((k, v) => MapEntry(k.toString(), KycDocument.fromJson(v))) 
         : null,

@@ -36,7 +36,12 @@ class _ProfessionalScaffoldState extends State<ProfessionalScaffold> {
 
   void _initRealtimeListeners() {
     if (!mounted) return;
-    final profile = context.read<ProfessionalProfileController>().profile;
+    final profileController = context.read<ProfessionalProfileController>();
+    final profile = profileController.profile;
+    if (profileController.isSuspended) {
+      RealtimeJobService.stop();
+      return;
+    }
     if (profile != null) {
       RealtimeJobService.start(profile.id.toString(), proNavigatorKey);
     }

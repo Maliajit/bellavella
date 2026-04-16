@@ -18,7 +18,7 @@ import 'package:bellavella/core/widgets/mock_razorpay_dialog.dart';
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:provider/provider.dart';
 
-enum WalletTab { earnings, deposit, coins }
+enum WalletTab { earnings, coins }
 
 class ProfessionalWalletScreen extends StatefulWidget {
   const ProfessionalWalletScreen({super.key});
@@ -44,7 +44,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   DateTime? _lastSyncedAt;
 
   // Design tokens
-  static const double _minDeposit = 1500.0;
   static const Color _primary = Color(0xFFFF4D7D); // Primary Pink
   static const Color _green   = Color(0xFF22C55E); // Success Color
   static const Color _blue    = Color(0xFF3D8BFF);
@@ -57,7 +56,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) return;
       setState(() => _activeTab = WalletTab.values[_tabController.index]);
@@ -168,16 +167,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
     return 'Refreshed';
   }
 
-  // Getters
-  double get _earn  => _wallet?.availableBalance ?? 0.0;
-  double get _dep   => _wallet?.depositBalance ?? 0.0;
-  double get _total => (_wallet?.cashBalance ?? 0.0);
-  bool   get _depOk => _dep >= _minDeposit;
-  double get _need  => (_minDeposit - _dep).clamp(0.0, _minDeposit);
-  String _fmt(double v) {
-    if (v >= 100000) return '₹${(v/100000).toStringAsFixed(1)}L';
-    return v >= 1000 ? '₹${(v/1000).toStringAsFixed(1)}K' : '₹${v.toStringAsFixed(0)}';
-  }
+
 
   // --- Razorpay Methods ---
 
@@ -350,7 +340,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
   Widget _decoCircle(double size, Color c) => Container(width: size, height: size, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
 
-  Widget _verticalDivider() => Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 12), color: Colors.white.withOpacity(0.1));
+
 
 
 
@@ -364,9 +354,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       child: Row(
         children: [
           _tab(Icons.trending_up_rounded, 'Earnings', WalletTab.earnings, _primary),
-          _tab(Icons.savings_outlined, 'Deposit', WalletTab.deposit, _blue),
           _tab(Icons.toll_rounded, 'Coins', WalletTab.coins, _amber),
-
         ],
       ),
     );
@@ -396,9 +384,7 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   Widget _buildTabBody() {
     switch (_activeTab) {
       case WalletTab.earnings: return _earningsTab();
-      case WalletTab.deposit:  return _depositTab();
       case WalletTab.coins:    return _coinsTab();
-
     }
   }
 
@@ -430,41 +416,44 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
                 padding: const EdgeInsets.all(28),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Header row
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Cash Balance', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w500)),
-                        if (_lastSyncedAt != null) ...[
-                          const SizedBox(width: 8),
+                        Text('Available Balance', style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.7), fontSize: 13, fontWeight: FontWeight.w500)),
+                        if (_lastSyncedAt != null)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
                             child: Text(_getLastSyncedText(), style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.5), fontSize: 9, fontWeight: FontWeight.w600)),
                           ),
-                        ],
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
+                    // Big available number
                     Text(
                       '₹${(_wallet?.availableBalance ?? 0).toStringAsFixed(0)}',
                       style: GoogleFonts.outfit(color: Colors.white, fontSize: 44, fontWeight: FontWeight.w900, letterSpacing: -1.5, height: 1),
                     ),
-                    const SizedBox(height: 18),
-                    // Balance breakdown
+                    const SizedBox(height: 20),
+                    // 3-row breakdown pill
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.05),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        border: Border.all(color: Colors.white.withOpacity(0.08)),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
                         children: [
-                          _smallHeroStat('Available', _wallet?.availableBalance ?? 0, _green, subtitle: 'Withdrawable'),
-                          _verticalDivider(),
-                          _smallHeroStat('Total', _wallet?.earningsBalance ?? 0, Colors.white, subtitle: 'Earned'),
+                          _heroBreakdownRow('💰', 'Earnings', _wallet?.totalEarnings ?? 0, _green, isCredit: true),
+                          const SizedBox(height: 10),
+                          _heroBreakdownRow('💳', 'Deposits', _wallet?.totalDeposits ?? 0, _blue, isCredit: true),
+                          const SizedBox(height: 10),
+                          _heroBreakdownRow('📤', 'Withdrawn', _wallet?.totalWithdrawn ?? 0, Colors.redAccent, isCredit: false),
                         ],
                       ),
                     ),
@@ -482,66 +471,65 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
   //  EARNINGS TAB
   // ══════════════════════════════════════════════════════
   Widget _earningsTab() {
-    final today   = _wallet?.todayEarnings ?? 0.0;
-    final weekly  = _wallet?.weeklyEarnings ?? 0.0;
-    final monthly = _wallet?.monthlyEarnings ?? 0.0;
     final jobs    = _wallet?.totalJobs ?? 0;
     final active  = _stats?.activeJobsCount ?? 0;
-
     final canWithdraw = _withdrawUnlocked;
+    final totalEarnings  = _wallet?.totalEarnings  ?? 0.0;
+    final totalDeposits  = _wallet?.totalDeposits  ?? 0.0;
+    final totalWithdrawn = _wallet?.totalWithdrawn ?? 0.0;
+    final pendingBal     = (_wallet?.pendingBalance ?? 0.0).clamp(0.0, double.infinity);
+
     return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 20),
-
       _buildEarningsHero(),
       const SizedBox(height: 24),
 
-
       // Action buttons row
       Row(children: [
+        Expanded(child: _actionCard(Icons.add_circle_outline_rounded, 'Deposit', _blue, () => _showAddMoneySheet(), outlined: true)),
+        const SizedBox(width: 12),
         Expanded(child: _actionCard(
-          Icons.call_received_rounded, 
-          canWithdraw ? "Withdraw ₹${(_wallet?.availableBalance ?? 0).toStringAsFixed(0)}" : "Withdraw Locked", 
-          canWithdraw ? _primary : Colors.grey, 
+          Icons.call_received_rounded,
+          canWithdraw ? 'Withdraw ₹${(_wallet?.availableBalance ?? 0).toStringAsFixed(0)}' : 'Withdraw Locked',
+          canWithdraw ? _primary : Colors.grey,
           canWithdraw ? () => _handleWithdrawClick(isEarnings: true) : null,
         )),
-        const SizedBox(width: 12),
-        Expanded(child: _actionCard(Icons.receipt_long_rounded, 'Transactions', Colors.black87, () => context.pushNamed(AppRoutes.proTransactionsName), outlined: true)),
       ]),
       const SizedBox(height: 12),
 
       Text(
         canWithdraw
             ? '🔓 You can withdraw now'
-            : '🔒 Next withdrawal available in ${_formatPreciseRemainingTime(_remainingSeconds)}',
+            : '🔒 Next withdrawal in ${_formatPreciseRemainingTime(_remainingSeconds)}',
         style: GoogleFonts.outfit(
-          fontSize: 14,
+          fontSize: 13,
           color: canWithdraw ? _green : Colors.red.shade400,
           fontWeight: canWithdraw ? FontWeight.w800 : FontWeight.w500,
         ),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 28),
 
-      // Summary
-      _sLabel('Earnings Summary'),
+      // ── Wallet Breakdown (replaces Today/Weekly/Monthly) ──────────────────
+      _sLabel('Wallet Breakdown'),
       const SizedBox(height: 12),
-      Row(children: [
-        Expanded(child: _statCard(Icons.wb_sunny_outlined, 'Today', '₹${today.toStringAsFixed(0)}', Colors.orange)),
-        const SizedBox(width: 10),
-        Expanded(child: _statCard(Icons.bar_chart_rounded, 'Weekly', _fmt(weekly), Colors.blue)),
-        const SizedBox(width: 10),
-        Expanded(child: _statCard(Icons.calendar_month_outlined, 'Monthly', _fmt(monthly), _primary)),
-      ]),
+      _card(Column(children: [
+        _breakdownRow(Icons.trending_up_rounded,    'Total Earnings',  totalEarnings,  _green,       isCredit: true),
+        _divider(),
+        _breakdownRow(Icons.savings_outlined,        'Total Deposits',  totalDeposits,  _blue,        isCredit: true),
+        _divider(),
+        _breakdownRow(Icons.call_made_rounded,       'Total Withdrawn', totalWithdrawn, Colors.red,   isCredit: false),
+        _divider(),
+        _breakdownRow(Icons.hourglass_bottom_rounded,'Pending',         pendingBal,     _amber,       isCredit: null),
+      ])),
       const SizedBox(height: 24),
-
-
 
       // Jobs
       _sLabel('Active Jobs'),
       const SizedBox(height: 12),
       _card(Column(children: [
-        _jobRow(Icons.work_outline_rounded, 'Jobs Assigned', '$jobs', Colors.indigo),
+        _jobRow(Icons.work_outline_rounded,  'Jobs Assigned', '$jobs',   Colors.indigo),
         _divider(),
-        _jobRow(Icons.autorenew_rounded, 'In Progress', '$active', Colors.orange),
+        _jobRow(Icons.autorenew_rounded, 'In Progress',  '$active', Colors.orange),
       ])),
       const SizedBox(height: 24),
 
@@ -555,47 +543,14 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       ]),
       const SizedBox(height: 24),
 
-      // Transactions
-      _sLabel('Recent Transactions'),
+      // Recent Transactions
+      _sLabel('Recent Activity'),
       const SizedBox(height: 12),
       _txSection(),
     ]));
   }
 
-  // ══════════════════════════════════════════════════════
-  //  DEPOSIT TAB
-  // ══════════════════════════════════════════════════════
-  Widget _depositTab() {
-    return _padded(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const SizedBox(height: 20),
-
-      // Deposit balance card
-      _card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Deposit Balance', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 4),
-            Text('₹${_dep.toStringAsFixed(0)}', style: GoogleFonts.outfit(fontSize: 34, fontWeight: FontWeight.w900, color: Colors.black87, letterSpacing: -0.5)),
-          ]),
-          Container(width: 54, height: 54, decoration: BoxDecoration(color: _blue.withOpacity(0.1), borderRadius: BorderRadius.circular(16)),
-              child: Icon(Icons.savings_outlined, color: _blue, size: 26)),
-        ]),
-        const SizedBox(height: 16),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Recommended: ₹${_minDeposit.toStringAsFixed(0)}', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
-        ]),
-      ])),
-      const SizedBox(height: 14),
-
-      // Buttons
-      Row(children: [
-        Expanded(child: _actionCard(Icons.add_circle_outline_rounded, 'Add Money', _blue, () => _showAddMoneySheet())),
-        const SizedBox(width: 12),
-        Expanded(child: _actionCard(Icons.arrow_upward_rounded, 'History', Colors.black87, () => context.pushNamed(AppRoutes.proTransactionsName), outlined: true)),
-      ]),
-      const SizedBox(height: 24),
-    ]));
-  }
+  // ── Deposit tab removed — deposit is now inline inside Earnings tab ──
 
   // ══════════════════════════════════════════════════════
   //  COINS TAB
@@ -678,21 +633,33 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
 
   Widget _divider() => const Divider(color: Color(0xFFE5E7EB), height: 24, thickness: 1);
 
-  Widget _statCard(IconData icon, String label, String val, Color c) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)]),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(width: 34, height: 34, decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: c, size: 18)),
-        const SizedBox(height: 10),
-        Text(val, style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w900, color: _textPrimary)),
-        const SizedBox(height: 2),
-        Text(label, style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600, color: _textSecondary)),
-      ]),
-    );
+  // Hero card inline breakdown row (dark bg)
+  Widget _heroBreakdownRow(String emoji, String label, double amount, Color color, {required bool isCredit}) {
+    final prefix = isCredit ? '+' : '-';
+    return Row(children: [
+      Text(emoji, style: const TextStyle(fontSize: 16)),
+      const SizedBox(width: 10),
+      Expanded(child: Text(label, style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.75), fontSize: 13, fontWeight: FontWeight.w500))),
+      Text('$prefix₹${amount.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: color, fontSize: 14, fontWeight: FontWeight.w800)),
+    ]);
   }
+
+  // Wallet breakdown row (white card bg)
+  Widget _breakdownRow(IconData icon, String label, double amount, Color c, {required bool? isCredit}) {
+    final prefix = isCredit == null ? '' : (isCredit ? '+' : '-');
+    final amtColor = isCredit == null ? _textPrimary : (isCredit ? c : c);
+    return Row(children: [
+      Container(width: 38, height: 38, decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(11)),
+          child: Icon(icon, color: c, size: 18)),
+      const SizedBox(width: 14),
+      Expanded(child: Text(label, style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600, color: _textPrimary))),
+      Text(
+        '$prefix₹${amount.toStringAsFixed(0)}',
+        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w800, color: amtColor),
+      ),
+    ]);
+  }
+
 
   Widget _jobRow(IconData icon, String label, String count, Color c) {
     return Row(children: [
@@ -710,15 +677,15 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 15),
         decoration: BoxDecoration(
-          color: outlined ? Colors.white : c,
+          color: outlined ? c.withOpacity(0.06) : c,
           borderRadius: BorderRadius.circular(16),
-          border: outlined ? Border.all(color: Colors.grey.shade200, width: 1.5) : null,
+          border: outlined ? Border.all(color: c.withOpacity(0.5), width: 1.5) : null,
           boxShadow: outlined ? null : [BoxShadow(color: c.withOpacity(0.28), blurRadius: 12, offset: const Offset(0, 4))],
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(icon, color: outlined ? Colors.black87 : Colors.white, size: 18),
+          Icon(icon, color: outlined ? c : Colors.white, size: 18),
           const SizedBox(width: 8),
-          Text(label, style: GoogleFonts.outfit(color: outlined ? Colors.black87 : Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+          Text(label, style: GoogleFonts.outfit(color: outlined ? c : Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
         ]),
       ),
     );
@@ -946,16 +913,6 @@ class _ProfessionalWalletScreenState extends State<ProfessionalWalletScreen>
         ));
   }
 
-  Widget _smallHeroStat(String label, double val, Color color, {required String subtitle}) {
-    return Column(
-      children: [
-        Text(label, style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.5), fontSize: 10, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        Text('₹${val.toStringAsFixed(0)}', style: GoogleFonts.outfit(color: color, fontSize: 15, fontWeight: FontWeight.bold)),
-        Text(subtitle, style: GoogleFonts.outfit(color: Colors.white.withOpacity(0.3), fontSize: 9)),
-      ],
-    );
-  }
 }
 
 // ─── Add Money Sheet ───────────────────────────────────────────────────────────
