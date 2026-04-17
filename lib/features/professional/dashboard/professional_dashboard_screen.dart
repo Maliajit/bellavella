@@ -884,13 +884,35 @@ class _ProfessionalDashboardScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Hello, ${profile?.name ?? 'Professional'}',
-                      style: GoogleFonts.inter(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.black87,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          profile?.name ?? 'Professional',
+                          style: GoogleFonts.inter(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (profile != null && profile.status.toLowerCase() != 'active') ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              profile.status.toUpperCase(),
+                              style: GoogleFonts.inter(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     const SizedBox(height: 2),
                     Row(
@@ -918,7 +940,9 @@ class _ProfessionalDashboardScreenState
                 children: [
                   AvailabilityToggle(
                     isOnline: profileController.isOnline,
-                    onChanged: (value) => _toggleAvailability(value),
+                    onChanged: (profile == null || profile.status.toLowerCase() != 'active') 
+                        ? null 
+                        : (value) => _toggleAvailability(value),
                   ),
                   const SizedBox(width: 8),
                   IconButton(

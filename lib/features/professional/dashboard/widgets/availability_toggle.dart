@@ -4,18 +4,18 @@ import 'package:bellavella/core/theme/app_theme.dart';
 
 class AvailabilityToggle extends StatelessWidget {
   final bool isOnline;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool>? onChanged;
 
   const AvailabilityToggle({
     super.key,
     required this.isOnline,
-    required this.onChanged,
+    this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => onChanged(!isOnline),
+      onTap: onChanged != null ? () => onChanged!(!isOnline) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         width: 110,
@@ -29,7 +29,7 @@ class AvailabilityToggle extends StatelessWidget {
             color: isOnline 
                 ? Colors.green.withValues(alpha: 0.25) 
                 : Colors.grey.withValues(alpha: 0.2),
-            width: 1.5,
+            width: onChanged == null ? 0.5 : 1.5,
           ),
         ),
         child: Stack(

@@ -776,14 +776,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.6.7"
-  laravel_echo:
-    dependency: "direct main"
-    description:
-      name: laravel_echo
-      sha256: aec1c8a989f8718ffbb9864e746eed2181638e156d4e22724230a5be9cdf43ab
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0-beta.1"
   leak_tracker:
     dependency: transitive
     description:
@@ -1072,13 +1064,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.2.0"
-  pusher_client:
+  pusher_channels_flutter:
     dependency: "direct main"
     description:
-      path: "local_packages/pusher_client"
-      relative: true
-    source: path
-    version: "2.0.0"
+      name: pusher_channels_flutter
+      sha256: "0b06194d85d1665d21e634ea091917b28670fb6d585d76903a4f72d894906000"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.4.0"
   razorpay_flutter:
     dependency: "direct main"
     description:

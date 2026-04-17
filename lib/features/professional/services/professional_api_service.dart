@@ -330,6 +330,7 @@ class ProfessionalApiService {
   // --- Profile ---
   static Future<Professional> getProfile() async {
     final response = await ApiService.get('$_prefix/profile');
+    debugPrint('FULL API RESPONSE: $response');
     if (response['success'] == true) {
       return Professional.fromJson(response['data']);
     }

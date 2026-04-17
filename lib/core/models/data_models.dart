@@ -180,6 +180,7 @@ class Professional {
   final String phone;
   final String email;
   final String status;
+  final String availabilityStatus;
   final String verification;
   final String? experience;
   final String? joined;
@@ -223,6 +224,7 @@ class Professional {
     required this.phone,
     this.email = '',
     required this.status,
+    this.availabilityStatus = 'offline',
     required this.verification,
     this.experience,
     this.joined,
@@ -265,6 +267,7 @@ class Professional {
     String? phone,
     String? email,
     String? status,
+    String? availabilityStatus,
     String? verification,
     String? experience,
     String? joined,
@@ -306,6 +309,7 @@ class Professional {
       phone: phone ?? this.phone,
       email: email ?? this.email,
       status: status ?? this.status,
+      availabilityStatus: availabilityStatus ?? this.availabilityStatus,
       verification: verification ?? this.verification,
       experience: experience ?? this.experience,
       joined: joined ?? this.joined,
@@ -343,7 +347,7 @@ class Professional {
 
   factory Professional.fromJson(dynamic json) {
     if (json is! Map) {
-      return Professional(id: '', name: 'Error Loading', photoUrl: '', rating: 0, phone: '', status: '', verification: '', payout: PayoutDetails(), isOnline: false);
+      return Professional(id: '', name: 'Error Loading', photoUrl: '', rating: 0, phone: '', status: '', availabilityStatus: 'offline', verification: '', payout: PayoutDetails(), isOnline: false);
     }
     
     List<Service> services = [];
@@ -366,7 +370,8 @@ class Professional {
       rating: ParserUtil.safeParseDouble(json['rating']),
       phone: (json['phone'] ?? json['mobile'] ?? '').toString(),
       email: (json['email'] ?? '').toString(),
-      status: (json['status'] ?? 'Active').toString(),
+      status: json['status']?.toString().toLowerCase() ?? 'active',
+      availabilityStatus: json['availability_status']?.toString() ?? 'offline',
       verification: (json['verification'] ?? 'Pending').toString(),
       experience: json['experience']?.toString(),
       joined: json['created_at']?.toString() ?? json['joined']?.toString(),
