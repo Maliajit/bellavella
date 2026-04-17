@@ -43,7 +43,6 @@ class _ProfessionalDashboardScreenState
   double _shiftProgress = 0;
   int _totalShiftSeconds = 28800;
   pro_models.ShiftInfo? _shiftInfo;
-  DateTime? _onlineStartedAt; // Added to track session duration
   String? _lastNotificationId;
   Timer? _pollingTimer;
   Timer? _countdownTimer;
@@ -135,7 +134,6 @@ class _ProfessionalDashboardScreenState
           _remainingSeconds = stats.remainingSeconds;
           _shiftProgress = stats.shiftProgress;
           _shiftInfo = stats.shiftInfo;
-          _onlineStartedAt = stats.onlineStartedAt; // Sync from backend
           
           _totalShiftSeconds = stats.shiftDuration * 60;
           if (_totalShiftSeconds <= 0) _totalShiftSeconds = 28800;
@@ -309,7 +307,9 @@ class _ProfessionalDashboardScreenState
       }
 
       if (value) {
-        _onlineStartedAt = DateTime.now(); // Local fallback for immediate feedback
+        setState(() {
+          _isOnline = true;
+        });
         _fetchDashboardData(isSilent: true);
       }
     } catch (e) {
@@ -407,7 +407,7 @@ class _ProfessionalDashboardScreenState
   String _getSafeImageUrl(String? image, String name, {DateTime? updatedAt}) {
     if (image != null && image.isNotEmpty) {
       // ✅ ENTERPRISE CACHE BUSTING: Use backend updatedAt timestamp
-      final v = updatedAt?.millisecondsSinceEpoch ?? _onlineStartedAt?.millisecondsSinceEpoch ?? 1;
+      final v = updatedAt?.millisecondsSinceEpoch ?? 1;
       return "$image${image.contains('?') ? '&' : '?'}v=$v";
     }
     return "https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random&size=128";
@@ -992,7 +992,6 @@ class _ProfessionalDashboardScreenState
                         Icon(Icons.access_time_filled_rounded, size: 14, color: Colors.green.shade600),
                         const SizedBox(width: 6),
                         LiveTimer(
-                          startTime: _onlineStartedAt,
                           style: GoogleFonts.inter(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,

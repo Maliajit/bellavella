@@ -570,3 +570,28 @@ class ReferralHistory {
     );
   }
 }
+
+class OnlineSession {
+  final DateTime startTime;
+  final DateTime endTime;
+
+  OnlineSession({
+    required this.startTime,
+    required this.endTime,
+  });
+
+  int get durationSeconds => endTime.difference(startTime).inSeconds;
+
+  Map<String, dynamic> toJson() => {
+    'start': startTime.toIso8601String(),
+    'end': endTime.toIso8601String(),
+    'duration': durationSeconds,
+  };
+
+  factory OnlineSession.fromJson(Map<String, dynamic> json) {
+    return OnlineSession(
+      startTime: DateTime.parse(json['start']),
+      endTime: DateTime.parse(json['end']),
+    );
+  }
+}
