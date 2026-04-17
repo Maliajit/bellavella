@@ -25,9 +25,7 @@ class _SplashScreenState extends State<SplashScreen> {
             try {
               final profile = await ProfessionalApiService.getProfile();
               if (mounted) {
-                if (profile.isSuspended) {
-                  context.go(AppRoutes.proSuspended);
-                } else if (profile.verification == 'Verified') {
+                if (profile.verification == 'Verified') {
                   context.go(AppRoutes.proDashboard);
                 } else {
                   context.go(AppRoutes.proVerificationStatus, extra: profile.name);

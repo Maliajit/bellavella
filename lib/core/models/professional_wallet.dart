@@ -9,11 +9,6 @@ class ProfessionalWallet {
   final double lockedBalance;
   final double earningsBalance;
 
-  // Wallet composition breakdown
-  final double totalEarnings;   // credited from jobs/bookings
-  final double totalDeposits;   // manually added via Razorpay
-  final double totalWithdrawn;  // debited via withdrawal requests
-
   final double todayEarnings;
   final double weeklyEarnings;
   final double monthlyEarnings;
@@ -45,9 +40,6 @@ class ProfessionalWallet {
     required this.cashBalance,
     required this.lockedBalance,
     required this.earningsBalance,
-    this.totalEarnings = 0.0,
-    this.totalDeposits = 0.0,
-    this.totalWithdrawn = 0.0,
     required this.todayEarnings,
     required this.weeklyEarnings,
     required this.monthlyEarnings,
@@ -98,9 +90,6 @@ class ProfessionalWallet {
       cashBalance: (json['cash_balance'] as num? ?? 0).toDouble(),
       lockedBalance: (json['locked_balance'] as num? ?? 0).toDouble(),
       earningsBalance: (json['earnings_balance'] as num? ?? 0).toDouble(),
-      totalEarnings: (json['total_earnings'] as num? ?? 0).toDouble(),
-      totalDeposits: (json['total_deposits'] as num? ?? 0).toDouble(),
-      totalWithdrawn: (json['total_withdrawn'] as num? ?? 0).toDouble(),
 
       todayEarnings: (json['today_earnings'] as num? ?? 0).toDouble(),
       weeklyEarnings: (json['weekly_earnings'] as num? ?? 0).toDouble(),

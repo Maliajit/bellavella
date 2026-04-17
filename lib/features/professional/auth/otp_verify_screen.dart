@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/services/notification_service.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:pinput/pinput.dart';
 import '../../../../core/widgets/base_widgets.dart';
-import '../controllers/professional_profile_controller.dart';
 import '../services/professional_api_service.dart';
 
 class OTPVerifyScreen extends StatefulWidget {
@@ -91,17 +89,7 @@ class _OTPVerifyScreenState extends State<OTPVerifyScreen> with CodeAutoFill {
             });
           } else {
             await NotificationService().registerFcmToken();
-            await context.read<ProfessionalProfileController>().fetchProfile();
-            if (!mounted) {
-              return;
-            }
-
-            final controller = context.read<ProfessionalProfileController>();
-            if (controller.isSuspended) {
-              context.go('/professional/suspended');
-            } else {
-              context.go('/professional/dashboard');
-            }
+            context.go('/professional/dashboard');
           }
         } else {
           setState(() {
