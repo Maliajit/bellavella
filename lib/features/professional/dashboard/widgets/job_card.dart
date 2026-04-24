@@ -8,7 +8,6 @@ class JobCard extends StatelessWidget {
   final ProfessionalBooking job;
   final String buttonText;
   final VoidCallback onPressed;
-  final VoidCallback? onCall;
   final VoidCallback? onNavigate;
 
   const JobCard({
@@ -16,7 +15,6 @@ class JobCard extends StatelessWidget {
     required this.job,
     required this.buttonText,
     required this.onPressed,
-    this.onCall,
     this.onNavigate,
   });
 
@@ -121,16 +119,7 @@ class JobCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // Price
-          Text(
-            '₹${job.totalPrice.toStringAsFixed(0)}',
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Colors.white.withValues(alpha: 0.8),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Location
           Row(
@@ -157,14 +146,8 @@ class JobCard extends StatelessWidget {
           Row(
             children: [
               _buildSecondaryAction(
-                icon: Icons.phone_rounded,
-                label: 'Call',
-                onTap: onCall,
-              ),
-              const SizedBox(width: 12),
-              _buildSecondaryAction(
                 icon: Icons.near_me_rounded,
-                label: 'Navigate',
+                label: 'Map',
                 onTap: onNavigate,
               ),
             ],

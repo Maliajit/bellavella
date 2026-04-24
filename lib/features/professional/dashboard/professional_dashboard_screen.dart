@@ -10,7 +10,8 @@ import 'package:bellavella/core/utils/permission_handler_util.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
 import './widgets/availability_toggle.dart';
 import 'package:bellavella/features/professional/services/professional_api_service.dart';
-import 'package:bellavella/features/professional/models/professional_models.dart' as pro_models;
+import 'package:bellavella/features/professional/models/professional_models.dart'
+    as pro_models;
 import 'package:bellavella/features/professional/controllers/professional_profile_controller.dart';
 import 'package:bellavella/features/professional/controllers/dashboard_controller.dart';
 import './widgets/job_card.dart';
@@ -28,7 +29,8 @@ class ProfessionalDashboardScreen extends StatefulWidget {
 }
 
 class _ProfessionalDashboardScreenState
-    extends State<ProfessionalDashboardScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
+    extends State<ProfessionalDashboardScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // Real Data State
   pro_models.ProfessionalDashboardStats? _stats;
   List<pro_models.LeaderboardItem> _leaderboard = [];
@@ -50,7 +52,9 @@ class _ProfessionalDashboardScreenState
   @override
   void initState() {
     super.initState();
-    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 3),
+    );
     // Load active job immediately (fast, dedicated endpoint)
     // This runs in parallel with _fetchDashboardData so the job card
     // appears even before the full dashboard stats load completes.
@@ -62,7 +66,7 @@ class _ProfessionalDashboardScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _confettiController.play();
-    PermissionHandlerUtil.requestAllPermissions(context);
+      PermissionHandlerUtil.requestAllPermissions(context);
     });
 
     // Start Polling Fallback
@@ -75,8 +79,10 @@ class _ProfessionalDashboardScreenState
       debugPrint("🆕 Dashboard Init: Fetching missing profile...");
       profileController.fetchProfile();
     }
-    
-    debugPrint("🆔 Dashboard Init: Professional ID = ${profileController.profile?.id}, isOnline = ${profileController.isOnline}");
+
+    debugPrint(
+      "🆔 Dashboard Init: Professional ID = ${profileController.profile?.id}, isOnline = ${profileController.isOnline}",
+    );
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
@@ -97,7 +103,9 @@ class _ProfessionalDashboardScreenState
           }
           // Reset real-time listener cache so new requests can be detected
           RealtimeJobService.shownBookings.clear();
-          debugPrint('✅ Dashboard: No active job found. Cleared controller and shownBookings cache.');
+          debugPrint(
+            '✅ Dashboard: No active job found. Cleared controller and shownBookings cache.',
+          );
         }
       }
     } catch (e) {
@@ -120,7 +128,7 @@ class _ProfessionalDashboardScreenState
     }
     try {
       final stats = await ProfessionalApiService.getDashboardStats();
-      
+
       if (mounted) {
         setState(() {
           _stats = stats;
@@ -128,20 +136,20 @@ class _ProfessionalDashboardScreenState
           _kitCount = stats.kitCount;
           _remainingSeconds = stats.remainingSeconds;
           _shiftInfo = stats.shiftInfo;
-          
+
           _totalShiftSeconds = stats.shiftDuration * 60;
           if (_totalShiftSeconds <= 0) _totalShiftSeconds = 28800;
           _isLoading = false;
           _errorMessage = null;
         });
-        
+
         // Authoritative sync to controller
         final profileController = context.read<ProfessionalProfileController>();
         if (_isOnline) {
-             profileController.updateRealtimeStatus({
-                'is_online': true,
-                'remaining_seconds': _remainingSeconds,
-             });
+          profileController.updateRealtimeStatus({
+            'is_online': true,
+            'remaining_seconds': _remainingSeconds,
+          });
         }
 
         final activeInStats = stats.recentBookings.firstWhere(
@@ -149,7 +157,9 @@ class _ProfessionalDashboardScreenState
           orElse: () => pro_models.ProfessionalBooking.empty(),
         );
 
-        if (activeInStats.id.isNotEmpty && activeInStats.isActive && activeInStats.status != BookingStatus.completed) {
+        if (activeInStats.id.isNotEmpty &&
+            activeInStats.isActive &&
+            activeInStats.status != BookingStatus.completed) {
           context.read<DashboardController>().setActiveJob(activeInStats);
         } else {
           final controller = context.read<DashboardController>();
@@ -160,7 +170,7 @@ class _ProfessionalDashboardScreenState
       }
     } catch (e) {
       debugPrint('Dashboard fetch error: $e');
-      
+
       _handleSyncFailure(e.toString());
 
       if (mounted) {
@@ -177,7 +187,7 @@ class _ProfessionalDashboardScreenState
   void _handleSyncFailure(String error) {
     _failureCount++;
     debugPrint('⚠️ Sync Failure #$_failureCount: $error');
-    
+
     // ✅ BURST PROTECTION: Stop polling after 3 consecutive failures
     // or if it's a critical server error (500/503)
     if (_failureCount >= 3 || error.contains('500') || error.contains('503')) {
@@ -187,10 +197,12 @@ class _ProfessionalDashboardScreenState
 
   void _haltSync() {
     if (_isSyncHalted) return;
-    
-    debugPrint('🛑 CRITICAL: Halting all background sync to prevent API burst.');
+
+    debugPrint(
+      '🛑 CRITICAL: Halting all background sync to prevent API burst.',
+    );
     _pollingTimer?.cancel(); // Also stop the request polling timer
-    
+
     if (mounted) {
       setState(() {
         _isSyncHalted = true;
@@ -207,7 +219,7 @@ class _ProfessionalDashboardScreenState
     });
     _fetchDashboardData(isSilent: false);
     _startHeartbeat();
-    
+
     // Restart request polling
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 15), (timer) {
@@ -219,25 +231,27 @@ class _ProfessionalDashboardScreenState
     // Only check if professional is online
     final isOnline = context.read<ProfessionalProfileController>().isOnline;
     if (!isOnline) {
-       // debugPrint('⏸ Polling skipped: Professional is OFFLINE');
-       return;
+      // debugPrint('⏸ Polling skipped: Professional is OFFLINE');
+      return;
     }
 
     try {
       // debugPrint('🔍 Polling: Checking for incoming requests...');
       final bookings = await ProfessionalApiService.getBookingRequests();
-      
+
       if (bookings.isNotEmpty) {
         debugPrint('🔍 Polling: Found ${bookings.length} requests in API');
       }
 
       for (var booking in bookings) {
-        debugPrint('🔍 Polling: Checking booking ${booking.id} with status ${booking.status}');
+        debugPrint(
+          '🔍 Polling: Checking booking ${booking.id} with status ${booking.status}',
+        );
         // "assigned" means admin dispatched it but professional hasn't accepted yet
         if (booking.status == BookingStatus.assigned) {
           if (!RealtimeJobService.shownBookings.contains(booking.id)) {
             debugPrint('🔔 Polling: New assignment found! ${booking.id}');
-            
+
             // Map model to the generic JSON map IncomingRequestScreen expects
             final data = {
               'booking_id': booking.id,
@@ -265,10 +279,7 @@ class _ProfessionalDashboardScreenState
 
             if (mounted) {
               RealtimeJobService.shownBookings.add(booking.id.toString());
-              context.pushNamed(
-                AppRoutes.proIncomingRequestName,
-                extra: data,
-              );
+              context.pushNamed(AppRoutes.proIncomingRequestName, extra: data);
             }
           }
         }
@@ -297,7 +308,9 @@ class _ProfessionalDashboardScreenState
         if (msg.contains('outside global shift hours')) {
           _showShiftError(msg.replaceAll('Exception: ', ''));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
         }
         return;
       }
@@ -314,7 +327,9 @@ class _ProfessionalDashboardScreenState
         if (msg.contains('outside global shift hours')) {
           _showShiftError(msg.replaceAll('Exception: ', ''));
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(msg)));
         }
       }
     }
@@ -327,7 +342,10 @@ class _ProfessionalDashboardScreenState
         title: const Text('Shift Hours Exception'),
         content: Text(message),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );
@@ -351,16 +369,6 @@ class _ProfessionalDashboardScreenState
     _fetchDashboardData(isSilent: true);
   }
 
-  String _formatRemainingTime(int seconds) {
-    if (seconds <= 0) return "Ending";
-    final d = Duration(seconds: seconds);
-    int h = d.inHours;
-    int m = d.inMinutes.remainder(60);
-
-    if (h > 0) return "${h}h ${m}m";
-    if (m > 0) return "${m}m";
-    return "${seconds}s";
-  }
 
   String _getSafeImageUrl(String? image, String name, {DateTime? updatedAt}) {
     if (image != null && image.isNotEmpty) {
@@ -371,72 +379,14 @@ class _ProfessionalDashboardScreenState
     return "https://ui-avatars.com/api/?name=${Uri.encodeComponent(name)}&background=random&size=128";
   }
 
-  String _formatDateTime(DateTime? dt) {
-    if (dt == null) return "--:--";
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return "$h:$m";
-  }
-
-  Color _getBadgeColor(int seconds) {
-    if (seconds > 3600) return Colors.green;
-    if (seconds > 900) return Colors.orange;
-    return Colors.red;
-  }
-
-  Widget _buildShiftBadge() {
-    if (!_isOnline || _remainingSeconds <= 0) return const SizedBox.shrink();
-
-    String timeStr = _formatRemainingTime(_remainingSeconds);
-    Color badgeColor = _getBadgeColor(_remainingSeconds);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: badgeColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.timer_outlined, size: 14, color: badgeColor),
-              const SizedBox(width: 4),
-              Text(
-                timeStr,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: badgeColor,
-                ),
-              ),
-            ],
-          ),
-          if (_shiftInfo?.startTime != null && _shiftInfo?.endTime != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              "${_formatDateTime(_shiftInfo?.startTime)} - ${_formatDateTime(_shiftInfo?.endTime)}",
-              style: GoogleFonts.inter(
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-                color: badgeColor.withValues(alpha: 0.8),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        body: Center(child: CircularProgressIndicator(color: AppTheme.primaryColor)),
+        body: Center(
+          child: CircularProgressIndicator(color: AppTheme.primaryColor),
+        ),
       );
     }
 
@@ -458,9 +408,13 @@ class _ProfessionalDashboardScreenState
                     color: Colors.red.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red.withValues(alpha: 0.4)),
+                  child: Icon(
+                    Icons.cloud_off_rounded,
+                    size: 64,
+                    color: Colors.red.withValues(alpha: 0.4),
+                  ),
                 ),
-// ... skipping some lines for brevity in match
+                // ... skipping some lines for brevity in match
                 const SizedBox(height: 32),
                 Text(
                   "Connection Error",
@@ -494,7 +448,9 @@ class _ProfessionalDashboardScreenState
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(100),
+                      ),
                       elevation: 0,
                     ),
                     child: Text(
@@ -624,8 +580,15 @@ class _ProfessionalDashboardScreenState
           if (!mounted) return;
           for (var item in items) {
             if (item.image.isNotEmpty) {
-              final url = _getSafeImageUrl(item.image, item.name, updatedAt: item.updatedAt);
-              precacheImage(CachedNetworkImageProvider(url), context).catchError((e) {
+              final url = _getSafeImageUrl(
+                item.image,
+                item.name,
+                updatedAt: item.updatedAt,
+              );
+              precacheImage(
+                CachedNetworkImageProvider(url),
+                context,
+              ).catchError((e) {
                 debugPrint('Failed to precache image for ${item.name}: $e');
               });
             }
@@ -643,10 +606,10 @@ class _ProfessionalDashboardScreenState
 
   Future<void> _handleResume() async {
     if (_isResuming || !mounted) return;
-    
+
     _isResuming = true;
     debugPrint("🔄 Dashboard Resumed: Debounced refresh starting...");
-    
+
     try {
       _startHeartbeat();
       await _loadActiveJob();
@@ -680,15 +643,17 @@ class _ProfessionalDashboardScreenState
                 letterSpacing: -0.5,
               ),
             ),
-            if (_leaderboard.any((p) => p.name.contains('Mehta') || p.id == 1)) // Placeholder check for "My Rank"
-            Text(
-              "Your Rank: #1",
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.primaryColor,
+            if (_leaderboard.any(
+              (p) => p.name.contains('Mehta') || p.id == 1,
+            )) // Placeholder check for "My Rank"
+              Text(
+                "Your Rank: #1",
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryColor,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -698,9 +663,7 @@ class _ProfessionalDashboardScreenState
             key: ValueKey<int>(_leaderboard.hashCode),
             crossAxisAlignment: CrossAxisAlignment.start,
             children: _leaderboard.map((pro) {
-              return Expanded(
-                child: _buildLeaderboardCard(pro),
-              );
+              return Expanded(child: _buildLeaderboardCard(pro));
             }).toList(),
           ),
         ),
@@ -711,7 +674,7 @@ class _ProfessionalDashboardScreenState
   Widget _buildLeaderboardCard(pro_models.LeaderboardItem pro) {
     bool isFirst = pro.rank == 1;
     double avatarSize = isFirst ? 42 : 35;
-    
+
     return Column(
       children: [
         Stack(
@@ -720,29 +683,39 @@ class _ProfessionalDashboardScreenState
             Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                boxShadow: isFirst ? [
-                  BoxShadow(
-                    color: Colors.amber.withValues(alpha: 0.4),
-                    blurRadius: 12,
-                    spreadRadius: 2,
-                  )
-                ] : null,
+                boxShadow: isFirst
+                    ? [
+                        BoxShadow(
+                          color: Colors.amber.withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
               ),
               child: CircleAvatar(
                 radius: avatarSize + 2,
-                backgroundColor: isFirst ? Colors.amber.shade400 : Colors.grey.shade200,
+                backgroundColor: isFirst
+                    ? Colors.amber.shade400
+                    : Colors.grey.shade200,
                 child: CircleAvatar(
                   radius: avatarSize,
                   backgroundColor: Colors.grey.shade100,
                   child: ClipOval(
                     child: CachedNetworkImage(
-                      imageUrl: _getSafeImageUrl(pro.image, pro.name, updatedAt: pro.updatedAt),
+                      imageUrl: _getSafeImageUrl(
+                        pro.image,
+                        pro.name,
+                        updatedAt: pro.updatedAt,
+                      ),
                       width: avatarSize * 2,
                       height: avatarSize * 2,
-                      memCacheWidth: (avatarSize * 2 * 2).toInt(), // Optimized for pixel density
+                      memCacheWidth: (avatarSize * 2 * 2)
+                          .toInt(), // Optimized for pixel density
                       maxWidthDiskCache: 400,
                       fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(color: Colors.grey.shade200),
+                      placeholder: (_, __) =>
+                          Container(color: Colors.grey.shade200),
                       errorWidget: (_, __, ___) => Center(
                         child: Text(
                           pro.name.isNotEmpty ? pro.name[0].toUpperCase() : "?",
@@ -835,7 +808,7 @@ class _ProfessionalDashboardScreenState
     return Consumer<ProfessionalProfileController>(
       builder: (context, profileController, child) {
         final profile = profileController.profile;
-        
+
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Row(
@@ -856,10 +829,14 @@ class _ProfessionalDashboardScreenState
                             color: Colors.black87,
                           ),
                         ),
-                        if (profile != null && profile.status.toLowerCase() != 'active') ...[
+                        if (profile != null &&
+                            profile.status.toLowerCase() != 'active') ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.red.shade100,
                               borderRadius: BorderRadius.circular(12),
@@ -880,36 +857,43 @@ class _ProfessionalDashboardScreenState
                     Row(
                       children: [
                         Text(
-                          profileController.isOnline ? 'Available for bookings' : 'Currently Offline',
+                          profileController.isOnline
+                              ? 'Available for bookings'
+                              : 'Currently Offline',
                           style: GoogleFonts.inter(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color: profileController.isOnline ? Colors.green.shade600 : Colors.grey.shade500,
+                            color: profileController.isOnline
+                                ? Colors.green.shade600
+                                : Colors.grey.shade500,
                           ),
                         ),
-                        if (profileController.isOnline) ...[
-                          const SizedBox(width: 8),
-                          _buildShiftBadge(),
-                        ],
                       ],
                     ),
                   ],
                 ),
               ),
-              
+
               // Right side: Toggle & Notification
               Row(
                 children: [
                   AvailabilityToggle(
                     isOnline: profileController.isOnline,
-                    onChanged: (profile == null || profile.status.toLowerCase() != 'active') 
-                        ? null 
+                    onChanged:
+                        (profile == null ||
+                            profile.status.toLowerCase() != 'active')
+                        ? null
                         : (value) => _toggleAvailability(value),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    onPressed: () => context.pushNamed(AppRoutes.proNotificationsName),
-                    icon: const Icon(Icons.notifications_none_rounded, size: 24, color: Colors.black87),
+                    onPressed: () =>
+                        context.pushNamed(AppRoutes.proNotificationsName),
+                    icon: const Icon(
+                      Icons.notifications_none_rounded,
+                      size: 24,
+                      color: Colors.black87,
+                    ),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -931,10 +915,16 @@ class _ProfessionalDashboardScreenState
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutQuart)),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0, 0.1),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutQuart,
+                  ),
+                ),
             child: child,
           ),
         );
@@ -943,82 +933,129 @@ class _ProfessionalDashboardScreenState
         key: ValueKey<bool>(isOnline),
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 24),
-        child: isOnline 
-          ? Container(
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.green.withValues(alpha: 0.1), width: 1),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+        child: isOnline
+            ? Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF7F1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_circle_outline_rounded, size: 14, color: Colors.green),
-                      const SizedBox(width: 8),
-                      Text(
-                        "You’re now visible to customers.",
-                        style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green.shade700),
+                      /// ⏱ Time Remaining
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 18, color: Colors.green),
+                          const SizedBox(width: 6),
+                          Consumer<ProfessionalProfileController>(
+                            builder: (context, controller, _) {
+                              return Text(
+                                "${_formatRemainingCompact(controller.remainingSeconds)} remaining",
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: Colors.black87,
+                                ),
+                              );
+                            }
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      /// Bottom Row (Wallet + Kits)
+                      Row(
+                        children: [
+                          /// Wallet
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.account_balance_wallet, size: 18, color: Colors.black87),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "₹${(_stats?.walletBalance ?? 0).toStringAsFixed(0)}",
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          /// Kits
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.inventory_2_outlined, size: 18, color: Colors.black87),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    "${_stats?.kitCount ?? 0} Kits",
+                                    style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.green.withValues(alpha: 0.05)),
+                )
+            : Container(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: Colors.grey,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.access_time_filled_rounded, size: 14, color: Colors.green.shade600),
-                        const SizedBox(width: 6),
-                        LiveTimer(
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          "session duration",
-                          style: GoogleFonts.inter(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 8),
+                    Text(
+                      "You will not receive new bookings while offline.",
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            )
-          : Container(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline_rounded, size: 14, color: Colors.grey),
-                  const SizedBox(width: 8),
-                  Text(
-                    "You will not receive new bookings while offline.",
-                    style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
-                  ),
-                ],
-              ),
-            ),
       ),
     );
+  }
+
+  String _formatRemainingCompact(int s) {
+    if (s <= 0) return "Expired";
+
+    final h = s ~/ 3600;
+    final m = (s % 3600) ~/ 60;
+    final sec = s % 60;
+
+    if (h > 0) return "${h}h ${m}m";
+    if (m > 0) return "${m}m";
+    return "${sec}s";
   }
 
   // 2⃣ Primary Focus Panel — reactive to DashboardController
@@ -1036,7 +1073,10 @@ class _ProfessionalDashboardScreenState
               ? _buildJobActiveCard(activeJob)
               : Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 40,
+                    horizontal: 24,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(32),
@@ -1075,7 +1115,9 @@ class _ProfessionalDashboardScreenState
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: isOnline ? AppTheme.primaryColor : Colors.grey.shade100,
+                  color: isOnline
+                      ? AppTheme.primaryColor
+                      : Colors.grey.shade100,
                   shape: BoxShape.circle,
                   boxShadow: [
                     if (isOnline)
@@ -1087,7 +1129,9 @@ class _ProfessionalDashboardScreenState
                   ],
                 ),
                 child: Icon(
-                  isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
+                  isOnline
+                      ? Icons.radar_rounded
+                      : Icons.power_settings_new_rounded,
                   size: 32,
                   color: isOnline ? Colors.white : Colors.grey.shade400,
                 ),
@@ -1109,9 +1153,9 @@ class _ProfessionalDashboardScreenState
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            isOnline 
-              ? "Your radar is active. We'll notify you as soon as a new request matches your profile."
-              : "Turn on your availability to start receiving job requests and earning.",
+            isOnline
+                ? "Your radar is active. We'll notify you as soon as a new request matches your profile."
+                : "Turn on your availability to start receiving job requests and earning.",
             textAlign: TextAlign.center,
             style: GoogleFonts.inter(
               fontSize: 14,
@@ -1137,7 +1181,9 @@ class _ProfessionalDashboardScreenState
                   height: 6,
                   child: CircularProgressIndicator(
                     strokeWidth: 1.5,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      AppTheme.primaryColor,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1188,53 +1234,73 @@ class _ProfessionalDashboardScreenState
   Widget _buildJobActiveCard(pro_models.ProfessionalBooking activeJob) {
     String buttonText = "Start Job";
     VoidCallback onPressed = () => context.pushNamed(
-      AppRoutes.proArriveName, 
+      AppRoutes.proArriveName,
       pathParameters: {'id': activeJob.id},
-      extra: activeJob
+      extra: activeJob,
     );
 
     switch (activeJob.status) {
       case BookingStatus.assigned:
       case BookingStatus.accepted:
         buttonText = "Start Journey";
-        onPressed = () => context.pushNamed(AppRoutes.proNavigationName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        onPressed = () => context.pushNamed(
+          AppRoutes.proNavigationName,
+          pathParameters: {'id': activeJob.id},
+          extra: activeJob,
+        );
         break;
       case BookingStatus.onTheWay:
         buttonText = "I Have Arrived";
-        onPressed = () => context.pushNamed(AppRoutes.proArriveName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        onPressed = () => context.pushNamed(
+          AppRoutes.proArriveName,
+          pathParameters: {'id': activeJob.id},
+          extra: activeJob,
+        );
         break;
       case BookingStatus.scanKit:
         buttonText = "Start Job";
-        onPressed = () => context.pushNamed(AppRoutes.proScanKitName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        onPressed = () => context.pushNamed(
+          AppRoutes.proScanKitName,
+          pathParameters: {'id': activeJob.id},
+          extra: activeJob,
+        );
         break;
       case BookingStatus.inProgress:
         buttonText = "View Progress";
-        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        onPressed = () => context.pushNamed(
+          AppRoutes.proActiveJobName,
+          pathParameters: {'id': activeJob.id},
+          extra: activeJob,
+        );
         break;
       case BookingStatus.paymentPending:
         buttonText = "Collect Payment";
-        onPressed = () => context.pushNamed(AppRoutes.proCollectPaymentName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        onPressed = () => context.pushNamed(
+          AppRoutes.proCollectPaymentName,
+          pathParameters: {'id': activeJob.id},
+          extra: activeJob,
+        );
         break;
       default:
         buttonText = "View Details";
-        onPressed = () => context.pushNamed(AppRoutes.proActiveJobName, pathParameters: {'id': activeJob.id}, extra: activeJob);
+        onPressed = () => context.pushNamed(
+          AppRoutes.proActiveJobName,
+          pathParameters: {'id': activeJob.id},
+          extra: activeJob,
+        );
     }
 
     return JobCard(
       job: activeJob,
       buttonText: buttonText,
       onPressed: onPressed,
-      onCall: () {
-          // Logic for call
-      },
       onNavigate: () => context.pushNamed(
-        AppRoutes.proNavigationName, 
+        AppRoutes.proNavigationName,
         pathParameters: {'id': activeJob.id},
-        extra: activeJob
+        extra: activeJob,
       ),
     );
   }
-
 
   // 4️⃣ Today Schedule (Timeline View)
   Widget _buildScheduleTimeline() {
@@ -1269,9 +1335,13 @@ class _ProfessionalDashboardScreenState
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: (_stats?.recentBookings ?? []).where((b) => !b.status.name.contains('cancelled')).length,
+          itemCount: (_stats?.recentBookings ?? [])
+              .where((b) => !b.status.name.contains('cancelled'))
+              .length,
           itemBuilder: (context, index) {
-            final activeRecent = (_stats?.recentBookings ?? []).where((b) => !b.status.name.contains('cancelled')).toList();
+            final activeRecent = (_stats?.recentBookings ?? [])
+                .where((b) => !b.status.name.contains('cancelled'))
+                .toList();
             final booking = activeRecent[index];
             bool isLast = index == (_stats?.recentBookings.length ?? 0) - 1;
             bool isDone = booking.status == BookingStatus.completed;
@@ -1285,7 +1355,7 @@ class _ProfessionalDashboardScreenState
                         width: 10,
                         height: 10,
                         decoration: BoxDecoration(
-                           color: isDone ? Colors.green : Colors.grey.shade300,
+                          color: isDone ? Colors.green : Colors.grey.shade300,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1313,7 +1383,9 @@ class _ProfessionalDashboardScreenState
                                 style: GoogleFonts.inter(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w800,
-                                  color: isDone ? Colors.grey : AppTheme.primaryColor,
+                                  color: isDone
+                                      ? Colors.grey
+                                      : AppTheme.primaryColor,
                                 ),
                               ),
                               Text(
@@ -1327,9 +1399,14 @@ class _ProfessionalDashboardScreenState
                             ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
-                              color: (isDone ? Colors.grey : AppTheme.primaryColor).withValues(alpha: 0.1),
+                              color:
+                                  (isDone ? Colors.grey : AppTheme.primaryColor)
+                                      .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -1337,7 +1414,9 @@ class _ProfessionalDashboardScreenState
                               style: GoogleFonts.inter(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
-                                color: isDone ? Colors.grey : AppTheme.primaryColor,
+                                color: isDone
+                                    ? Colors.grey
+                                    : AppTheme.primaryColor,
                               ),
                             ),
                           ),
@@ -1353,7 +1432,6 @@ class _ProfessionalDashboardScreenState
       ],
     );
   }
-
 
   Widget _buildReferralBanner() {
     return GestureDetector(
@@ -1383,7 +1461,11 @@ class _ProfessionalDashboardScreenState
                 color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.card_giftcard, color: Colors.white, size: 24),
+              child: const Icon(
+                Icons.card_giftcard,
+                color: Colors.white,
+                size: 24,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -1414,12 +1496,15 @@ class _ProfessionalDashboardScreenState
       ),
     );
   }
+
   void _showRequirementsError(String message) {
     if (mounted) {
       showDialog(
         context: context,
         builder: (ctx) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -1431,24 +1516,40 @@ class _ProfessionalDashboardScreenState
                     color: Colors.red.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 32),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red,
+                    size: 32,
+                  ),
                 ),
                 const SizedBox(height: 20),
-                Text('Go Online Requirement',
-                  style: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w800, color: const Color(0xFF111827)),
+                Text(
+                  'Go Online Requirement',
+                  style: GoogleFonts.poppins(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF111827),
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
                 Text(
                   message,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 13, color: const Color(0xFF6B7280)),
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    color: const Color(0xFF6B7280),
+                  ),
                 ),
                 const SizedBox(height: 15),
                 Text(
                   'Current Status: $_kitCount / 5 Kits',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.primaryColor),
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primaryColor,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
@@ -1456,20 +1557,39 @@ class _ProfessionalDashboardScreenState
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.pop(ctx);
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const KitStoreScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const KitStoreScreen(),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text('Buy Kit', style: GoogleFonts.poppins(fontWeight: FontWeight.w600, color: Colors.white)),
+                    child: Text(
+                      'Buy Kit',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: Text('Maybe Later', style: GoogleFonts.poppins(color: const Color(0xFF6B7280), fontWeight: FontWeight.w500)),
+                  child: Text(
+                    'Maybe Later',
+                    style: GoogleFonts.poppins(
+                      color: const Color(0xFF6B7280),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
               ],
             ),

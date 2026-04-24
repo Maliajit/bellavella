@@ -372,7 +372,6 @@ class _IncomingRequestScreenState extends State<IncomingRequestScreen> with Sing
                 
                 // Location info
                 _buildInfoRow(Icons.location_on, location),
-                _buildInfoRow(Icons.account_balance_wallet, 'Potential Earnings: ₹$earnings'),
                 
                 const Spacer(),
                 

@@ -198,10 +198,28 @@ class _CartScreenState extends State<CartScreen> {
                     style: GoogleFonts.outfit(fontSize: 18, color: Colors.grey),
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => context.pop(),
-                    style: ElevatedButton.styleFrom(backgroundColor: pinkPrimary),
-                    child: const Text('Go Back', style: TextStyle(color: Colors.white)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        context.go('/client/services');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE91E63), // pink theme
+                        minimumSize: const Size(double.infinity, 55),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                      child: const Text(
+                        "Explore Services",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -221,8 +239,10 @@ class _CartScreenState extends State<CartScreen> {
                   const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
                   _buildPaymentSummary(cartProvider),
                   const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
-                  _buildTipSection(),
-                  const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                  if (cartProvider.tipEnabled) ...[
+                    _buildTipSection(),
+                    const Divider(thickness: 8, color: Color(0xFFF5F5F5)),
+                  ],
                   _buildPolicySection(),
                   const SizedBox(height: 100), // Spacer for sticky footer
                 ],
@@ -776,7 +796,7 @@ class _CartScreenState extends State<CartScreen> {
           if (hasDiscount) ...[
             const SizedBox(height: 8),
             _summaryRow(
-              'Coupon discount', 
+              'Coupon (${cartProvider.appliedOffer!['code']})', 
               '-${_formatCurrency(cartProvider.discount)}', 
               textColor: greenSaving,
               isBold: true,
@@ -837,7 +857,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _buildTipSection() {
     final cartProvider = context.watch<CartProvider>();
-    final tips = [50, 75, 100];
+    final tips = cartProvider.tipAmounts;
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -882,7 +902,7 @@ class _CartScreenState extends State<CartScreen> {
                               ),
                             ),
                           ),
-                          if (tip == 75)
+                          if (tips.length > 1 && tip == tips[1])
                             Positioned(
                               top: -10,
                               left: 0,

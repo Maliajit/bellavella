@@ -189,7 +189,13 @@ class Professional {
   final String? bio;
   final List<String> languages;
   final String? city;
+  final String? state;
+  final String? pincode;
   final String? serviceArea;
+  final String? permanentAddress;
+  final String? permanentState;
+  final String? permanentCity;
+  final String? permanentPincode;
   
   final double? serviceRadius;
   final List<String> portfolio;
@@ -209,6 +215,8 @@ class Professional {
   final String? aadhaarBackStatus;
   final String? panCardStatus;
   final String? lightBillStatus;
+  final String? permanentLightBill;
+  final String? permanentLightBillStatus;
   final String? bankProofStatus;
   final bool isOnline;
   final int rejectCount;
@@ -233,7 +241,13 @@ class Professional {
     this.bio,
     this.languages = const [],
     this.city,
+    this.state,
+    this.pincode,
     this.serviceArea,
+    this.permanentAddress,
+    this.permanentState,
+    this.permanentCity,
+    this.permanentPincode,
     this.serviceRadius,
     this.portfolio = const [],
     required this.payout,
@@ -251,6 +265,8 @@ class Professional {
     this.aadhaarBackStatus,
     this.panCardStatus,
     this.lightBillStatus,
+    this.permanentLightBill,
+    this.permanentLightBillStatus,
     this.bankProofStatus,
     this.isOnline = false,
     this.rejectCount = 0,
@@ -276,7 +292,13 @@ class Professional {
     String? bio,
     List<String>? languages,
     String? city,
+    String? state,
+    String? pincode,
     String? serviceArea,
+    String? permanentAddress,
+    String? permanentState,
+    String? permanentCity,
+    String? permanentPincode,
     double? serviceRadius,
     List<String>? portfolio,
     PayoutDetails? payout,
@@ -294,6 +316,8 @@ class Professional {
     String? aadhaarBackStatus,
     String? panCardStatus,
     String? lightBillStatus,
+    String? permanentLightBill,
+    String? permanentLightBillStatus,
     String? bankProofStatus,
     bool? isOnline,
     int? rejectCount,
@@ -318,7 +342,13 @@ class Professional {
       bio: bio ?? this.bio,
       languages: languages ?? this.languages,
       city: city ?? this.city,
+      state: state ?? this.state,
+      pincode: pincode ?? this.pincode,
       serviceArea: serviceArea ?? this.serviceArea,
+      permanentAddress: permanentAddress ?? this.permanentAddress,
+      permanentState: permanentState ?? this.permanentState,
+      permanentCity: permanentCity ?? this.permanentCity,
+      permanentPincode: permanentPincode ?? this.permanentPincode,
       serviceRadius: serviceRadius ?? this.serviceRadius,
       portfolio: portfolio ?? this.portfolio,
       payout: payout ?? this.payout,
@@ -336,6 +366,8 @@ class Professional {
       aadhaarBackStatus: aadhaarBackStatus ?? this.aadhaarBackStatus,
       panCardStatus: panCardStatus ?? this.panCardStatus,
       lightBillStatus: lightBillStatus ?? this.lightBillStatus,
+      permanentLightBill: permanentLightBill ?? this.permanentLightBill,
+      permanentLightBillStatus: permanentLightBillStatus ?? this.permanentLightBillStatus,
       bankProofStatus: bankProofStatus ?? this.bankProofStatus,
       isOnline: isOnline ?? this.isOnline,
       rejectCount: rejectCount ?? this.rejectCount,
@@ -380,7 +412,13 @@ class Professional {
       bio: json['bio']?.toString(),
       languages: json['languages'] is List ? (json['languages'] as List).map((e) => e.toString()).toList() : [],
       city: json['city']?.toString(),
+      state: json['state']?.toString(),
+      pincode: json['pincode']?.toString(),
       serviceArea: json['service_area']?.toString(),
+      permanentAddress: json['permanent_address']?.toString(),
+      permanentState: json['permanent_state']?.toString(),
+      permanentCity: json['permanent_city']?.toString(),
+      permanentPincode: json['permanent_pincode']?.toString(),
       serviceRadius: ParserUtil.safeParseDouble(json['service_radius']),
       portfolio: json['portfolio'] is List ? (json['portfolio'] as List).map((e) => e.toString()).toList() : [],
       payout: PayoutDetails.fromJson(
@@ -405,6 +443,8 @@ class Professional {
       aadhaarBackStatus: json['aadhaar_back_status']?.toString(),
       panCardStatus: json['pan_card_status']?.toString(),
       lightBillStatus: json['light_bill_status']?.toString(),
+      permanentLightBill: _resolveDocUrl(json['permanent_light_bill']?.toString()),
+      permanentLightBillStatus: json['permanent_light_bill_status']?.toString(),
       bankProofStatus: json['bank_proof_status']?.toString(),
       isOnline: json['is_online'] == true || json['is_online'] == 1,
       rejectCount: ParserUtil.safeParseInt(json['reject_count']),

@@ -342,13 +342,27 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                     ),
                   ),
                   if (!_isPreviewLoading && (_previewDiscountPaise ?? 0) > 0) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      'Checkout savings: ${_formatPaise(_previewDiscountPaise!)}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.green.shade700,
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade100),
+                      ),
+                      child: Row(
+                        children: [
+                          Text('🎉', style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'You\'re saving ${_formatPaise(_previewDiscountPaise!)} on this booking',
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.green.shade800,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -367,7 +381,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                     _paymentHintText(),
                     style: GoogleFonts.outfit(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: Colors.grey.shade500,
                       height: 1.4,
                     ),
                   ),
@@ -378,9 +392,17 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                   // Payment Options
                   _buildPaymentOption(
                     title: 'Online Payment (UPI/Cards)',
-                    icon: Icons.credit_card,
+                    icon: Icons.account_balance_wallet_outlined,
                     value: 'online',
                     groupValue: _selectedPaymentMethod,
+                    isBestOption: true,
+                    subtitle: (_previewDiscountPaise ?? 0) > 0 
+                        ? 'Save ${_formatPaise(_previewDiscountPaise!)} instantly'
+                        : null,
+                    badgeText: (_previewDiscountPaise ?? 0) > 0 
+                        ? 'Save ${_formatPaise(_previewDiscountPaise!)}'
+                        : null,
+                    badgeColor: Colors.green.shade600,
                     onChanged: (val) {
                       setModalState(() => _selectedPaymentMethod = val!);
                       _refreshCheckoutPreview(cartProvider);
@@ -389,9 +411,12 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                   const SizedBox(height: 12),
                   _buildPaymentOption(
                     title: 'Cash after service',
-                    icon: Icons.money,
+                    icon: Icons.payments_outlined,
                     value: 'cod',
                     groupValue: _selectedPaymentMethod,
+                    subtitle: 'No savings',
+                    badgeText: 'No savings',
+                    badgeColor: Colors.grey.shade400,
                     onChanged: (val) {
                       setModalState(() => _selectedPaymentMethod = val!);
                       _refreshCheckoutPreview(cartProvider);
@@ -443,39 +468,106 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
     required String value,
     required String groupValue,
     required ValueChanged<String?> onChanged,
+    String? subtitle,
+    String? badgeText,
+    Color? badgeColor,
+    bool isBestOption = false,
   }) {
     final isSelected = value == groupValue;
     return GestureDetector(
       onTap: () => onChanged(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? const Color(0xFFFF4891) : Colors.grey.shade300,
+            color: isSelected ? const Color(0xFFFF4891) : Colors.grey.shade200,
             width: isSelected ? 2 : 1,
           ),
-          borderRadius: BorderRadius.circular(12),
-          color: isSelected ? const Color(0xFFFFF0F5).withOpacity(0.5) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          color: isSelected 
+            ? (isBestOption ? const Color(0xFFF0FFF4) : const Color(0xFFFFF0F5)) 
+            : Colors.white,
+          boxShadow: isSelected && isBestOption ? [
+            BoxShadow(
+              color: Colors.green.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ] : null,
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? const Color(0xFFFF4891) : Colors.grey.shade600),
-            const SizedBox(width: 16),
+            Icon(
+              icon, 
+              color: isSelected ? const Color(0xFFFF4891) : Colors.grey.shade400,
+              size: 22,
+            ),
+            const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: Colors.black87,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      color: isSelected ? Colors.black : Colors.grey.shade700,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: subtitle.contains('No savings') ? Colors.grey.shade500 : Colors.green.shade600,
+                        fontWeight: subtitle.contains('No savings') ? FontWeight.w400 : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
+            if (badgeText != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (badgeColor ?? Colors.grey.shade100).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (badgeColor ?? Colors.grey.shade300).withOpacity(0.5),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.circle, 
+                      size: 6, 
+                      color: badgeColor ?? Colors.grey.shade400
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      badgeText,
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: badgeColor ?? Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Radio<String>(
               value: value,
               groupValue: groupValue,
               onChanged: onChanged,
               activeColor: const Color(0xFFFF4891),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ],
         ),
@@ -524,10 +616,10 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
                       ? 'Loading wallet balance...'
                       : _walletBalanceCoins > 0
                           ? 'Available: $_walletBalanceCoins coins. Wallet will automatically reduce this order by up to $coinsToUse.'
-                          : 'No BellaVella Wallet balance available right now.',
+                          : 'No balance available',
                   style: GoogleFonts.outfit(
                     fontSize: 13,
-                    color: Colors.grey.shade600,
+                    color: Colors.grey.shade500,
                     height: 1.35,
                   ),
                 ),
@@ -695,9 +787,7 @@ class _ClientCheckoutReviewScreenState extends State<ClientCheckoutReviewScreen>
   String _paymentHintText() {
     switch (_selectedPaymentMethod) {
       case 'online':
-        return _useWalletCoins
-            ? 'BellaVella Wallet will reduce the order first, then any eligible online-payment discount is applied before Razorpay opens.'
-            : 'Online-payment discounts are confirmed by the backend before Razorpay opens, so the final payable can be lower than the cart estimate.';
+        return 'Final payable may reduce after applying online discounts.';
       default:
         return _useWalletCoins
             ? 'BellaVella Wallet will reduce the payable first. Any remaining amount will be collected after service.'

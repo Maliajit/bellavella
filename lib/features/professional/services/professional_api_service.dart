@@ -71,6 +71,10 @@ class ProfessionalApiService {
     String? address,
     String? pincode,
     String? state,
+    String? permanentAddress,
+    String? permanentState,
+    String? permanentCity,
+    String? permanentPincode,
     String? aadharNumber,
     String? panNumber,
     String? accountHolderName,
@@ -82,8 +86,9 @@ class ProfessionalApiService {
     XFile? aadharBack,
     XFile? panPhoto,
     XFile? bankProof,
-    XFile? certificate,
+    List<XFile> certificates = const [],
     XFile? lightBill,
+    XFile? permanentLightBill,
     XFile? selfie,
     String? referralCode,
   }) async {
@@ -100,6 +105,10 @@ class ProfessionalApiService {
       if (address != null) 'address': address,
       if (pincode != null) 'pincode': pincode,
       if (state != null) 'state': state,
+      if (permanentAddress != null) 'permanent_address': permanentAddress,
+      if (permanentState != null) 'permanent_state': permanentState,
+      if (permanentCity != null) 'permanent_city': permanentCity,
+      if (permanentPincode != null) 'permanent_pincode': permanentPincode,
       if (aadharNumber != null) 'aadhar': aadharNumber,
       if (panNumber != null) 'pan': panNumber,
       if (accountHolderName != null) 'account_holder_name': accountHolderName,
@@ -115,10 +124,14 @@ class ProfessionalApiService {
       if (aadharBack != null) 'aadhar_back': aadharBack,
       if (panPhoto != null) 'pan_photo': panPhoto,
       if (bankProof != null) 'bank_proof': bankProof,
-      if (certificate != null) 'certificate': certificate,
       if (lightBill != null) 'light_bill': lightBill,
+      if (permanentLightBill != null) 'permanent_light_bill': permanentLightBill,
       if (selfie != null) 'selfie': selfie,
     };
+
+    for (int i = 0; i < certificates.length; i++) {
+      files['certificates[$i]'] = certificates[i];
+    }
 
     if (files.isEmpty) {
       final response = await ApiService.post('$_prefix/register', fields);

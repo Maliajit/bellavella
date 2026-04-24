@@ -53,6 +53,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   final _personalInfoKey = GlobalKey();
   final _skillsKey = GlobalKey();
   final _addressKey = GlobalKey();
+  final _permanentAddressKey = GlobalKey();
   final _bankingKey = GlobalKey();
   final _idVerificationKey = GlobalKey();
 
@@ -87,9 +88,14 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   // Section C Controllers
   final _addressController = TextEditingController();
   final _pincodeController = TextEditingController();
+  final _permanentAddressController = TextEditingController();
+  final _permanentPincodeController = TextEditingController();
   String? _selectedState;
   String? _selectedCity;
   String? _selectedArea;
+  String? _selectedPermanentState;
+  String? _selectedPermanentCity;
+  bool _sameAsCommunicationAddress = false;
   bool _isTermsAccepted = false;
 
   // Section D: Banking Details
@@ -106,8 +112,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   XFile? _aadharBack;
   XFile? _panPhoto;
   XFile? _bankProofPhoto;
-  XFile? _certificatePhoto;
+  final List<XFile?> _certificatePhotos = [null];
   XFile? _lightBillPhoto;
+  XFile? _permanentLightBillPhoto;
+  bool _sameLightBillAsCommunication = false;
   XFile? _liveSelfie;
 
   final List<String> _experienceLevels = ['Fresher', '0–1 Year', '1–3 Years', '3–5 Years', '5+ Years'];
@@ -145,6 +153,8 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   void initState() {
     super.initState();
     _selectedGender = 'Female';
+    _addressController.addListener(_syncPermanentAddressFromCommunication);
+    _pincodeController.addListener(_syncPermanentAddressFromCommunication);
     if (widget.referralCode != null) {
       _referralCodeController.text = widget.referralCode!;
     }
@@ -157,6 +167,8 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     _dobController.dispose();
     _addressController.dispose();
     _pincodeController.dispose();
+    _permanentAddressController.dispose();
+    _permanentPincodeController.dispose();
     _aadharController.dispose();
     _panController.dispose();
     _accountHolderController.dispose();
@@ -179,6 +191,38 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
   List<String> get _availableAreas {
     if (_selectedState == null || _selectedCity == null) return const [];
     return _locationOptions[_selectedState!]![_selectedCity!] ?? const [];
+  }
+
+  List<String> get _availablePermanentCities {
+    if (_selectedPermanentState == null) return const [];
+    return _locationOptions[_selectedPermanentState!]!.keys.toList();
+  }
+
+  String _buildCommunicationAddress() {
+    return [
+      _addressController.text.trim(),
+      if (_selectedArea != null && _selectedArea!.trim().isNotEmpty) _selectedArea!.trim(),
+    ].join(', ');
+  }
+
+  void _syncPermanentAddressFromCommunication() {
+    if (!_sameAsCommunicationAddress) return;
+
+    setState(() {
+      _permanentAddressController.text = _buildCommunicationAddress();
+      _permanentPincodeController.text = _pincodeController.text.trim();
+      _selectedPermanentState = _selectedState;
+      _selectedPermanentCity = _selectedCity;
+    });
+  }
+
+  void _handleSameAsCommunicationChanged(bool value) {
+    setState(() {
+      _sameAsCommunicationAddress = value;
+      if (_sameAsCommunicationAddress) {
+        _syncPermanentAddressFromCommunication();
+      }
+    });
   }
 
   void _handleDobChanged(String value) {
@@ -247,7 +291,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
       _aadharFrontError = _aadharFront == null;
       _aadharBackError = _aadharBack == null;
       _panPhotoError = _panPhoto == null;
-      _certificateError = _certificatePhoto == null;
+      _certificateError = _certificatePhotos.whereType<XFile>().isEmpty;
       _lightBillError = _lightBillPhoto == null;
       _selfieError = _liveSelfie == null;
       _skillsError = _selectedSkills.isEmpty;
@@ -287,6 +331,8 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           _scrollToError(_personalInfoKey);
         } else if (_addressController.text.isEmpty || _selectedState == null || _selectedCity == null || _selectedArea == null || _pincodeController.text.length != 6) {
           _scrollToError(_addressKey);
+        } else if (_permanentAddressController.text.isEmpty || _selectedPermanentState == null || _selectedPermanentCity == null || _permanentPincodeController.text.length != 6) {
+          _scrollToError(_permanentAddressKey);
         } else if (_accountHolderController.text.isEmpty || _bankNameController.text.isEmpty || _accountNumberController.text.isEmpty || _ifscController.text.isEmpty) {
           _scrollToError(_bankingKey);
         } else if (_aadharController.text.length != 12 || _panController.text.length != 10) {
@@ -304,10 +350,19 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     });
     
     try {
-      final combinedAddress = [
-        _addressController.text.trim(),
-        if (_selectedArea != null && _selectedArea!.trim().isNotEmpty) _selectedArea!.trim(),
-      ].join(', ');
+      final combinedAddress = _buildCommunicationAddress();
+      final permanentAddress = _sameAsCommunicationAddress
+          ? combinedAddress
+          : _permanentAddressController.text.trim();
+      final permanentState = _sameAsCommunicationAddress
+          ? _selectedState
+          : _selectedPermanentState;
+      final permanentCity = _sameAsCommunicationAddress
+          ? _selectedCity
+          : _selectedPermanentCity;
+      final permanentPincode = _sameAsCommunicationAddress
+          ? _pincodeController.text.trim()
+          : _permanentPincodeController.text.trim();
 
       final response = await ProfessionalApiService.register(
         mobile: widget.phoneNumber ?? '',
@@ -322,6 +377,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         address: combinedAddress,
         pincode: _pincodeController.text.trim(),
         state: _selectedState,
+        permanentAddress: permanentAddress,
+        permanentState: permanentState,
+        permanentCity: permanentCity,
+        permanentPincode: permanentPincode,
         aadharNumber: _aadharController.text.trim(),
         panNumber: _panController.text.trim(),
         accountHolderName: _accountHolderController.text.trim(),
@@ -333,8 +392,9 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         aadharBack: _aadharBack,
         panPhoto: _panPhoto,
         bankProof: _bankProofPhoto,
-        certificate: _certificatePhoto,
+        certificates: _certificatePhotos.whereType<XFile>().toList(),
         lightBill: _lightBillPhoto,
+        permanentLightBill: _sameLightBillAsCommunication ? _lightBillPhoto : _permanentLightBillPhoto,
         selfie: _liveSelfie,
         referralCode: _referralCodeController.text.trim().isNotEmpty ? _referralCodeController.text.trim() : null,
       );
@@ -394,7 +454,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Future<void> _pickImage(String type, {ImageSource source = ImageSource.gallery}) async {
+  Future<void> _pickImage(String type, {ImageSource source = ImageSource.gallery, int? certificateIndex}) async {
     final XFile? image = await _picker.pickImage(
       source: source,
       preferredCameraDevice: source == ImageSource.camera && type == 'selfie' ? CameraDevice.front : CameraDevice.rear,
@@ -406,26 +466,48 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         else if (type == 'aadhar_back') _aadharBack = image;
         else if (type == 'pan') _panPhoto = image;
         else if (type == 'bank_proof') _bankProofPhoto = image;
-        else if (type == 'certificate') _certificatePhoto = image;
-        else if (type == 'light_bill') _lightBillPhoto = image;
+        else if (type == 'certificate') {
+          final targetIndex = certificateIndex ?? 0;
+          if (targetIndex >= 0 && targetIndex < _certificatePhotos.length) {
+            _certificatePhotos[targetIndex] = image;
+            _certificateError = false;
+          }
+        }
+        else if (type == 'light_bill') {
+          _lightBillPhoto = image;
+          if (_sameLightBillAsCommunication) _permanentLightBillPhoto = image;
+        }
+        else if (type == 'permanent_light_bill') _permanentLightBillPhoto = image;
         else if (type == 'selfie') _liveSelfie = image;
       });
     }
   }
 
-  void _removeImage(String type) {
+  void _removeImage(String type, {int? certificateIndex}) {
     setState(() {
       if (type == 'aadhar_front') _aadharFront = null;
       else if (type == 'aadhar_back') _aadharBack = null;
       else if (type == 'pan') _panPhoto = null;
       else if (type == 'bank_proof') _bankProofPhoto = null;
-      else if (type == 'certificate') _certificatePhoto = null;
-      else if (type == 'light_bill') _lightBillPhoto = null;
+      else if (type == 'certificate') {
+        final targetIndex = certificateIndex ?? 0;
+        if (targetIndex >= 0 && targetIndex < _certificatePhotos.length) {
+          _certificatePhotos[targetIndex] = null;
+        }
+        if (_certificatePhotos.whereType<XFile>().isEmpty) {
+          _certificateError = true;
+        }
+      }
+      else if (type == 'light_bill') {
+        _lightBillPhoto = null;
+        if (_sameLightBillAsCommunication) _permanentLightBillPhoto = null;
+      }
+      else if (type == 'permanent_light_bill') _permanentLightBillPhoto = null;
       else if (type == 'selfie') _liveSelfie = null;
     });
   }
 
-  void _showImageSourceSheet(String type) {
+  void _showImageSourceSheet(String type, {int? certificateIndex}) {
     if (type == 'selfie') {
       _pickImage('selfie', source: ImageSource.camera);
       return;
@@ -446,11 +528,11 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
               children: [
                 _buildSourceOption(Icons.camera_alt_outlined, 'Camera', () {
                   Navigator.pop(context);
-                  _pickImage(type, source: ImageSource.camera);
+                  _pickImage(type, source: ImageSource.camera, certificateIndex: certificateIndex);
                 }),
                 _buildSourceOption(Icons.photo_library_outlined, 'Gallery', () {
                   Navigator.pop(context);
-                  _pickImage(type, source: ImageSource.gallery);
+                  _pickImage(type, source: ImageSource.gallery, certificateIndex: certificateIndex);
                 }),
               ],
             ),
@@ -476,6 +558,100 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           const SizedBox(height: 8),
           Text(label, style: GoogleFonts.outfit(fontWeight: FontWeight.w500)),
         ],
+      ),
+    );
+  }
+
+  void _addCertificateSlot() {
+    setState(() {
+      _certificatePhotos.add(null);
+    });
+  }
+
+  void _removeCertificateSlot(int index) {
+    if (_certificatePhotos.length == 1) {
+      _removeImage('certificate', certificateIndex: index);
+      return;
+    }
+
+    setState(() {
+      _certificatePhotos.removeAt(index);
+      if (_certificatePhotos.whereType<XFile>().isEmpty) {
+        _certificateError = true;
+      }
+    });
+  }
+
+  Widget _buildCertificatePickerTile(int index) {
+    final file = _certificatePhotos[index];
+    final hasFile = file != null;
+
+    return GestureDetector(
+      onTap: () => _showImageSourceSheet('certificate', certificateIndex: index),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _certificateError && !hasFile
+              ? AppTheme.errorColor.withValues(alpha: 0.05)
+              : const Color(0xFFF9FAFB),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: _certificateError && !hasFile
+                ? AppTheme.errorColor
+                : const Color(0xFFE5E7EB),
+            width: _certificateError && !hasFile ? 1.5 : 1.2,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                hasFile ? Icons.description_rounded : Icons.cloud_upload_outlined,
+                color: AppTheme.primaryColor,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Upload Certificate ${index + 1}',
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF374151),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasFile ? file.name : 'Tap to choose certificate image',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF7A7A7A),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_certificatePhotos.length > 1 || hasFile)
+              IconButton(
+                onPressed: () => _removeCertificateSlot(index),
+                icon: const Icon(Icons.close_rounded, color: Colors.redAccent, size: 20),
+                tooltip: 'Remove certificate',
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -653,6 +829,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   _selectedState = v;
                   _selectedCity = null;
                   _selectedArea = null;
+                  _syncPermanentAddressFromCommunication();
                 })),
                 const SizedBox(height: 16),
                 _buildDropdown(
@@ -662,6 +839,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   _selectedState == null ? null : (v) => setState(() {
                     _selectedCity = v;
                     _selectedArea = null;
+                    _syncPermanentAddressFromCommunication();
                   }),
                   enabled: _selectedState != null,
                   emptyLabel: 'Select state first',
@@ -671,7 +849,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   'Area',
                   _availableAreas,
                   _selectedArea,
-                  _selectedCity == null ? null : (v) => setState(() => _selectedArea = v),
+                  _selectedCity == null ? null : (v) => setState(() {
+                    _selectedArea = v;
+                    _syncPermanentAddressFromCommunication();
+                  }),
                   enabled: _selectedCity != null,
                   emptyLabel: 'Select city first',
                 ),
@@ -681,6 +862,74 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                   if (v.length != 6 || !RegExp(r'^[0-9]+$').hasMatch(v)) return 'Pincode must be 6 digits';
                   return null;
                 }, keyboardType: TextInputType.number, maxLength: 6),
+              ]),
+
+              const SizedBox(height: 32),
+              _buildSectionHeader('Permanent Address', Icons.location_on_rounded, _permanentAddressKey),
+              _buildCard([
+                CheckboxListTile(
+                  value: _sameAsCommunicationAddress,
+                  onChanged: (value) => _handleSameAsCommunicationChanged(value ?? false),
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppTheme.primaryColor,
+                  title: Text(
+                    'Same as Communication Address',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF2E2E2E),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildTextField(
+                  'Permanent Address',
+                  _permanentAddressController,
+                  Icons.home_work_outlined,
+                  (v) => (v == null || v.isEmpty) ? 'Permanent address required' : null,
+                  maxLines: 3,
+                  enabled: !_sameAsCommunicationAddress,
+                ),
+                const SizedBox(height: 16),
+                _buildDropdown(
+                  'State',
+                  _availableStates,
+                  _selectedPermanentState,
+                  _sameAsCommunicationAddress
+                      ? null
+                      : (v) => setState(() {
+                          _selectedPermanentState = v;
+                          _selectedPermanentCity = null;
+                        }),
+                  enabled: !_sameAsCommunicationAddress,
+                  emptyLabel: _sameAsCommunicationAddress ? 'Using communication state' : null,
+                ),
+                const SizedBox(height: 16),
+                _buildDropdown(
+                  'City',
+                  _availablePermanentCities,
+                  _selectedPermanentCity,
+                  !_sameAsCommunicationAddress && _selectedPermanentState != null
+                      ? (v) => setState(() => _selectedPermanentCity = v)
+                      : null,
+                  enabled: !_sameAsCommunicationAddress && _selectedPermanentState != null,
+                  emptyLabel: _sameAsCommunicationAddress ? 'Using communication city' : 'Select state first',
+                ),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  'Permanent Pincode',
+                  _permanentPincodeController,
+                  Icons.pin_drop_outlined,
+                  (v) {
+                    if (v == null || v.isEmpty) return 'Permanent pincode required';
+                    if (v.length != 6 || !RegExp(r'^[0-9]+$').hasMatch(v)) return 'Pincode must be 6 digits';
+                    return null;
+                  },
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  enabled: !_sameAsCommunicationAddress,
+                ),
               ]),
 
               const SizedBox(height: 32),
@@ -776,17 +1025,78 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
                 SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Photo', _panPhoto, 'pan', isError: _panPhotoError),),
                 const SizedBox(height: 24),
                 const Text('Professional Certificate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                const SizedBox(height: 12),
-                SizedBox( width: double.infinity, child: _buildImagePickerTile('Upload Certificate', _certificatePhoto, 'certificate', isError: _certificateError),),
-                const SizedBox(height: 24),
-                const Text('Light Bill Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
-                Text('Upload a recent light bill image for address verification', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                Text(
+                  'Add one or more certificates. You can upload additional proofs anytime before submitting.',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                Column(
+                  children: [
+                    for (int index = 0; index < _certificatePhotos.length; index++) ...[
+                      _buildCertificatePickerTile(index),
+                      if (index != _certificatePhotos.length - 1) const SizedBox(height: 12),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _addCertificateSlot,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(
+                    'Add More Certificate',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 52),
+                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    foregroundColor: AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text('Communication Address Light Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                Text('Upload light bill for your communication address', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  child: _buildImagePickerTile('Upload Light Bill', _lightBillPhoto, 'light_bill', isError: _lightBillError),
+                  child: _buildImagePickerTile('Upload Communication Light Bill', _lightBillPhoto, 'light_bill', isError: _lightBillError),
                 ),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  value: _sameLightBillAsCommunication,
+                  onChanged: (value) {
+                    setState(() {
+                      _sameLightBillAsCommunication = value ?? false;
+                      if (_sameLightBillAsCommunication) {
+                        _permanentLightBillPhoto = _lightBillPhoto;
+                      }
+                    });
+                  },
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppTheme.primaryColor,
+                  title: Text(
+                    'Same as Communication Address Light Bill',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF2E2E2E),
+                    ),
+                  ),
+                ),
+                if (!_sameLightBillAsCommunication) ...[
+                  const SizedBox(height: 16),
+                  const Text('Permanent Address Light Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text('Upload light bill for your permanent address', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildImagePickerTile('Upload Permanent Light Bill', _permanentLightBillPhoto, 'permanent_light_bill'),
+                  ),
+                ],
                 const SizedBox(height: 24),
                 const Text('Live Selfie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 4),
@@ -933,11 +1243,12 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
     );
   }
 
-  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, String? Function(String?) validator, {TextInputType? keyboardType, int maxLines = 1, int? maxLength, List<TextInputFormatter>? inputFormatters, TextCapitalization textCapitalization = TextCapitalization.none, bool autocorrect = true, ValueChanged<String>? onChanged}) {
+  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, String? Function(String?) validator, {TextInputType? keyboardType, int maxLines = 1, int? maxLength, List<TextInputFormatter>? inputFormatters, TextCapitalization textCapitalization = TextCapitalization.none, bool autocorrect = true, ValueChanged<String>? onChanged, bool enabled = true}) {
     return TextFormField(
       controller: controller,
       validator: validator,
       onChanged: onChanged,
+      enabled: enabled,
       keyboardType: keyboardType,
       maxLines: maxLines,
       maxLength: maxLength,
@@ -950,9 +1261,10 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
         hintStyle: GoogleFonts.outfit(color: const Color(0xFF7A7A7A), fontWeight: FontWeight.w400),
         prefixIcon: Icon(icon, size: 20, color: const Color(0xFF7A7A7A)),
         filled: true,
-        fillColor: const Color(0xFFF9FAFB),
+        fillColor: enabled ? const Color(0xFFF9FAFB) : Colors.grey.shade200,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5)),
         counterText: '',
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -975,7 +1287,7 @@ class _ProfessionalSignupScreenState extends State<ProfessionalSignupScreen> {
           color: const Color(0xFF7A7A7A),
         ),
         filled: true,
-        fillColor: const Color(0xFFF9FAFB),
+        fillColor: enabled ? const Color(0xFFF9FAFB) : Colors.grey.shade200,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
         disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),

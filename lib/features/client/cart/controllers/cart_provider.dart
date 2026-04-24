@@ -18,19 +18,55 @@ class CartProvider extends ChangeNotifier {
   String? _error;
   bool _isInitialized = false;
 
+  bool _tipEnabled = true;
+  List<int> _tipAmounts = [50, 75, 100];
+
   CartProvider() {
     _initialize();
   }
 
   List<CartItem> get items => _items.values.toList();
   int get itemCount => _items.length;
-  double get discount => _discount;
+  double get discount {
+    if (_appliedOffer == null) return 0.0;
+    
+    // Support both direct data and nested 'offer' object from backend
+    final offerData = _appliedOffer!['offer'] as Map<String, dynamic>? ?? _appliedOffer!;
+    
+    final type = offerData['type']?.toString();
+    final value = (offerData['value'] as num?)?.toDouble() ?? 0.0;
+    final maxDiscountPaise = (offerData['max_discount_paise'] as num?)?.toInt();
+    final minOrderPaise = (offerData['min_order_paise'] as num?)?.toInt() ?? 0;
+
+    // Check minimum order requirement
+    if (subtotal < (minOrderPaise / 100.0)) return 0.0;
+
+    double calculated;
+    if (type == 'percentage') {
+      calculated = subtotal * (value / 100.0);
+    } else {
+      // For 'flat', value is already in paise (multiplied by 100 in backend resource)
+      calculated = value / 100.0;
+    }
+
+    // Apply cap if exists
+    if (maxDiscountPaise != null && maxDiscountPaise > 0) {
+      final cap = maxDiscountPaise / 100.0;
+      if (calculated > cap) {
+        calculated = cap;
+      }
+    }
+
+    return calculated > subtotal ? subtotal : calculated;
+  }
   double get tip => _tip;
   Map<String, dynamic>? get appliedOffer => _appliedOffer;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool isItemSyncing(int itemId) => _syncingItemIds.contains(itemId);
   bool get isGuestCart => !TokenManager.hasToken;
+  bool get tipEnabled => _tipEnabled;
+  List<int> get tipAmounts => _tipAmounts;
 
   double get subtotal {
     var total = 0.0;
@@ -223,6 +259,25 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      try {
+        final settingsResponse = await ApiService.get('/client/settings');
+        if (settingsResponse['success'] == true && settingsResponse['data'] is Map<String, dynamic>) {
+          final data = Map<String, dynamic>.from(settingsResponse['data']);
+          _tipEnabled = data['tip_enabled'] == true;
+          if (data['tip_amounts'] != null) {
+            _tipAmounts = data['tip_amounts']
+                .toString()
+                .split(',')
+                .map((e) => int.tryParse(e.trim()) ?? 0)
+                .where((e) => e > 0)
+                .toList();
+            if (_tipAmounts.isEmpty) _tipAmounts = [50, 75, 100];
+          }
+        }
+      } catch (e) {
+        // Ignore settings fetch error
+      }
+
       if (!TokenManager.hasToken) {
         await _loadGuestCartIntoMemory();
         return;
@@ -246,6 +301,11 @@ class CartProvider extends ChangeNotifier {
         _items
           ..clear()
           ..addAll(nextItems);
+
+        // Auto-apply best coupon if none applied
+        if (_appliedOffer == null) {
+          autoApplyBestCoupon();
+        }
       } else {
         _error = response['message']?.toString() ?? 'Failed to load cart.';
       }
@@ -398,17 +458,71 @@ class CartProvider extends ChangeNotifier {
     try {
       final response = await OfferService.validateCoupon(code, subtotal);
       if (response['success'] == true) {
-        final data = response['data'];
+        final data = response['data'] as Map<String, dynamic>;
+        _appliedOffer = data;
+        
+        // _discount is kept as a backup/initial value, but the getter now calculates it dynamically
         final discountPaise = data['discount_paise'];
         _discount = (discountPaise != null ? (discountPaise as num).toDouble() : 0.0) / 100.0;
-        _appliedOffer = data;
+        
         notifyListeners();
-        return null; // No error
+        return null;
       } else {
-        return response['message'] ?? 'Failed to apply coupon.';
+        return response['message']?.toString() ?? 'Failed to apply coupon.';
       }
     } catch (e) {
       return 'An error occurred while applying the coupon.';
+    }
+  }
+
+  Future<void> autoApplyBestCoupon() async {
+    try {
+      final response = await OfferService.getActiveOffers();
+      if (response['success'] == true && response['data'] is List) {
+        final offers = (response['data'] as List).cast<Map<String, dynamic>>();
+        if (offers.isEmpty) return;
+
+        Map<String, dynamic>? bestOffer;
+        double maxDiscount = 0;
+
+        for (final offer in offers) {
+          final code = offer['code']?.toString();
+          if (code == null) continue;
+
+          // Temp calculation to find best
+          final type = offer['type']?.toString();
+          final value = (offer['value'] as num?)?.toDouble() ?? 0.0;
+          final maxDiscountPaise = (offer['max_discount_paise'] as num?)?.toInt();
+          final minOrderPaise = (offer['min_order_paise'] as num?)?.toInt() ?? 0;
+
+          if (subtotal < (minOrderPaise / 100.0)) continue;
+
+          double calculated;
+          if (type == 'percentage') {
+            calculated = subtotal * (value / 100.0);
+          } else {
+            calculated = value / 100.0;
+          }
+
+          if (maxDiscountPaise != null && maxDiscountPaise > 0) {
+            final cap = maxDiscountPaise / 100.0;
+            if (calculated > cap) calculated = cap;
+          }
+
+          if (calculated > maxDiscount) {
+            maxDiscount = calculated;
+            bestOffer = offer;
+          }
+        }
+
+        if (bestOffer != null) {
+          _appliedOffer = {'offer': bestOffer, 'code': bestOffer['code']};
+          _discount = maxDiscount;
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error auto-applying best coupon: $e');
     }
   }
 
