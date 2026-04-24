@@ -50,7 +50,7 @@ class _LiveTimerState extends State<LiveTimer> {
     return Consumer<ProfessionalProfileController>(
       builder: (context, controller, child) {
         return Text(
-          _format(controller.totalOnlineSeconds),
+          _format(controller.remainingSeconds),
           style: widget.style,
         );
       },

@@ -559,12 +559,13 @@ class ProfessionalApiService {
   }
 
   /// Heartbeat to keep professional online
-  static Future<void> updateOnlineStatus() async {
+  static Future<Map<String, dynamic>?> updateOnlineStatus() async {
     try {
-      await ApiService.post('$_prefix/update-online-status', {});
+      return await ApiService.post('$_prefix/update-online-status', {});
     } catch (e) {
       // Quietly fail as it's a heartbeat
       debugPrint('Heartbeat failed: $e');
+      return null;
     }
   }
   // --- Schedule ---

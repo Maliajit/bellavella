@@ -1,12 +1,10 @@
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import 'package:bellavella/core/routes/app_routes.dart';
-import '../services/professional_api_service.dart';
 import 'package:bellavella/core/models/data_models.dart';
 import '../controllers/professional_profile_controller.dart';
 import 'package:bellavella/core/services/token_manager.dart';
@@ -547,7 +545,7 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (valueColor ?? (isVerified ? Colors.green.shade600 : Colors.grey.shade700)).withOpacity(0.1),
+                    color: (valueColor ?? (isVerified ? Colors.green.shade600 : Colors.grey.shade700)).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(100),
                   ),
                   child: Text(
