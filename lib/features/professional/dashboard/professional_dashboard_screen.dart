@@ -36,17 +36,12 @@ class _ProfessionalDashboardScreenState
   String? _errorMessage;
   late ConfettiController _confettiController;
   final ScrollController _scrollController = ScrollController();
-  bool _hasActiveJob = false;
   int _kitCount = 0;
   bool _isOnline = false;
   int _remainingSeconds = 0;
-  double _shiftProgress = 0;
   int _totalShiftSeconds = 28800;
   pro_models.ShiftInfo? _shiftInfo;
-  String? _lastNotificationId;
   Timer? _pollingTimer;
-  Timer? _countdownTimer;
-  Timer? _syncTimer;
   late AnimationController _radarController;
   int _failureCount = 0; // ✅ BURST PROTECTION
   bool _isSyncHalted = false; // ✅ SYNC STATE
@@ -132,7 +127,6 @@ class _ProfessionalDashboardScreenState
           _isOnline = stats.isOnline;
           _kitCount = stats.kitCount;
           _remainingSeconds = stats.remainingSeconds;
-          _shiftProgress = stats.shiftProgress;
           _shiftInfo = stats.shiftInfo;
           
           _totalShiftSeconds = stats.shiftDuration * 60;
@@ -141,10 +135,13 @@ class _ProfessionalDashboardScreenState
           _errorMessage = null;
         });
         
-        if (_isOnline && _remainingSeconds > 0) {
-          _startCountdown();
-        } else {
-          _stopTimers();
+        // Authoritative sync to controller
+        final profileController = context.read<ProfessionalProfileController>();
+        if (_isOnline) {
+             profileController.updateRealtimeStatus({
+                'is_online': true,
+                'remaining_seconds': _remainingSeconds,
+             });
         }
 
         final activeInStats = stats.recentBookings.firstWhere(
@@ -192,7 +189,6 @@ class _ProfessionalDashboardScreenState
     if (_isSyncHalted) return;
     
     debugPrint('🛑 CRITICAL: Halting all background sync to prevent API burst.');
-    _stopTimers();
     _pollingTimer?.cancel(); // Also stop the request polling timer
     
     if (mounted) {
@@ -340,8 +336,6 @@ class _ProfessionalDashboardScreenState
   @override
   void dispose() {
     _pollingTimer?.cancel();
-    _countdownTimer?.cancel();
-    _syncTimer?.cancel();
     _radarController.dispose();
     _scrollController.dispose();
     _confettiController.dispose();
@@ -355,42 +349,6 @@ class _ProfessionalDashboardScreenState
 
   void _startHeartbeat() {
     _fetchDashboardData(isSilent: true);
-    _startSyncTimer();
-  }
-
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-    if (_remainingSeconds <= 0) return;
-
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds > 0) {
-        if (mounted) {
-          setState(() {
-            _remainingSeconds--;
-            // Recalculate progress locally for smoothness
-            if (_shiftProgress < 1.0 && _totalShiftSeconds > 0) {
-              _shiftProgress += (1.0 / _totalShiftSeconds); 
-            }
-          });
-        }
-      } else {
-        _stopTimers();
-        _fetchDashboardData(); // Hard sync when timer hits zero
-      }
-    });
-  }
-
-  void _stopTimers() {
-    _countdownTimer?.cancel();
-    _syncTimer?.cancel();
-  }
-
-
-  void _startSyncTimer() {
-    _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(const Duration(minutes: 1), (_) {
-      _fetchDashboardData(isSilent: true);
-    });
   }
 
   String _formatRemainingTime(int seconds) {
@@ -435,9 +393,9 @@ class _ProfessionalDashboardScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: badgeColor.withOpacity(0.12),
+        color: badgeColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: badgeColor.withOpacity(0.3), width: 1),
+        border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -465,7 +423,7 @@ class _ProfessionalDashboardScreenState
               style: GoogleFonts.inter(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
-                color: badgeColor.withOpacity(0.8),
+                color: badgeColor.withValues(alpha: 0.8),
               ),
             ),
           ],
@@ -482,6 +440,9 @@ class _ProfessionalDashboardScreenState
       );
     }
 
+    final profileController = context.watch<ProfessionalProfileController>();
+    final bool isOnline = profileController.isOnline;
+
     if (_errorMessage != null && _stats == null) {
       return Scaffold(
         backgroundColor: Colors.white,
@@ -494,11 +455,12 @@ class _ProfessionalDashboardScreenState
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: Colors.red.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red.shade400),
+                  child: Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red.withValues(alpha: 0.4)),
                 ),
+// ... skipping some lines for brevity in match
                 const SizedBox(height: 32),
                 Text(
                   "Connection Error",
@@ -557,7 +519,7 @@ class _ProfessionalDashboardScreenState
         child: Column(
           children: [
             _buildSmartHeader(),
-            _buildStatusFeedback(),
+            _buildStatusFeedback(isOnline),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _fetchDashboardData,
@@ -570,7 +532,7 @@ class _ProfessionalDashboardScreenState
                     children: [
                       if (_isSyncHalted) _buildSyncHaltedBanner(),
                       const SizedBox(height: 20),
-                      _buildPrimaryFocusPanel(),
+                      _buildPrimaryFocusPanel(isOnline),
                       if (_leaderboard.isNotEmpty) ...[
                         const SizedBox(height: 32),
                         _buildLeaderboard(),
@@ -760,7 +722,7 @@ class _ProfessionalDashboardScreenState
                 shape: BoxShape.circle,
                 boxShadow: isFirst ? [
                   BoxShadow(
-                    color: Colors.amber.withOpacity(0.4),
+                    color: Colors.amber.withValues(alpha: 0.4),
                     blurRadius: 12,
                     spreadRadius: 2,
                   )
@@ -960,8 +922,8 @@ class _ProfessionalDashboardScreenState
     );
   }
 
-  Widget _buildStatusFeedback() {
-    if (!_isOnline) return const SizedBox.shrink();
+  Widget _buildStatusFeedback(bool isOnline) {
+    if (!isOnline) return const SizedBox.shrink();
 
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 350),
@@ -978,16 +940,16 @@ class _ProfessionalDashboardScreenState
         );
       },
       child: Container(
-        key: ValueKey<bool>(_isOnline),
+        key: ValueKey<bool>(isOnline),
         width: double.infinity,
         margin: const EdgeInsets.symmetric(horizontal: 24),
-        child: _isOnline 
+        child: isOnline 
           ? Container(
               padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.06),
+                color: Colors.green.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.green.withOpacity(0.1), width: 1),
+                border: Border.all(color: Colors.green.withValues(alpha: 0.1), width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1006,9 +968,9 @@ class _ProfessionalDashboardScreenState
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.6),
+                      color: Colors.white.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.green.withOpacity(0.05)),
+                      border: Border.all(color: Colors.green.withValues(alpha: 0.05)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1041,7 +1003,7 @@ class _ProfessionalDashboardScreenState
           : Container(
               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.05),
+                color: Colors.grey.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -1060,7 +1022,7 @@ class _ProfessionalDashboardScreenState
   }
 
   // 2⃣ Primary Focus Panel — reactive to DashboardController
-  Widget _buildPrimaryFocusPanel() {
+  Widget _buildPrimaryFocusPanel(bool isOnline) {
     return Consumer<DashboardController>(
       builder: (context, controller, _) {
         final activeJob = controller.activeJob;
@@ -1081,20 +1043,20 @@ class _ProfessionalDashboardScreenState
                     border: Border.all(color: Colors.grey.shade100),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
+                        color: Colors.black.withValues(alpha: 0.02),
                         blurRadius: 20,
                         offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: _buildNoJobContent(),
+                  child: _buildNoJobContent(isOnline),
                 ),
         );
       },
     );
   }
 
-  Widget _buildNoJobContent() {
+  Widget _buildNoJobContent(bool isOnline) {
     return Column(
       children: [
         // Radar/Ripple Animation Area
@@ -1103,7 +1065,7 @@ class _ProfessionalDashboardScreenState
           child: Stack(
             alignment: Alignment.center,
             children: [
-              if (_isOnline) ...[
+              if (isOnline) ...[
                 // Outer Ripple
                 _rippleCircle(size: 100, delay: 0),
                 _rippleCircle(size: 140, delay: 0.5),
@@ -1113,21 +1075,21 @@ class _ProfessionalDashboardScreenState
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: _isOnline ? AppTheme.primaryColor : Colors.grey.shade100,
+                  color: isOnline ? AppTheme.primaryColor : Colors.grey.shade100,
                   shape: BoxShape.circle,
                   boxShadow: [
-                    if (_isOnline)
+                    if (isOnline)
                       BoxShadow(
-                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
                         blurRadius: 20,
                         spreadRadius: 2,
                       ),
                   ],
                 ),
                 child: Icon(
-                  _isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
+                  isOnline ? Icons.radar_rounded : Icons.power_settings_new_rounded,
                   size: 32,
-                  color: _isOnline ? Colors.white : Colors.grey.shade400,
+                  color: isOnline ? Colors.white : Colors.grey.shade400,
                 ),
               ),
             ],
@@ -1135,7 +1097,7 @@ class _ProfessionalDashboardScreenState
         ),
         const SizedBox(height: 32),
         Text(
-          _isOnline ? "Waiting for Bookings" : "You're Offline",
+          isOnline ? "Waiting for Bookings" : "You're Offline",
           style: GoogleFonts.inter(
             fontSize: 22,
             fontWeight: FontWeight.w900,
@@ -1147,7 +1109,7 @@ class _ProfessionalDashboardScreenState
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Text(
-            _isOnline 
+            isOnline 
               ? "Your radar is active. We'll notify you as soon as a new request matches your profile."
               : "Turn on your availability to start receiving job requests and earning.",
             textAlign: TextAlign.center,
@@ -1159,12 +1121,12 @@ class _ProfessionalDashboardScreenState
             ),
           ),
         ),
-        if (_isOnline) ...[
+        if (isOnline) ...[
           const SizedBox(height: 32),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.05),
+              color: AppTheme.primaryColor.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(100),
             ),
             child: Row(
@@ -1213,7 +1175,7 @@ class _ProfessionalDashboardScreenState
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: AppTheme.primaryColor.withOpacity(0.2),
+                color: AppTheme.primaryColor.withValues(alpha: 0.2),
                 width: 1.5,
               ),
             ),
@@ -1407,7 +1369,7 @@ class _ProfessionalDashboardScreenState
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withOpacity(0.2),
+              color: AppTheme.primaryColor.withValues(alpha: 0.2),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -1418,7 +1380,7 @@ class _ProfessionalDashboardScreenState
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.card_giftcard, color: Colors.white, size: 24),
@@ -1439,7 +1401,7 @@ class _ProfessionalDashboardScreenState
                   Text(
                     'Earn credits for every successful referral',
                     style: GoogleFonts.inter(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       fontSize: 12,
                     ),
                   ),
@@ -1466,7 +1428,7 @@ class _ProfessionalDashboardScreenState
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.red.withOpacity(0.1),
+                    color: Colors.red.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 32),

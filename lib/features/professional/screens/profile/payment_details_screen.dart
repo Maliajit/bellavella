@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:bellavella/core/theme/app_theme.dart';
 import '../../controllers/professional_profile_controller.dart';
-import '../../../../core/models/data_models.dart';
 
 class PaymentDetailsScreen extends StatefulWidget {
   const PaymentDetailsScreen({super.key});
@@ -68,8 +67,8 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
     _isVerified = payout?.verificationStatus == 'Verified';
     
     // Default to UPI if bank is empty and UPI is there
-    if ((payout?.accountNumber == null || payout!.accountNumber!.isEmpty) && 
-        (payout?.upiId != null && payout!.upiId!.isNotEmpty)) {
+    if ((payout?.accountNumber == null || payout?.accountNumber?.isEmpty == true) && 
+        (payout?.upiId != null && payout?.upiId?.isNotEmpty == true)) {
       _isUpiMode = true;
     }
 
@@ -108,9 +107,9 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
     if (_isVerified) return;
     String currentText = _upiController.text;
     if (currentText.contains('@')) {
-      _upiController.text = currentText.split('@')[0] + '@' + handle;
+      _upiController.text = "${currentText.split('@')[0]}@$handle";
     } else {
-      _upiController.text = currentText + '@' + handle;
+      _upiController.text = "$currentText@$handle";
     }
     _upiController.selection = TextSelection.fromPosition(TextPosition(offset: _upiController.text.length));
   }
@@ -214,7 +213,7 @@ class _PaymentDetailsScreenState extends State<PaymentDetailsScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 4))],
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20, offset: const Offset(0, 4))],
                     ),
                     padding: const EdgeInsets.all(20),
                     child: _isUpiMode ? _buildUpiForm() : _buildBankForm(),

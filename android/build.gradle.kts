@@ -45,8 +45,14 @@ subprojects {
                 }
 
                 android.javaClass.getMethod("getCompileOptions").invoke(android).let { options ->
-                    options.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_11)
-                    options.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_11)
+                    options.javaClass.getMethod("setSourceCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_21)
+                    options.javaClass.getMethod("setTargetCompatibility", JavaVersion::class.java).invoke(options, JavaVersion.VERSION_21)
+                }
+
+                try {
+                    android.javaClass.getMethod("setCompileSdkVersion", Int::class.java).invoke(android, 36)
+                } catch (e: Exception) {
+                    // Ignore if method not found (unlikely for android projects)
                 }
             }
         }
@@ -65,7 +71,7 @@ subprojects {
         }
 
         project.extensions.findByType(org.jetbrains.kotlin.gradle.dsl.KotlinAndroidProjectExtension::class.java)?.compilerOptions?.jvmTarget?.set(
-            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11
+            org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21
         )
     }
 }
