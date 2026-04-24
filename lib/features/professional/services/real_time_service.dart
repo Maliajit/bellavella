@@ -25,8 +25,6 @@ class RealTimeService {
       await _pusher!.init(
         apiKey: "local-key",
         cluster: "mt1",
-        wsHost: "127.0.0.1",
-        wsPort: 8081,
         useTLS: false,
         onConnectionStateChange: _onConnectionStateChange,
         onError: _onError,
