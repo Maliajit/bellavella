@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -35,6 +37,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   bool _isProcessing = false;
   RazorpayService? _razorpayService;
   String _selectedMethod = 'online';
+  bool _hasHapticFired = false;
 
   void _initRazorpay() {
     if (_razorpayService != null) return;
@@ -59,6 +62,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   }
 
   void _goToCompletion() {
+    if (!mounted) return;
     context.goNamed(
       AppRoutes.proJobCompleteName,
       pathParameters: {'id': widget.booking.id},
@@ -84,8 +88,8 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
         );
         return;
       }
-
-      _goToCompletion();
+      
+      // Haptic & Auto-navigation is handled by the build method/polling sync
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -175,7 +179,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
       if (!success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Cash collection failed. Please try again.'),
+            content: Text('Cash collection failed. Already paid?'),
           ),
         );
         return;
@@ -184,7 +188,7 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Cash collected successfully!')),
       );
-      _goToCompletion();
+      // Success triggers re-build via polling or direct result
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -260,11 +264,227 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
   }
 
   Widget _buildBody() {
-    final currencyFormat = NumberFormat.currency(symbol: 'Rs ', decimalDigits: 0);
-    final bool isAlreadyPaid =
-        widget.booking.paymentStatus.toUpperCase() == 'SUCCESS' ||
-            widget.booking.status == BookingStatus.completed;
+    final booking = widget.booking;
 
+    if (booking.paymentStatus == PaymentStatus.paid) {
+      _triggerSuccessHaptic();
+      return _buildPaidScreen();
+    } else if (booking.paymentStatus == PaymentStatus.failed) {
+      return _buildFailedScreen();
+    } else {
+      if (booking.paymentMethod == 'cash') {
+        return _buildCashOnlyScreen();
+      } else {
+        return _buildQrAndOnlineScreen();
+      }
+    }
+  }
+
+  void _triggerSuccessHaptic() {
+    if (!_hasHapticFired) {
+      HapticFeedback.vibrate();
+      _hasHapticFired = true;
+      
+      // AUTO-COMPLETE: Automatically proceed after 2 seconds
+      Timer(const Duration(seconds: 2), () {
+        if (mounted && widget.booking.paymentStatus == PaymentStatus.paid && !_isProcessing) {
+          _completeJob();
+        }
+      });
+    }
+  }
+
+  Widget _buildPaidScreen() {
+    final currencyFormat =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    
+    // AUTO-COMPLETE UI LOGIC: Disable buttons if processing
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle, color: Colors.green, size: 100),
+          const SizedBox(height: 24),
+          Text(
+            currencyFormat.format(widget.booking.totalPrice),
+            style: GoogleFonts.inter(
+              fontSize: 40,
+              fontWeight: FontWeight.w900,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Paid via ${widget.booking.paymentSource?.name.toUpperCase() ?? widget.booking.paymentMethod.toUpperCase()}",
+            style: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              "✅ Payment Successful",
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.green.shade700,
+              ),
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isProcessing ? null : _completeJob,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: _isProcessing 
+                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text("Continue to Finish"),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFailedScreen() {
+     final currencyFormat =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Colors.red, size: 80),
+          const SizedBox(height: 24),
+          Text(
+            "Payment Failed",
+            style: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            "Transaction for ${currencyFormat.format(widget.booking.totalPrice)} was unsuccessful.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => setState(() => _selectedMethod = 'cash'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text("Pay by Cash"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _startRazorpayPayment,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.black,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  child: const Text("Retry Online"),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCashOnlyScreen() {
+    final currencyFormat =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          const SizedBox(height: 40),
+          Icon(Icons.payments_outlined, size: 80, color: Colors.grey.shade400),
+          const SizedBox(height: 24),
+          Text(
+            "Collect Cash from Customer",
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey.shade600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            currencyFormat.format(widget.booking.totalPrice),
+            style: GoogleFonts.inter(
+              fontSize: 48,
+              fontWeight: FontWeight.w900,
+              color: Colors.black87,
+            ),
+          ),
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _isProcessing ? null : _handleCollectCash,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+              child: _isProcessing
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text("Mark as Cash Received"),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQrAndOnlineScreen() {
+    final currencyFormat =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0);
     return Column(
       children: [
         Expanded(
@@ -291,122 +511,59 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                     letterSpacing: -1,
                   ),
                 ),
-                const SizedBox(height: 48),
-                if (!isAlreadyPaid) ...[
-                  if (_selectedMethod == 'online')
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.qr_code_2_rounded,
-                            size: 200,
-                            color: Colors.black87.withValues(alpha: 0.8),
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            'Ask customer to scan and pay',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(32),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(32),
-                        border: Border.all(color: Colors.grey.shade100),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.payments_outlined,
-                            size: 100,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            'Collect cash from customer',
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 32),
-                  Row(
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(32),
+                    border: Border.all(color: Colors.grey.shade100),
+                  ),
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedMethod = 'online'),
-                          child: _paymentMethodOption(
-                            Icons.account_balance_wallet_outlined,
-                            'UPI / Online',
-                            _selectedMethod == 'online',
-                          ),
-                        ),
+                      Icon(
+                        Icons.qr_code_2_rounded,
+                        size: 200,
+                        color: Colors.black87.withValues(alpha: 0.8),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _selectedMethod = 'cash'),
-                          child: _paymentMethodOption(
-                            Icons.money_rounded,
-                            'Cash',
-                            _selectedMethod == 'cash',
-                          ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Ask customer to scan and pay',
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
                         ),
                       ),
                     ],
                   ),
-                ],
-                if (isAlreadyPaid)
-                  Container(
-                    margin: const EdgeInsets.only(top: 24),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.green.withValues(alpha: 0.2),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedMethod = 'online'),
+                        child: _paymentMethodOption(
+                          Icons.account_balance_wallet_outlined,
+                          'UPI / Online',
+                          _selectedMethod == 'online',
+                        ),
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.check_circle_rounded,
-                          color: Colors.green,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedMethod = 'cash'),
+                        child: _paymentMethodOption(
+                          Icons.money_rounded,
+                          'Cash',
+                          _selectedMethod == 'cash',
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Payment has been confirmed. You can now complete the booking.',
-                            style: GoogleFonts.inter(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.green.shade800,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                const SizedBox(height: 32),
+                  ],
+                ),
               ],
             ),
           ),
@@ -418,11 +575,9 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
             child: ElevatedButton(
               onPressed: _isProcessing
                   ? null
-                  : (isAlreadyPaid
-                      ? _completeJob
-                      : (_selectedMethod == 'online'
-                          ? _startRazorpayPayment
-                          : _handleCollectCash)),
+                  : (_selectedMethod == 'online'
+                      ? _startRazorpayPayment
+                      : _handleCollectCash),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.black,
                 foregroundColor: Colors.white,
@@ -442,11 +597,9 @@ class _ProPaymentScreenState extends State<ProPaymentScreen> {
                       ),
                     )
                   : Text(
-                      isAlreadyPaid
-                          ? 'Complete Booking'
-                          : (_selectedMethod == 'online'
-                              ? 'Collect Online Payment'
-                              : 'Received Cash'),
+                      _selectedMethod == 'online'
+                          ? 'Collect Online Payment'
+                          : 'Received Cash',
                       style: GoogleFonts.inter(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,

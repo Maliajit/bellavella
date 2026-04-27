@@ -70,6 +70,7 @@ dependencies:
 
   uuid: ^4.5.3
   dart_pusher_channels: ^1.1.0
+  image: ^4.8.0
 
 dev_dependencies:
   flutter_test:

@@ -391,8 +391,12 @@ class DashboardController extends ChangeNotifier {
     if (_jobPollingTimer != null && _jobPollingTimer!.isActive) return;
 
     debugPrint('DashboardController: starting real-time polling for job $jobId');
+    final interval = _currentWorkflowStep == JobStep.payment 
+        ? const Duration(seconds: 3) 
+        : const Duration(seconds: 5);
+
     _jobPollingTimer =
-        Timer.periodic(const Duration(seconds: 5), (timer) async {
+        Timer.periodic(interval, (timer) async {
       if (_isUpdating) {
         debugPrint('DashboardController: polling skipped during active update.');
         return;

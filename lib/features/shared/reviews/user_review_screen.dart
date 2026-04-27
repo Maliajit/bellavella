@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 
 import 'package:bellavella/core/services/api_service.dart';
@@ -44,6 +45,7 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
   VideoPlayerController? _videoPlayerController;
   ChewieController? _chewieController;
   bool _isSubmitting = false;
+  bool _isConsentGiven = false;
 
   @override
   void dispose() {
@@ -53,16 +55,103 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
     super.dispose();
   }
 
-  Future<void> _pickVideo() async {
-    final video = await _picker.pickVideo(
-      source: ImageSource.gallery,
-      maxDuration: const Duration(minutes: 1),
+  void _showVideoPickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.videocam_rounded, color: Colors.black87),
+                title: const Text("Record Video"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickVideo(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_rounded, color: Colors.black87),
+                title: const Text("Choose from Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickVideo(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.close_rounded, color: Colors.redAccent),
+                title: const Text("Cancel"),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
     );
+  }
 
-    if (video == null) return;
+  Future<void> _pickVideo(ImageSource source) async {
+    // 🛡️ RUNTIME PERMISSIONS
+    if (!kIsWeb) {
+      Permission permission;
+      if (source == ImageSource.camera) {
+        permission = Permission.camera;
+      } else {
+        // Use Permission.photos for gallery access on mobile
+        permission = Platform.isIOS ? Permission.photos : Permission.storage;
+        // Note: For Android 13+ (SDK 33+), Permission.photos is preferred but Permission.storage is broader.
+        // permission_handler 12+ handles this via Permission.photos/Permission.videos.
+        if (Platform.isAndroid) {
+           // Basic check for storage
+           permission = Permission.storage;
+        }
+      }
 
-    setState(() => _videoFile = video);
-    await _initializeVideoPlayer();
+      // Check status first
+      var status = await permission.status;
+      if (status.isPermanentlyDenied) {
+        if (mounted) {
+           ToastUtil.showError(context, 'Permissions permanently denied. Please enable in settings.');
+           openAppSettings();
+        }
+        return;
+      }
+
+      if (!status.isGranted) {
+        status = await permission.request();
+        if (!status.isGranted) {
+           if (mounted) ToastUtil.showError(context, 'Permission required to upload video.');
+           return;
+        }
+      }
+    }
+
+    try {
+      final video = await _picker.pickVideo(
+        source: source,
+        maxDuration: const Duration(seconds: 30), // ⚠️ Duration limit
+      );
+
+      if (video == null) return;
+
+      // ⚠️ FILE SIZE VALIDATION (20MB limit)
+      if (!kIsWeb) {
+        final fileSize = await File(video.path).length();
+        if (fileSize > 20 * 1024 * 1024) {
+          if (mounted) ToastUtil.showError(context, 'Video too large. Maximum size is 20MB.');
+          return;
+        }
+      }
+
+      setState(() => _videoFile = video);
+      await _initializeVideoPlayer();
+    } catch (e) {
+      if (mounted) ToastUtil.showError(context, 'Error picking video: $e');
+    }
   }
 
   Future<void> _initializeVideoPlayer() async {
@@ -88,14 +177,38 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
       aspectRatio: _videoPlayerController!.value.aspectRatio,
       placeholder: Container(color: Colors.black),
       autoInitialize: true,
+      errorBuilder: (context, errorMessage) {
+        return Center(
+          child: Text(
+            errorMessage,
+            style: const TextStyle(color: Colors.white),
+          ),
+        );
+      },
     );
 
     if (mounted) setState(() {});
   }
 
+  void _removeVideo() {
+    setState(() {
+      _videoFile = null;
+      _videoPlayerController?.dispose();
+      _chewieController?.dispose();
+      _videoPlayerController = null;
+      _chewieController = null;
+    });
+  }
+
   Future<void> _submit() async {
     if (_rating == 0) {
       ToastUtil.showError(context, 'Please select a rating');
+      return;
+    }
+
+    // ⚠️ MANDATORY CONSENT IF VIDEO UPLOADED
+    if (_videoFile != null && !_isConsentGiven) {
+      ToastUtil.showError(context, 'Please provide consent to upload video review.');
       return;
     }
 
@@ -109,6 +222,7 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
           'booking_id': widget.bookingId,
           'rating': _rating.toString(),
           'comment': _commentController.text.trim(),
+          'consent_given': '1',
         },
         {
           'video': _videoFile!,
@@ -121,6 +235,7 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
           'booking_id': widget.bookingId,
           'rating': _rating,
           'comment': _commentController.text.trim(),
+          'consent_given': _isConsentGiven ? 1 : 0,
         },
       );
     }
@@ -303,20 +418,20 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Attach a short video if you want richer feedback.',
+              'Attach a short video (max 30s) if you want richer feedback.',
               style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
             ),
             const SizedBox(height: 16),
             if (_videoFile == null)
               GestureDetector(
-                onTap: _pickVideo,
+                onTap: _showVideoPickerOptions,
                 child: Container(
                   width: double.infinity,
                   height: 120,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -345,25 +460,95 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
                     height: 250,
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       color: Colors.black,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: _chewieController != null &&
                             _chewieController!.videoPlayerController.value.isInitialized
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(16),
                             child: Chewie(controller: _chewieController!),
                           )
                         : const Center(child: CircularProgressIndicator()),
                   ),
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _pickVideo,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Change Video'),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _showVideoPickerOptions,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        label: const Text('Replace Video'),
+                        style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+                      ),
+                      const SizedBox(width: 16),
+                      TextButton.icon(
+                        onPressed: _removeVideo,
+                        icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                        label: const Text('Remove'),
+                        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                      ),
+                    ],
                   ),
                 ],
               ),
+            const SizedBox(height: 16),
+            // Checkbox Row
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: Checkbox(
+                    value: _isConsentGiven,
+                    activeColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                    onChanged: (value) {
+                      setState(() {
+                        _isConsentGiven = value!;
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _isConsentGiven = !_isConsentGiven),
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: "I consent to the use of my review and video for quality improvement and promotional purposes.",
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (_videoFile != null)
+                             TextSpan(
+                               text: " (Required for video)",
+                               style: GoogleFonts.inter(
+                                 fontSize: 12,
+                                 color: Colors.redAccent,
+                                 fontWeight: FontWeight.bold,
+                               ),
+                             ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 32),
             _isSubmitting
                 ? Center(
@@ -371,7 +556,7 @@ class _UserReviewScreenState extends State<UserReviewScreen> {
                   )
                 : PrimaryButton(
                     label: 'Submit Review',
-                    onPressed: _submit,
+                    onPressed: (_isConsentGiven || _videoFile == null) ? _submit : null,
                   ),
           ],
         ),

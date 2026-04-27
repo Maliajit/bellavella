@@ -9,6 +9,19 @@ enum JobStep {
   complete
 }
 
+enum PaymentStatus {
+  pending,
+  paid,
+  failed
+}
+
+enum PaymentSource {
+  razorpay,
+  upi_qr,
+  wallet,
+  manual_cash
+}
+
 class ProfessionalBooking {
   final String id;
   final String clientName;
@@ -29,7 +42,9 @@ class ProfessionalBooking {
   final double? lat;
   final double? lng;
   final String phone; // Customer's phone number for the Call button
-  final String paymentStatus; // Added field
+  final PaymentStatus paymentStatus; 
+  final String paymentMethod; 
+  final PaymentSource? paymentSource; 
 
   ProfessionalBooking({
     required this.id,
@@ -51,7 +66,9 @@ class ProfessionalBooking {
     this.lat,
     this.lng,
     this.phone = '',
-    this.paymentStatus = 'Pending',
+    this.paymentStatus = PaymentStatus.pending,
+    this.paymentMethod = 'online',
+    this.paymentSource,
   });
 
   ProfessionalBooking copyWith({
@@ -74,7 +91,9 @@ class ProfessionalBooking {
     double? lat,
     double? lng,
     String? phone,
-    String? paymentStatus,
+    PaymentStatus? paymentStatus,
+    String? paymentMethod,
+    PaymentSource? paymentSource,
   }) {
     return ProfessionalBooking(
       id: id ?? this.id,
@@ -97,6 +116,8 @@ class ProfessionalBooking {
       lng: lng ?? this.lng,
       phone: phone ?? this.phone,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      paymentSource: paymentSource ?? this.paymentSource,
     );
   }
 
@@ -147,7 +168,9 @@ class ProfessionalBooking {
     cancelledAt: null,
     lat: null,
     lng: null,
-    paymentStatus: 'Pending',
+    paymentStatus: PaymentStatus.pending,
+    paymentMethod: 'online',
+    paymentSource: null,
   );
 
   factory ProfessionalBooking.fromJson(dynamic json) {
@@ -236,8 +259,29 @@ class ProfessionalBooking {
       lat: ParserUtil.safeParseDouble(json['lat']),
       lng: ParserUtil.safeParseDouble(json['lng']),
       phone: (json['customer_phone'] ?? json['phone'] ?? '').toString(),
-      paymentStatus: (json['payment_status'] ?? 'Pending').toString(),
+      paymentStatus: _parsePaymentStatus(json['payment_status']),
+      paymentMethod: (json['payment_method'] ?? 'online').toString().toLowerCase(),
+      paymentSource: _parsePaymentSource(json['payment_source']),
     );
+  }
+
+  static PaymentStatus _parsePaymentStatus(dynamic status) {
+    String s = (status ?? 'pending').toString().toLowerCase();
+    if (s == 'paid') return PaymentStatus.paid;
+    if (s == 'failed') return PaymentStatus.failed;
+    return PaymentStatus.pending;
+  }
+
+  static PaymentSource? _parsePaymentSource(dynamic source) {
+    if (source == null) return null;
+    String s = source.toString().toLowerCase();
+    switch (s) {
+      case 'razorpay': return PaymentSource.razorpay;
+      case 'upi_qr': return PaymentSource.upi_qr;
+      case 'wallet': return PaymentSource.wallet;
+      case 'manual_cash': return PaymentSource.manual_cash;
+      default: return null;
+    }
   }
 }
 
